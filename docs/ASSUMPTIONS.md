@@ -3,4 +3,89 @@
 Registro de decisões tomadas diante de ambiguidade nas regras de Brass: Birmingham
 ou no processo de construção. Formato: **Regra**, **Decisão**, **Confiança**, **Impacto se errado**.
 
-Nenhuma entrada ainda — M0 não toca em regras de jogo. Entradas começam no M1.
+## Por que os números exatos não são uma cópia literal do jogo físico
+
+Antes das entradas: o fluxo de turno, as 7 ações, as fórmulas de mercado (carvão/ferro), a
+trilha de renda e as regras de conexão/consumo de recursos em `RULES.md` foram verificados
+contra o resumo de regras oficial da Roxley (via orderofgamers.com, que redistribui o
+rulebook oficial com permissão) e batem exatamente, inclusive nos casos-limite ("mercado de
+ferro vazio custa £6", "mercado de carvão vazio custa £8", limite de renda no nível 30). Essa
+parte tem confiança **alta**.
+
+Já a topologia exata do tabuleiro físico (quais das ~25 localidades reais se conectam a
+quais, o layout exato dos slots de cada localidade) e as tabelas numéricas exatas impressas
+em cada uma das ~48 peças de indústria (custo, VP, renda, produção) **não foram
+reconstruídas a partir dos componentes físicos reais** — não havia uma fonte confiável e
+completa para extrair esses números com precisão dentro do processo autônomo deste projeto
+(o repositório de referência que mais se aproximou de ter esses dados os excluía
+deliberadamente do controle de versão, por serem os componentes proprietários do jogo). Em
+vez de arriscar uma reconstrução errada e inconsistente vinda de fontes fragmentadas, optei
+por **desenhar minha própria tabela de tabuleiro e de indústrias**, seguindo fielmente a
+estrutura e as proporções do jogo original (mesmo número de indústrias e níveis, mesma
+forma geral de custo crescente e retorno decrescente, mesmos 5 mercadores com os mesmos
+bônus e as mesmas restrições por número de jogadores, mesma regra de peça bloqueada em
+alguma indústria). Isso mantém o motor jogável, testável e balanceado, mas os valores
+numéricos específicos de `board-data.ts` / `industry-data.ts` / `deck-data.ts` são uma
+criação própria, não uma transcrição do produto da Roxley.
+
+## Entradas
+
+1. **Regra**: Topologia exata do tabuleiro (quais localidades reais se conectam a quais).
+   **Decisão**: Desenhei um grafo próprio com 18 localidades industriais (nomes reais de
+   cidades da região de Birmingham/Black Country, que são fatos geográficos, não
+   propriedade intelectual do jogo) + 5 mercadores (nomes citados textualmente nas regras
+   oficiais: Warrington, Shrewsbury, Nottingham, Gloucester, Oxford) + 2 fazendas
+   cervejeiras, com 43 links, mantendo grau de conectividade e ciclos suficientes para
+   decisões de rota interessantes. Ver `RULES.md` §11.
+   **Confiança**: média (a estrutura qualitativa segue o jogo real; a topologia exata não).
+   **Impacto se errado**: nenhum na correção do motor (o grafo é internamente consistente);
+   afeta apenas o quão "fiel" a experiência de jogo é ao produto original.
+
+2. **Regra**: Custo, VP, renda e produção de cada peça de indústria em cada nível.
+   **Decisão**: Tabela própria em `RULES.md` §5.3, com custo crescente por nível e retorno
+   (VP/renda) também crescente, mas com eficiência marginal decrescente — segue o "feel" de
+   jogos econômicos de desenvolvimento tecnológico como o original.
+   **Confiança**: média. **Impacto se errado**: afeta o equilíbrio entre bots (M6/M7), não a
+   corretude do motor — os testes de propriedade continuam validando invariantes
+   independentemente dos valores exatos.
+
+3. **Regra**: Quantas cópias de cada nível de indústria cada jogador possui.
+   **Decisão**: 3/2/2/1 cópias dos níveis 1/2/3/4 para a maioria das indústrias (8 peças),
+   exceto Cerâmica (1/2/2/2 = 7 peças, com o nível 1 bloqueado). Ver `RULES.md` §5.4.
+   **Confiança**: média. **Impacto se errado**: só de equilíbrio, não de corretude.
+
+4. **Regra**: Quais peças de indústria são "bloqueadas" (só removíveis via Develop, nunca
+   construídas via Build) — o rulebook menciona esse ícone genericamente nas seções de Build
+   de ambas as eras, mas só documenta o exemplo concreto para Cerâmica.
+   **Decisão**: Apliquei o bloqueio apenas à Cerâmica nível 1, por ser o único caso
+   concretamente descrito no texto das regras.
+   **Confiança**: média-alta para "cerâmica nível 1 é bloqueada" (citado explicitamente no
+   rulebook), baixa para "é o único caso". **Impacto se errado**: se outras indústrias
+   também deveriam ter peças bloqueadas no jogo real, o motor seria mais permissivo que o
+   original — não quebra nenhuma invariante, só simplifica a árvore de decisão.
+
+5. **Regra**: Se as linhas de canal e de ferrovia usam a mesma topologia de grafo ou
+   conjuntos de arestas diferentes (no jogo físico, os dois lados do tabuleiro mostram
+   layouts de linha diferentes).
+   **Decisão**: Uso o mesmo grafo para as duas eras. Como todos os links são removidos e
+   pontuados ao final de cada era antes da próxima começar, não há conflito de peças
+   ocupando a mesma aresta simultaneamente entre eras.
+   **Confiança**: média. **Impacto se errado**: simplifica a diferença estratégica entre
+   Canal e Ferrovia (no jogo real, a expansão ferroviária abre novas rotas geográficas); não
+   afeta corretude.
+
+6. **Regra**: Composição exata do baralho de compra (quantas cópias de cada carta de local e
+   de indústria, por número de jogadores).
+   **Decisão**: 1/2/3 cópias de cada uma das 18 cartas de local (2/3/4 jogadores) e 2/3/4
+   cópias de cada uma das 6 cartas de indústria. Ver `RULES.md` §10.
+   **Confiança**: média. **Impacto se errado**: afeta o ritmo de esgotamento do baralho e
+   portanto a duração da era; os testes fixam a contagem esperada a partir desta tabela, então
+   nenhuma inconsistência interna resulta disso.
+
+7. **Regra**: Mecânica exata de atribuição de peças de mercador (quais ícones de indústria
+   cada slot de mercador aceita) no setup.
+   **Decisão**: bag aleatória de ícones (Tecelagem, Manufatura, Cerâmica, curinga, em branco)
+   dimensionada pelo número de slots disponíveis para o número de jogadores, sorteada com o
+   RNG semeado da partida. Ver `RULES.md` §7.3.
+   **Confiança**: média. **Impacto se errado**: nenhum na corretude — é só o conteúdo
+   aleatório do setup.
