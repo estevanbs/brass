@@ -154,7 +154,24 @@
   (script acima).
 - `npm run verify` passa: 170 testes, cobertura 95.66% em `src/rules` + `src/engine`.
 
-**Próximo passo concreto:** M6 — bot heurístico: avaliação posicional simples (prioriza
-ferro cedo, desenvolve antes de construir nível baixo, evita deixar peça sem virar, gerencia
-renda e ordem de turno), com teste que falha se a taxa de vitória contra o bot aleatório cair
-abaixo de 80% em 1.000 partidas.
+## M6 — Bot heurístico — CONCLUÍDO
+
+- `src/bots/heuristic.ts`: avaliação gulosa de 1 ply — para cada ação legal, simula aplicá-la
+  e pontua o estado resultante; o termo dominante reaproveita `scoring.ts#scoreEra` de forma
+  não destrutiva (pontuação projetada se a era acabasse agora, o que já penaliza
+  implicitamente peças não viradas), somado a dinheiro, nível de renda, bônus de "ferro cedo"
+  na era Canal, e progresso de estoque de indústria (ver `ASSUMPTIONS.md` #13 para os pesos).
+  Empates são resolvidos por sorteio uniforme entre as melhores ações.
+- `tests/properties/heuristic-vs-random.test.ts`: 1.000 partidas heurístico × aleatório —
+  **998/1000 vitórias (99,8%)**, bem acima do limite de 80% exigido. Teste falha se a taxa
+  cair abaixo disso (guarda de regressão real, ~140s de execução — a suíte completa já passou
+  de ~5s para ~145s por causa deste teste e do de M5; aceitável para um motor de jogo, mas
+  vale considerar isolar os testes lentos (`tests/properties/*-benchmark*`,
+  `*-vs-random.test.ts`) num script `verify:slow` separado se o ciclo de iteração ficar
+  incômodo em marcos futuros).
+- `npm run verify` passa: 171 testes, cobertura 96.28% em `src/rules` + `src/engine`.
+
+**Próximo passo concreto:** M7 — ISMCTS: Information Set MCTS com determinização (sorteia
+mãos plausíveis dos oponentes a partir das cartas não vistas), rollouts guiados pela
+heurística do M6, orçamento configurável por tempo/simulações. Pronto quando vencer o
+heurístico em pelo menos 65% de 300 partidas com orçamento de 1s/jogada.

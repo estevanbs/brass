@@ -163,3 +163,18 @@ criação própria, não uma transcrição do produto da Roxley.
     jogo); média para a composição do baralho que causa a assimetria.
     **Impacto se errado**: nenhum jogador trava mais o motor; o único efeito é que, em raras
     partidas, um jogador pode ficar 1-2 turnos "de fora" perto do fim de uma era.
+
+13. **Regra** (M6): pesos da função de avaliação do bot heurístico (`bots/heuristic.ts`) —
+    o plano pede "avaliação posicional simples" sem especificar números.
+    **Decisão**: termo dominante é a pontuação projetada se a era acabasse agora (reaproveita
+    `scoring.ts#scoreEra` de forma não destrutiva — isso já cobre "evitar peça sem virar",
+    pois só peças viradas contam); dinheiro e nível de renda entram como desempate leve;
+    bônus fixo por ter uma siderúrgica não virada nas primeiras rodadas da era Canal
+    ("prioriza ferro cedo"); bônus pequeno por peça já removida do estoque inicial (via Build
+    ou Develop), incentivando progressão tecnológica. Pesos escolhidos por tentativa direta
+    (ver `heuristic-vs-random.test.ts`: 998/1000 vitórias, bem acima do limite de 80%), não
+    por busca sistemática de hiperparâmetros.
+    **Confiança**: média — os pesos claramente funcionam bem o suficiente para bater o
+    aleatório folgadamente, mas não foram otimizados além disso. **Impacto se errado**: só
+    afeta a força do bot heurístico, não a corretude; o teste do M6 pega qualquer regressão
+    que derrube a taxa de vitória abaixo de 80%.
