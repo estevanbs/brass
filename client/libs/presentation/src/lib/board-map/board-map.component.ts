@@ -54,6 +54,7 @@ interface LinkLineViewModel {
   readonly midY: number;
   readonly builtOwnerColor: string | null;
   readonly title: string;
+  readonly botHighlighted: boolean;
 }
 
 interface TileBadgeViewModel {
@@ -90,6 +91,9 @@ interface LocationNodeViewModel {
   /** Market only: the one-time reward its merchant bonus tile pays out (e.g. "+£5"), shown
    * under the merchant-slot badges so it reads together with what those slots buy. */
   readonly subLabel: string | null;
+  /** True for one-shot ping animation right after a bot changes this location — see
+   * `GameStateService.botHighlight`. */
+  readonly botHighlighted: boolean;
 }
 
 /**
@@ -131,12 +135,18 @@ interface LocationNodeViewModel {
           @if (line.builtOwnerColor !== null) {
             <circle [attr.cx]="line.midX" [attr.cy]="line.midY" r="6" [attr.fill]="line.builtOwnerColor" stroke="#f1e6c8" stroke-width="1.5" />
           }
+          @if (line.botHighlighted) {
+            <line [attr.x1]="line.x1" [attr.y1]="line.y1" [attr.x2]="line.x2" [attr.y2]="line.y2" class="bot-ping-line" />
+          }
         }
 
         @for (node of nodes(); track node.id) {
           <g [attr.transform]="'translate(' + node.x + ',' + node.y + ')'" [class.map-target-node]="node.clickable">
             @if (node.clickable) {
               <circle [attr.r]="node.r + 9" fill="none" stroke="#c98a2c" stroke-width="3" class="pulse-ring" />
+            }
+            @if (node.botHighlighted) {
+              <circle [attr.r]="node.r + 6" class="bot-ping-ring" />
             }
             <circle
               [attr.r]="node.r"
@@ -237,6 +247,9 @@ export class BoardMapComponent {
   private readonly activeLocationIds = computed(() => new Set(this.gameState.filteredActions().flatMap((a) => a.targets.locationIds)));
   private readonly activeLinkIds = computed(() => new Set(this.gameState.filteredActions().flatMap((a) => a.targets.linkSlotIds)));
 
+  private readonly botHighlightedLocationIds = computed(() => new Set(this.gameState.botHighlight()?.locationIds ?? []));
+  private readonly botHighlightedLinkIds = computed(() => new Set(this.gameState.botHighlight()?.linkSlotIds ?? []));
+
   protected readonly hintText = computed<string | null>(() => {
     if (this.gameState.popup() !== null) return null;
     const haveSelection = this.gameState.selectedCard() !== null || this.gameState.scoutMode();
@@ -251,12 +264,14 @@ export class BoardMapComponent {
     const layout = this.layout();
     const builtByLinkId = new Map(view.state.links.map((l) => [l.slotId, l] as const));
     const activeIds = this.activeLinkIds();
+    const botHighlighted = this.botHighlightedLinkIds();
 
     return view.board.links.flatMap((link) => {
       const built = builtByLinkId.get(link.id);
       const isActive = activeIds.has(link.id);
       const isBuilt = built !== undefined;
       const style = {
+        botHighlighted: botHighlighted.has(link.id),
         stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : UNBUILT_ERA_COLOR[link.era],
         strokeWidth: isBuilt || isActive ? 4 : 1.6,
         dasharray: isBuilt || isActive ? 'none' : UNBUILT_ERA_DASH[link.era],
@@ -390,6 +405,7 @@ export class BoardMapComponent {
     if (view === null) return [];
     const layout = this.layout();
     const activeIds = this.activeLocationIds();
+    const botHighlighted = this.botHighlightedLocationIds();
 
     return view.board.locations.flatMap((location): LocationNodeViewModel[] => {
       const pos = layout.get(location.id);
@@ -424,6 +440,7 @@ export class BoardMapComponent {
           labelFill: isActive ? '#8a4e0f' : '#2b2620',
           badges,
           subLabel,
+          botHighlighted: botHighlighted.has(location.id),
         },
       ];
     });

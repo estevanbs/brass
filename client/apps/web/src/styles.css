@@ -314,6 +314,52 @@ button:hover {
   filter: drop-shadow(0 0 3px var(--highlight));
 }
 
+/* ---------- Bot-move ping: one-shot highlight on whatever a bot just built/sold (GameStateService.botHighlight) ----------
+   Distinct pink/magenta so it never reads as one of the map's existing meanings (amber =
+   clickable now, blue/dark = canal/rail, gold = market). Duration is slightly under the
+   service's BOT_HIGHLIGHT_DURATION_MS (1800ms) so it finishes fading out cleanly before Angular
+   removes the element, instead of being cut off mid-animation. `animation` (not `infinite`) so
+   it plays once — the element itself is what disappears afterward, driven by the `@if` in the
+   template reacting to the signal clearing, so re-triggering the same spot later always starts
+   a fresh animation from a clean removed/re-added element. */
+.bot-ping-ring {
+  fill: none;
+  stroke: #e0417a;
+  stroke-width: 3;
+  animation: bot-ping 1.7s ease-out 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+@keyframes bot-ping {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.bot-ping-line {
+  stroke: #e0417a;
+  stroke-width: 7;
+  stroke-linecap: round;
+  animation: bot-ping-line-fade 1.7s ease-out 1;
+  pointer-events: none;
+}
+
+@keyframes bot-ping-line-fade {
+  0% {
+    stroke-opacity: 0.95;
+  }
+  100% {
+    stroke-opacity: 0;
+  }
+}
+
 /* ---------- Popup: the few options at one clicked map spot ---------- */
 
 .map-popup {

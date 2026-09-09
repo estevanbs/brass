@@ -1,9 +1,17 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GameView, LegalActionView, NewGameRequest } from '@brass/domain';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GameState, GameView, LegalActionView, NewGameRequest } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
 import { GameStateService } from './game-state.service';
+
+function builtTile(): NonNullable<GameState['locations'][string]['slots'][number]['tile']> {
+  return { owner: 'p2', industry: 'coal', level: 1, flipped: false, resourceRemaining: 2 };
+}
+
+function locations(id: string, tile: ReturnType<typeof builtTile> | null): GameState['locations'] {
+  return { [id]: { id, kind: 'industrial', slots: [{ allowedIndustries: ['coal'], tile }] } };
+}
 
 function legalAction(overrides: Partial<LegalActionView> = {}): LegalActionView {
   return {
@@ -213,6 +221,81 @@ describe('GameStateService', () => {
       await service.newGame(2, undefined);
       service.selectMatPlayer('p2');
       expect(service.selectedMatPlayer()).toBe('p2');
+    });
+  });
+
+  describe('botHighlight', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('is null before any action is submitted', () => {
+      expect(service.botHighlight()).toBeNull();
+    });
+
+    it('flags a location a bot changed that the human action did not target itself', async () => {
+      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'], targets: { locationIds: [], linkSlotIds: [] } });
+      gateway.createGame.mockReturnValueOnce(
+        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
+      );
+      await service.newGame(2, undefined);
+
+      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
+      gateway.submitAction.mockReturnValueOnce(of(nextView));
+      await service.submitAction(0);
+
+      expect(service.botHighlight()).toEqual({ locationIds: ['dudley'], linkSlotIds: [] });
+    });
+
+    it('excludes the location the human action itself targeted', async () => {
+      const build = legalAction({ index: 0, cardKeys: ['industry:coal'], targets: { locationIds: ['dudley'], linkSlotIds: [] } });
+      gateway.createGame.mockReturnValueOnce(
+        of(gameView({ legalActions: [build], state: { ...gameView().state, locations: locations('dudley', null) } })),
+      );
+      await service.newGame(2, undefined);
+
+      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
+      gateway.submitAction.mockReturnValueOnce(of(nextView));
+      await service.submitAction(0);
+
+      expect(service.botHighlight()).toBeNull();
+    });
+
+    it('auto-clears after its display duration', async () => {
+      vi.useFakeTimers();
+      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
+      gateway.createGame.mockReturnValueOnce(
+        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
+      );
+      await service.newGame(2, undefined);
+
+      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
+      gateway.submitAction.mockReturnValueOnce(of(nextView));
+      await service.submitAction(0);
+      expect(service.botHighlight()).not.toBeNull();
+
+      vi.advanceTimersByTime(1799);
+      expect(service.botHighlight()).not.toBeNull();
+      vi.advanceTimersByTime(1);
+      expect(service.botHighlight()).toBeNull();
+    });
+
+    it('does not carry a stale highlight into a new action whose own diff found nothing to report', async () => {
+      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
+      gateway.createGame.mockReturnValueOnce(
+        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
+      );
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(
+        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', builtTile()) } })),
+      );
+      await service.submitAction(0);
+      expect(service.botHighlight()).not.toBeNull();
+
+      gateway.submitAction.mockReturnValueOnce(of(gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } })));
+      await service.submitAction(0);
+      expect(service.botHighlight()).toBeNull();
     });
   });
 });
