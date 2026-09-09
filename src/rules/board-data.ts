@@ -13,13 +13,16 @@ export interface IndustrialLocationDef {
   readonly id: string;
   readonly kind: 'industrial';
   readonly slots: readonly (readonly IndustryType[])[];
-  /** Minimum player count for this location's *card* to be in the draw deck
-   * (docs/HANDBOOK_RULES.md §2 "Estandartes de Local": banner color on the board indicates
-   * this — blue-banner locations need 3+, teal/green-banner need 4; everything else has no
-   * restriction, i.e. `2`). The location itself is always on the board and buildable at any
-   * player count via an industry card or the wildcard — only its own dedicated location card
-   * is ever missing from a smaller game's deck (`src/rules/deck-data.ts`). */
-  readonly deckMinPlayers: number;
+  /** Copies of this location's card in the draw deck at [2, 3, 4] players — `0` means the
+   * card is entirely absent at that player count. Read directly off the game's own printed
+   * "Distribuição de Cartas" reference card (photographed by the user), which replaced an
+   * earlier, less accurate reconstruction from the board's banner colors alone: that guess had
+   * kidderminster/worcester wrongly gated behind 3+ players (docs/ASSUMPTIONS.md #22) and
+   * missed that some gated locations' copy count itself changes between 3p and 4p (uttoxeter:
+   * 1 copy at 3p, 2 at 4p) rather than just switching on/off. The location itself is always on
+   * the board and buildable at any player count via an industry card or the wildcard — only its
+   * own dedicated location card can be missing or fewer at a smaller game (`src/rules/deck-data.ts`). */
+  readonly deckCopies: readonly [number, number, number];
 }
 
 export interface FarmBreweryDef {
@@ -41,124 +44,125 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
     id: 'birmingham',
     kind: 'industrial',
     slots: [['iron'], ['cotton', 'manufacturer'], ['manufacturer', 'pottery'], ['coal', 'manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [3, 3, 3],
   },
   {
     id: 'wolverhampton',
     kind: 'industrial',
     slots: [['coal'], ['iron', 'manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'dudley',
     kind: 'industrial',
     slots: [['coal'], ['coal', 'iron']],
-    deckMinPlayers: 2,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'walsall',
     kind: 'industrial',
     slots: [['manufacturer', 'cotton'], ['iron']],
-    deckMinPlayers: 2,
+    deckCopies: [1, 1, 1],
   },
   {
     id: 'coventry',
     kind: 'industrial',
     slots: [['cotton'], ['cotton', 'manufacturer'], ['manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [3, 3, 3],
   },
   {
     id: 'tamworth',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton']],
-    deckMinPlayers: 2,
+    deckCopies: [1, 1, 1],
   },
   {
     id: 'nuneaton',
     kind: 'industrial',
     slots: [['cotton', 'manufacturer'], ['manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [1, 1, 1],
   },
   {
     id: 'redditch',
     kind: 'industrial',
     slots: [['manufacturer'], ['iron', 'manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [1, 1, 1],
   },
-  // Blue banner on the physical board (docs/HANDBOOK_RULES.md §2): card removed from the deck
-  // below 3 players, though the location itself is always on the board and buildable.
   {
     id: 'kidderminster',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton']],
-    deckMinPlayers: 3,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'worcester',
     kind: 'industrial',
     slots: [['cotton', 'manufacturer'], ['pottery']],
-    deckMinPlayers: 3,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'cannock',
     kind: 'industrial',
     slots: [['coal'], ['coal', 'manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'coalbrookdale',
     kind: 'industrial',
     slots: [['iron'], ['coal', 'iron']],
-    deckMinPlayers: 2,
+    deckCopies: [3, 3, 3],
   },
+  // The next four are gated by the deck reference card's per-player-count copy schedule —
+  // none of them are in the 2-player deck at all, and uttoxeter's own copy count still grows
+  // from 3p to 4p (unlike the others, which stay flat once they appear).
   {
     id: 'stoke_on_trent',
     kind: 'industrial',
     slots: [['pottery'], ['pottery', 'coal']],
-    deckMinPlayers: 3,
+    deckCopies: [0, 3, 3],
   },
   {
     id: 'stone',
     kind: 'industrial',
     slots: [['pottery'], ['manufacturer', 'pottery']],
-    deckMinPlayers: 3,
+    deckCopies: [0, 2, 2],
   },
   {
     id: 'leek',
     kind: 'industrial',
     slots: [['cotton'], ['pottery', 'cotton']],
-    deckMinPlayers: 3,
+    deckCopies: [0, 2, 2],
   },
   {
     id: 'stafford',
     kind: 'industrial',
     slots: [['manufacturer', 'pottery'], ['iron']],
-    deckMinPlayers: 2,
+    deckCopies: [2, 2, 2],
   },
   {
     id: 'uttoxeter',
     kind: 'industrial',
     slots: [['cotton'], ['manufacturer', 'cotton']],
-    deckMinPlayers: 3,
+    deckCopies: [0, 1, 2],
   },
   {
     id: 'burton_on_trent',
     kind: 'industrial',
     slots: [['manufacturer'], ['coal', 'manufacturer']],
-    deckMinPlayers: 2,
+    deckCopies: [2, 2, 2],
   },
-  // Teal/green banner (docs/HANDBOOK_RULES.md §2): card removed below 4 players.
+  // 4-player only: absent from both the 2p and 3p decks.
   {
     id: 'belper',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton'], ['pottery']],
-    deckMinPlayers: 4,
+    deckCopies: [0, 0, 2],
   },
   {
     id: 'derby',
     kind: 'industrial',
     slots: [['coal', 'manufacturer'], ['iron']],
-    deckMinPlayers: 4,
+    deckCopies: [0, 0, 3],
   },
 ];
 

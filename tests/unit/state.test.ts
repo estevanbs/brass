@@ -60,9 +60,11 @@ describe('createInitialState', () => {
   it('deals hands without overlap and leaves the rest in the draw deck', () => {
     const state = createInitialState(PLAYERS_4, 99);
     const allDealt = Object.values(state.players).flatMap((p) => [...p.hand, ...p.discardPile]);
-    // 4 players * 9 cards dealt = 36; deck started at 20*3 + 6*4 = 84.
+    // 4 players * 9 cards dealt = 36; deck started at 41 location + 31 industry = 72 (exact
+    // per-location/per-industry copy counts from the game's own reference card, not a uniform
+    // formula — see IndustrialLocationDef.deckCopies and INDUSTRY_CARD_COPIES).
     expect(allDealt).toHaveLength(36);
-    expect(state.drawDeck).toHaveLength(84 - 36);
+    expect(state.drawDeck).toHaveLength(72 - 36);
   });
 
   it('only creates merchant tiles at markets whose minPlayers threshold is met', () => {

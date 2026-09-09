@@ -1,9 +1,19 @@
-import { INDUSTRY_TYPES, type Card } from '../core/types.js';
+import { INDUSTRY_TYPES, type Card, type IndustryType } from '../core/types.js';
 import { INDUSTRIAL_LOCATIONS } from './board-data.js';
 
-/** docs/RULES.md §10: copies of each card by player count (index 0 = 2p, 1 = 3p, 2 = 4p). */
-const LOCATION_CARD_COPIES: readonly [number, number, number] = [1, 2, 3];
-const INDUSTRY_CARD_COPIES: readonly [number, number, number] = [2, 3, 4];
+/** Copies of each industry card in the draw deck at [2, 3, 4] players — read directly off the
+ * game's own printed "Distribuição de Cartas" reference card (docs/ASSUMPTIONS.md #22), which
+ * replaced an earlier, uniform-across-industries guess (every industry got the same count).
+ * Real counts vary a lot by industry: iron and brewery never change with player count, while
+ * cotton/manufacturer are entirely absent from the 2-player deck. */
+const INDUSTRY_CARD_COPIES: Readonly<Record<IndustryType, readonly [number, number, number]>> = {
+  coal: [2, 2, 3],
+  iron: [4, 4, 4],
+  cotton: [0, 6, 8],
+  manufacturer: [0, 6, 8],
+  pottery: [2, 2, 3],
+  brewery: [5, 5, 5],
+};
 
 function copiesForPlayerCount(schedule: readonly [number, number, number], playerCount: number): number {
   if (playerCount < 2 || playerCount > 4) {
@@ -19,19 +29,15 @@ function copiesForPlayerCount(schedule: readonly [number, number, number], playe
 /** Unshuffled draw deck (excludes wild cards, which live in separate always-visible piles). */
 export function buildDrawDeck(playerCount: number): Card[] {
   const deck: Card[] = [];
-  const locationCopies = copiesForPlayerCount(LOCATION_CARD_COPIES, playerCount);
   for (const location of INDUSTRIAL_LOCATIONS) {
-    // docs/HANDBOOK_RULES.md §2 "Estandartes de Local": below a location's own banner-color
-    // threshold, its card is left out of the deck entirely — the location stays on the board
-    // and buildable via an industry card or wildcard, it just can't be drawn by name.
-    if (playerCount < location.deckMinPlayers) continue;
-    for (let i = 0; i < locationCopies; i++) {
+    const copies = copiesForPlayerCount(location.deckCopies, playerCount);
+    for (let i = 0; i < copies; i++) {
       deck.push({ kind: 'location', locationId: location.id });
     }
   }
-  const industryCopies = copiesForPlayerCount(INDUSTRY_CARD_COPIES, playerCount);
   for (const industry of INDUSTRY_TYPES) {
-    for (let i = 0; i < industryCopies; i++) {
+    const copies = copiesForPlayerCount(INDUSTRY_CARD_COPIES[industry], playerCount);
+    for (let i = 0; i < copies; i++) {
       deck.push({ kind: 'industry', industry });
     }
   }

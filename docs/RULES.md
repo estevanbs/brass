@@ -347,21 +347,51 @@ se persistir, por mais dinheiro em caixa; se persistir ainda, é declarado empat
 
 ## 10. Baralho
 
-Duas categorias de cartas no baralho de compra:
-- **Cartas de local**: uma por cada uma das 20 localidades industriais do tabuleiro (ver
-  `board-data.ts`). Quantidade de cópias por número de jogadores: **1 (2 jogadores), 2 (3
-  jogadores), 3 (4 jogadores)**.
-  - **Exceção por cor de estandarte** (`IndustrialLocationDef.deckMinPlayers`,
-    `docs/HANDBOOK_RULES.md` §2, lida da cor do estandarte de cada localidade no tabuleiro
-    físico): a carta de uma localidade de estandarte **azul** (Stoke-on-Trent, Stone, Leek,
-    Uttoxeter, Kidderminster, Worcester) só entra no baralho com **3+ jogadores**; de
-    estandarte **verde-azulado** (Belper, Derby), só com **4 jogadores**. As demais
-    localidades não têm essa restrição. Isso afeta só quais cartas existem no baralho —
-    a localidade em si continua sempre no tabuleiro e construível (via carta de indústria, a
-    exceção "sem peças no tabuleiro" do §4.1, ou carta curinga), mesmo com sua própria carta
-    de local fora do baralho.
-- **Cartas de indústria**: uma por cada um dos 6 tipos de indústria. Cópias por número de
-  jogadores: **2 (2 jogadores), 3 (3 jogadores), 4 (4 jogadores)**.
+Duas categorias de cartas no baralho de compra, com o número exato de cópias de cada uma
+lido diretamente da carta de referência "Distribuição de Cartas" impressa junto com o
+tabuleiro físico (foto do usuário — `docs/ASSUMPTIONS.md` #22), não de uma fórmula uniforme.
+Diferente de uma suposição anterior deste projeto (baseada só na cor do estandarte de cada
+localidade no tabuleiro, `docs/ASSUMPTIONS.md` #1/#5), **a contagem de cópias varia por
+localidade e por indústria individualmente** — não existe uma fórmula única "N cópias para P
+jogadores" que sirva para todas.
+
+- **Cartas de local** (`IndustrialLocationDef.deckCopies`, uma tupla `[2p, 3p, 4p]` por
+  localidade — `0` significa que a carta não existe no baralho àquela contagem de jogadores):
+
+  | Localidade | 2p | 3p | 4p | | Localidade | 2p | 3p | 4p |
+  |---|---|---|---|---|---|---|---|---|
+  | Birmingham | 3 | 3 | 3 | | Coalbrookdale | 3 | 3 | 3 |
+  | Wolverhampton | 2 | 2 | 2 | | Stoke-on-Trent | 0 | 3 | 3 |
+  | Dudley | 2 | 2 | 2 | | Stone | 0 | 2 | 2 |
+  | Walsall | 1 | 1 | 1 | | Leek | 0 | 2 | 2 |
+  | Coventry | 3 | 3 | 3 | | Stafford | 2 | 2 | 2 |
+  | Tamworth | 1 | 1 | 1 | | Uttoxeter | 0 | 1 | 2 |
+  | Nuneaton | 1 | 1 | 1 | | Burton-on-Trent | 2 | 2 | 2 |
+  | Redditch | 1 | 1 | 1 | | Belper | 0 | 0 | 2 |
+  | Kidderminster | 2 | 2 | 2 | | Derby | 0 | 0 | 3 |
+  | Worcester | 2 | 2 | 2 | | | | | |
+  | Cannock | 2 | 2 | 2 | | | | | |
+
+  A localidade em si continua sempre no tabuleiro e construível (via carta de indústria, a
+  exceção "sem peças no tabuleiro" do §4.1, ou carta curinga), mesmo com sua própria carta de
+  local ausente do baralho ou com poucas cópias. Note que Uttoxeter é o único caso onde a
+  contagem ainda cresce entre 3p e 4p em vez de simplesmente ligar/desligar — 1 cópia com 3
+  jogadores, 2 com 4.
+- **Cartas de indústria** (`INDUSTRY_CARD_COPIES` em `deck-data.ts`, também `[2p, 3p, 4p]`):
+
+  | Indústria | 2p | 3p | 4p |
+  |---|---|---|---|
+  | Minas de carvão | 2 | 2 | 3 |
+  | Siderúrgicas (ferro) | 4 | 4 | 4 |
+  | Fábrica de algodão | 0 | 6 | 8 |
+  | Bens manufaturados | 0 | 6 | 8 |
+  | Olarias | 2 | 2 | 3 |
+  | Cervejaria | 5 | 5 | 5 |
+
+  Algodão e bens manufaturados compartilham a mesma linha na carta de referência física (mesma
+  contagem impressa para os dois) — nenhuma carta de indústria de algodão ou manufaturado
+  existe no baralho de compra em partidas de 2 jogadores; essas indústrias só ficam
+  disponíveis via carta de local (em slots que aceitem o tipo) ou carta curinga.
 
 Fora do baralho de compra, sempre visíveis e viradas para cima: `playerCount` cartas de local
 curinga e `playerCount` cartas de indústria curinga (repostas quando jogadas, tiradas quando

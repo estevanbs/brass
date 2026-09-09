@@ -534,3 +534,43 @@ Todas as correções vieram com testes atualizados ou novos (nunca só a impleme
 `docs/RULES.md` (§4.1, §4.3, §5.4, §10) atualizados para refletir cada correção, com grau de
 confiança explícito por item (a distinção de cor azul/verde-azulado do estandarte tem
 confiança média, lida de foto; todo o resto tem confiança alta, texto literal do manual).
+
+## Extra (fora do plano original) — distribuição exata de cartas por número de jogadores
+
+Pedido direto do usuário, com uma foto da carta de referência oficial "Distribuição de
+Cartas" impressa junto com o tabuleiro físico: "essa imagem tem a quantidade de cartas que
+deve existir seguindo a quantidade de jogadores. Verifique se isso já está implementado. Se
+não estiver, implemente."
+
+Não estava — `buildDrawDeck` usava uma fórmula uniforme inventada (1/2/3 cópias para toda
+carta de local, 2/3/4 para toda carta de indústria, por número de jogadores), e a leitura de
+cor de estandarte da sessão anterior (entrada #21) tinha dois erros: Kidderminster e Worcester
+foram classificadas como "estandarte azul" (restritas a 3+ jogadores) quando a carta de
+referência mostra as duas sem nenhuma restrição.
+
+Reescrevi ambas as fontes de cópia usando os números exatos da foto, carta por carta:
+`IndustrialLocationDef.deckMinPlayers` (um único limiar) virou `deckCopies: [2p, 3p, 4p]` (uma
+tupla de contagem exata, 0 = ausente) para as 20 localidades; `deck-data.ts` ganhou uma tabela
+`INDUSTRY_CARD_COPIES` por indústria em vez do fator uniforme anterior. As contagens reais não
+seguem padrão nenhum por número de jogadores — Coalbrookdale é sempre 3 cópias, Walsall sempre
+1, Ferro sempre 4, Cerveja sempre 5 (nenhuma varia com o número de jogadores); Carvão e Olarias
+só sobem de 2 para 3 em 4 jogadores; Algodão e Bens Manufaturados têm **zero** cópias em
+partidas de 2 jogadores e saltam para 6/8 em 3/4; e Uttoxeter é o único caso de local que ainda
+cresce entre 3p (1 cópia) e 4p (2 cópias) em vez de simplesmente ligar/desligar.
+
+**Efeito colateral honestamente medido, para melhor desta vez**: o tamanho total do baralho
+mudou — 2 jogadores subiu de 26 para 40 cartas, 3 jogadores de 54 para 60, mas 4 jogadores
+**caiu** de 84 para 72 (a fórmula antiga superestimava sistematicamente o baralho de 4
+jogadores). Isso também recuperou o desempenho do ISMCTS contra o heurístico: a mesma amostra
+fixa de 12 partidas que tinha caído para 33,3% depois da correção do estoque de peças (entrada
+anterior) voltou para 50,0% (6/12) — batendo com a linha de base original de antes da
+reconstrução do tabuleiro — confirmado por uma amostra independente de 30 partidas em 60,0%
+(18/30). O limiar do teste de regressão (`tests/properties/ismcts-vs-heuristic.test.ts`), que
+tinha sido reduzido para 0,3 nas duas sessões anteriores, foi restaurado para 0,4.
+
+`tests/unit/board-data.test.ts`, `deck-data.test.ts` e `state.test.ts` (um teste tinha o
+tamanho antigo do baralho de 4 jogadores hardcoded) foram reescritos para verificar a tabela
+exata em vez da fórmula antiga. `npm run typecheck && npm run lint && npx vitest run` passa
+limpo (185 testes). `docs/ASSUMPTIONS.md` ganhou a entrada #22 (confiança alta — é uma tabela
+impressa, não uma inferência visual) e atualizações nas entradas #6/#21 marcando a suposição
+anterior como superada; `docs/RULES.md` §10 reescrito com as duas tabelas completas.

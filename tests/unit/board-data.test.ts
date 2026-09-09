@@ -109,16 +109,34 @@ describe('board-data', () => {
     expect(byId.get('oxford')?.minPlayers).toBe(2);
   });
 
-  it('industrial locations have the deck-card min-player thresholds read from the board\'s banner colors', () => {
+  it('industrial locations have the deck copy counts printed on the game\'s own "Distribuição de Cartas" reference card', () => {
     const byId = new Map(INDUSTRIAL_LOCATIONS.map((l) => [l.id, l]));
-    for (const id of ['stoke_on_trent', 'stone', 'leek', 'uttoxeter', 'kidderminster', 'worcester']) {
-      expect(byId.get(id)?.deckMinPlayers).toBe(3);
+    const expected: Readonly<Record<string, readonly [number, number, number]>> = {
+      birmingham: [3, 3, 3],
+      wolverhampton: [2, 2, 2],
+      dudley: [2, 2, 2],
+      walsall: [1, 1, 1],
+      coventry: [3, 3, 3],
+      tamworth: [1, 1, 1],
+      nuneaton: [1, 1, 1],
+      redditch: [1, 1, 1],
+      kidderminster: [2, 2, 2],
+      worcester: [2, 2, 2],
+      cannock: [2, 2, 2],
+      coalbrookdale: [3, 3, 3],
+      stoke_on_trent: [0, 3, 3],
+      stone: [0, 2, 2],
+      leek: [0, 2, 2],
+      stafford: [2, 2, 2],
+      uttoxeter: [0, 1, 2],
+      burton_on_trent: [2, 2, 2],
+      belper: [0, 0, 2],
+      derby: [0, 0, 3],
+    };
+    expect(Object.keys(expected)).toHaveLength(INDUSTRIAL_LOCATIONS.length);
+    for (const [id, copies] of Object.entries(expected)) {
+      expect(byId.get(id)?.deckCopies).toEqual(copies);
     }
-    for (const id of ['belper', 'derby']) {
-      expect(byId.get(id)?.deckMinPlayers).toBe(4);
-    }
-    const unrestrictedIds = [...byId.values()].filter((l) => l.deckMinPlayers === 2);
-    expect(unrestrictedIds).toHaveLength(INDUSTRIAL_LOCATIONS.length - 8);
   });
 
   it('every link slot has an era of canal, rail, or both', () => {

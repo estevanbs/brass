@@ -28,16 +28,18 @@ alguma indústria). Isso mantém o motor jogável, testável e balanceado, mas o
 numéricos específicos de `board-data.ts` / `industry-data.ts` / `deck-data.ts` são uma
 criação própria, não uma transcrição do produto da Roxley.
 
-**Atualização**: em sessão posterior, o usuário forneceu duas fontes reais que substituem boa
-parte do parágrafo acima — uma foto de alta resolução do tabuleiro físico (entradas #1, #5,
-#15, #16, #21) e `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
-integralmente (entradas #17-#21). Com o manual em mãos, foi possível **auditar** o motor
-contra ele e corrigir divergências reais encontradas (não só preencher lacunas) — ver as
-entradas #17-#20 para os casos onde o comportamento anterior estava genuinamente errado, não
-apenas "inventado sem fonte". O que ainda continua sendo composição própria, mesmo com essas
-duas fontes: o tipo exato de indústria aceito por cada slot individual do tabuleiro (ícones
-pequenos demais numa foto de celular) e a distribuição exata de cópias por nível dentro de
-cada indústria (o manual dá só o total por indústria, não o detalhamento por nível).
+**Atualização**: em sessões posteriores, o usuário forneceu três fontes reais que substituem
+boa parte do parágrafo acima — uma foto de alta resolução do tabuleiro físico (entradas #1,
+#5, #15, #16, #21), `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
+integralmente (entradas #17-#21), e uma foto da carta de referência oficial "Distribuição de
+Cartas" do próprio jogo (entrada #22, que também corrige um erro de leitura de cor nas
+entradas #6/#21). Com o manual em mãos, foi possível **auditar** o motor contra ele e corrigir
+divergências reais encontradas (não só preencher lacunas) — ver as entradas #17-#20 para os
+casos onde o comportamento anterior estava genuinamente errado, não apenas "inventado sem
+fonte". O que ainda continua sendo composição própria, mesmo com essas fontes: o tipo exato de
+indústria aceito por cada slot individual do tabuleiro (ícones pequenos demais numa foto de
+celular) e a distribuição exata de cópias por nível dentro de cada indústria (o manual dá só o
+total por indústria, não o detalhamento por nível).
 
 ## Entradas
 
@@ -115,11 +117,13 @@ cada indústria (o manual dá só o total por indústria, não o detalhamento po
 
 6. **Regra**: Composição exata do baralho de compra (quantas cópias de cada carta de local e
    de indústria, por número de jogadores).
-   **Decisão**: 1/2/3 cópias de cada uma das 18 cartas de local (2/3/4 jogadores) e 2/3/4
-   cópias de cada uma das 6 cartas de indústria. Ver `RULES.md` §10.
-   **Confiança**: média. **Impacto se errado**: afeta o ritmo de esgotamento do baralho e
-   portanto a duração da era; os testes fixam a contagem esperada a partir desta tabela, então
-   nenhuma inconsistência interna resulta disso.
+   **Decisão original (superada, ver entrada #22)**: 1/2/3 cópias de cada uma das 18 cartas de
+   local (2/3/4 jogadores) e 2/3/4 cópias de cada uma das 6 cartas de indústria — uma fórmula
+   uniforme inventada, sem fonte.
+   **Confiança**: baixa (retroativamente) — a entrada #22 leu a contagem real, exata e
+   individual por carta na carta de referência impressa do próprio jogo, e ela não segue
+   fórmula uniforma nenhuma. **Impacto**: era real (afetava o ritmo de esgotamento do baralho e
+   a variedade de jogadas disponíveis por partida) até ser corrigido pela entrada #22.
 
 7. **Regra**: Mecânica exata de atribuição de peças de mercador (quais ícones de indústria
    cada slot de mercador aceita) no setup.
@@ -392,3 +396,46 @@ cada indústria (o manual dá só o total por indústria, não o detalhamento po
     disponível numa contagem de jogadores errada — não afeta corretude do motor (a localidade
     continua construível de qualquer forma), só a composição exata do baralho numa partida
     menor.
+    **Atualização (entrada #22)**: a leitura de cor estava de fato errada em dois casos —
+    Kidderminster e Worcester nunca deveriam ter sido classificadas como estandarte azul; a
+    carta de referência impressa do próprio jogo (não mais uma leitura de cor) confirma que as
+    duas têm carta em todas as contagens de jogadores. `deckMinPlayers` foi removido e
+    substituído por `IndustrialLocationDef.deckCopies`, que também corrige a suposição
+    (também desta entrada) de que a contagem de cópias era uniforme por número de jogadores.
+
+22. **Regra**: Quantas cópias de cada carta de local e de cada carta de indústria existem no
+    baralho de compra, por número de jogadores (substitui as entradas #6 e #21 acima).
+    **Decisão**: o usuário fotografou a carta de referência oficial "Distribuição de Cartas"
+    impressa junto com o tabuleiro físico — uma tabela explícita com uma linha por
+    localidade/indústria e uma coluna por contagem de jogadores (2/3/4), sem necessidade de
+    inferência nenhuma. Isso substitui completamente as duas suposições anteriores: (a) a
+    fórmula uniforme "1/2/3 cópias de local, 2/3/4 de indústria" (entrada #6) era inventada e
+    errada — as contagens reais variam muito por carta individual (ex.: Coalbrookdale sempre 3
+    cópias, Walsall sempre 1, Cerveja sempre 5, Ferro sempre 4 — nenhuma delas muda com o
+    número de jogadores; já Carvão e Olarias vão de 2 para 3 só em 4 jogadores; Algodão e Bens
+    Manufaturados têm 0 cópias em 2 jogadores e saltam para 6/8 cópias em 3/4); (b) a leitura de
+    cor de estandarte (entrada #21) errou Kidderminster e Worcester, que a tabela mostra sem
+    nenhuma restrição (2/2/2 cópias, presentes em toda contagem de jogadores) — e revela que a
+    Uttoxeter não é um simples liga/desliga: 1 cópia com 3 jogadores, 2 com 4.
+    `IndustrialLocationDef.deckMinPlayers` foi removido e substituído por
+    `IndustrialLocationDef.deckCopies: readonly [number, number, number]` (uma cópia por
+    localidade, valor 0 = ausente); `deck-data.ts` ganhou uma tabela análoga
+    `INDUSTRY_CARD_COPIES` por tipo de indústria em vez do antigo fator uniforme. Ver `RULES.md`
+    §10 para as duas tabelas completas.
+    **Efeito colateral honesto**: o tamanho total do baralho mudou — 2 jogadores foi de 26 para
+    40 cartas, 3 jogadores de 54 para 60, mas **4 jogadores caiu de 84 para 72** (a fórmula
+    uniforme superestimava sistematicamente o baralho de 4 jogadores). Isso também mudou — para
+    melhor — o desempenho do ISMCTS contra o heurístico: a mesma amostra fixa de 12 partidas
+    (`tests/properties/ismcts-vs-heuristic.test.ts`) que tinha caído para 33,3% (4/12) depois da
+    correção do estoque de peças (entrada #20) voltou para **50,0% (6/12)**, batendo com a
+    linha de base original de antes da reconstrução do tabuleiro; uma amostra independente maior
+    de 30 partidas (seeds diferentes, não rastreada em teste) confirmou a recuperação com
+    **60,0% (18/30)**. O limiar do teste foi restaurado de 0,3 para 0,4 (uma margem de segurança
+    abaixo dos 50-60% agora confirmados, não os 0,5 originais sem margem nenhuma) — ver o
+    comentário do próprio arquivo de teste para o histórico completo.
+    **Confiança**: alta — é uma tabela impressa, não uma inferência visual de cor ou posição;
+    a única leitura necessária foi transcrever números explícitos de uma foto nítida.
+    **Impacto se errado**: afetaria a composição exata do baralho (quais cartas existem e
+    quantas), mas não a corretude do motor — `buildDrawDeck` e os testes de `deck-data.test.ts`
+    fixam a contagem esperada a partir desta tabela, então qualquer erro de transcrição seria
+    consistente internamente, só divergindo do jogo físico real.

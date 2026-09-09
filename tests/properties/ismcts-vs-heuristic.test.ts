@@ -17,18 +17,23 @@ import { makeIsmctsBot } from '../../src/bots/ismcts.js';
  * test genuinely flaked on a real-time budget once, when it ran under load from other
  * `verify` tests. `timeBudgetMs` here is only a generous safety net, never the limiting factor.
  *
- * **Threshold lowered from 0.5 to 0.3 when the board was reconstructed from the physical
- * board photo** (more locations — 20 vs. 18 — laid out very differently, fewer but
- * differently-shaped links — 30 vs. 43 — see docs/ASSUMPTIONS.md #1): the same fixed
- * 12-seed/120-sims-per-move sample dropped from ~50% to a reproducible 41.7% (5/12), and a
- * larger untracked 30-game check on the new board landed at 36.7% (11/30) — a real,
- * reproducible shift from the new topology's branching factor, not noise (these seeds are
- * deterministic; the drop repeats every run). `rootTopK` and the other ISMCTS tuning in
- * `src/bots/ismcts.ts` were calibrated against the old board and were never re-validated
- * against this one — that revalidation is real, un-done follow-up work (the same kind of
- * multi-hundred-game effort M7's own validation needed), not something to fold into a board
- * data change. 0.3 keeps this test doing its actual job — catching a bot that collapses to
- * random-bot-level play — without falsely failing on the now-expected, honestly-reported dip.
+ * **Threshold history**: originally 0.5. Dropped to 0.3 when the board was reconstructed from
+ * the physical board photo (more locations — 20 vs. 18 — laid out very differently, fewer but
+ * differently-shaped links — 30 vs. 43 — docs/ASSUMPTIONS.md #1): the same fixed
+ * 12-seed/120-sims-per-move sample dropped from ~50% to a reproducible 41.7% (5/12). It then
+ * dropped further to 33.3% (4/12) after a rules-audit fix corrected the industry tile stock
+ * counts (docs/ASSUMPTIONS.md #20) — both drops were confirmed real, not noise, via larger
+ * untracked 30-game checks landing at the same rate each time (these seeds are deterministic;
+ * every drop repeated on every run). Fixing the *deck's* location/industry card copy counts to
+ * match the game's own printed reference card (docs/ASSUMPTIONS.md #22 — the previous uniform
+ * per-player-count formula was a genuine bug, not a deliberate simplification) then brought the
+ * same sample back up to 50.0% (6/12), matching the original pre-reconstruction baseline
+ * exactly — confirmed by an independent, larger untracked 30-game sample at 60.0% (18/30).
+ * **Threshold restored to 0.4** — a safety margin below the now-confirmed ~50-60%
+ * baseline, not the bare 0.5 the original had zero margin on, while still well above where a
+ * bot that collapsed to random-level play would land (`rootTopK` and the other ISMCTS tuning in
+ * `src/bots/ismcts.ts` were never re-validated against the reconstructed board topology, so
+ * some slack here is still warranted).
  */
 describe('ismctsBot vs heuristicBot (reduced, deterministic-budget regression guard)', () => {
   it(
@@ -48,7 +53,7 @@ describe('ismctsBot vs heuristicBot (reduced, deterministic-budget regression gu
 
       const winRate = wins / GAMES;
       console.log(`[ismcts vs heuristic, 120 sims/move] ${wins}/${GAMES} wins (${(winRate * 100).toFixed(1)}%)`);
-      expect(winRate).toBeGreaterThanOrEqual(0.3);
+      expect(winRate).toBeGreaterThanOrEqual(0.4);
     },
     180_000,
   );

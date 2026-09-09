@@ -219,21 +219,35 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   um orçamento de simulações fixo (não tempo real) numa amostra menor, para continuar
   determinístico independente da velocidade da máquina.
 - **A reconstrução do tabuleiro a partir da foto real (acima) mudou o desempenho do ISMCTS
-  contra o heurístico, para pior, e isso não foi corrigido.** O tabuleiro real tem 20
-  localidades industriais (vs. 18 antes) com um layout e conectividade diferentes (30 links
-  vs. 43), o que muda o fator de ramificação que o `rootTopK` do ISMCTS foi calibrado para
-  lidar. Na mesma amostra fixa de 12 partidas com orçamento determinístico de 120 simulações
-  que antes ficava perto de 50%, a taxa de vitória caiu para 41,7% (5/12) — e uma amostra
-  maior e não rastreada de 30 partidas confirmou a queda (36,7%, 11/30), então não é ruído de
-  amostra pequena. A correção subsequente dos totais de peças de indústria (bug #4 da
-  auditoria de regras acima) derrubou a taxa ainda mais, para 33,3% (4/12) na mesma amostra
-  fixa — confirmado de novo por uma amostra independente de 30 partidas (33,3%, 10/30). O
-  limiar do teste de regressão embutido (`tests/properties/ismcts-vs-
-  heuristic.test.ts`) foi reduzido de 50% para 30% para continuar pegando uma regressão real
-  (o bot colapsando a nível de jogada aleatória) sem falhar por causa dessa queda já conhecida
-  e documentada. Re-calibrar o ISMCTS para o tabuleiro novo (provavelmente `rootTopK` maior,
-  já que há mais opções por turno) é trabalho real e não feito nesta sessão — teria o mesmo
-  porte da própria validação do M7.
+  contra o heurístico ao longo de várias sessões — para pior duas vezes, depois recuperado.**
+  O tabuleiro real tem 20 localidades industriais (vs. 18 antes) com um layout e conectividade
+  diferentes (30 links vs. 43), o que muda o fator de ramificação que o `rootTopK` do ISMCTS
+  foi calibrado para lidar. Na mesma amostra fixa de 12 partidas com orçamento determinístico
+  de 120 simulações que antes ficava perto de 50%: a reconstrução do tabuleiro derrubou para
+  41,7% (5/12; amostra maior de 30 partidas confirmou 36,7%); a correção subsequente dos
+  totais de peças de indústria (bug #4 da auditoria de regras acima) derrubou ainda mais, para
+  33,3% (4/12; confirmado por 30 partidas em 33,3%); e a correção mais recente da distribuição
+  exata de cartas por número de jogadores (ver bullet abaixo) **recuperou** a taxa para 50,0%
+  (6/12) — confirmado por uma amostra independente de 30 partidas em 60,0% (18/30), batendo
+  com a linha de base original de antes de qualquer uma dessas mudanças. O limiar do teste de
+  regressão embutido (`tests/properties/ismcts-vs-heuristic.test.ts`) foi reduzido de 50% para
+  30% durante a fase de quedas e depois restaurado para 40% (uma margem de segurança abaixo dos
+  50-60% agora confirmados, não os 50% originais sem margem nenhuma). Ainda assim, `rootTopK` e
+  o resto da calibração do ISMCTS nunca foram re-validados formalmente contra o tabuleiro
+  reconstruído — essa validação continua sendo trabalho real e não feito, do mesmo porte da
+  própria validação do M7.
+- **A distribuição de cartas do baralho de compra era uma fórmula uniforme inventada, não a
+  contagem real do jogo.** O usuário forneceu uma foto da carta de referência oficial
+  "Distribuição de Cartas" impressa junto com o tabuleiro físico, com o número exato de cópias
+  de cada carta de local e de indústria por número de jogadores — nenhuma fórmula, números
+  individuais por carta. A implementação anterior usava 1/2/3 cópias uniformes para toda carta
+  de local e 2/3/4 para toda carta de indústria (2/3/4 jogadores); a tabela real não segue
+  padrão nenhum (Coalbrookdale sempre 3 cópias, Ferro sempre 4, Cerveja sempre 5 — nenhuma
+  varia com o número de jogadores; Algodão e Bens Manufaturados têm **zero** cópias em 2
+  jogadores e saltam para 6/8 em 3/4). A correção também revelou dois erros na leitura anterior
+  de cor de estandarte (`docs/ASSUMPTIONS.md` #21): Kidderminster e Worcester tinham sido
+  classificadas como restritas a 3+ jogadores quando na verdade não têm restrição nenhuma. Ver
+  `docs/ASSUMPTIONS.md` #22 e `docs/RULES.md` §10 para as duas tabelas completas.
 - **O ISMCTS implementado é uma simplificação do algoritmo "de livro".** Em vez de manter uma
   única árvore de conjunto de informação compartilhada entre as determinizações (com checagem
   de compatibilidade de ações por nó), cada "mundo" sorteado ganha sua própria árvore
