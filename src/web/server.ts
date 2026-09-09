@@ -52,6 +52,22 @@ function actionCardKeys(action: Action): string[] {
   return action.type === 'scout' ? action.cards.map(cardKey) : [cardKey(action.card)];
 }
 
+/** Where an action "happens" on the board, so the frontend can highlight it directly on the
+ * map instead of only listing it as text (Build/Sell -> town(s); Network -> link line(s);
+ * Develop/Loan/Scout/Pass don't target the board at all). */
+function actionTargets(action: Action): { locationIds: string[]; linkSlotIds: string[] } {
+  switch (action.type) {
+    case 'build':
+      return { locationIds: [action.locationId], linkSlotIds: [] };
+    case 'network':
+      return { locationIds: [], linkSlotIds: [...action.linkSlotIds] };
+    case 'sell':
+      return { locationIds: action.sales.map((s) => s.locationId), linkSlotIds: [] };
+    default:
+      return { locationIds: [], linkSlotIds: [] };
+  }
+}
+
 /** Static board topology (never changes across games) — sent once per view so the frontend
  * can draw a map without duplicating rules data. */
 const BOARD_SUMMARY = {
@@ -79,6 +95,7 @@ function view(gameId: string, game: Game): unknown {
       type: action.type,
       label: describeAction(action),
       cardKeys: actionCardKeys(action),
+      targets: actionTargets(action),
     })),
     log: game.log,
   };

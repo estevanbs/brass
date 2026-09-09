@@ -11,6 +11,7 @@
   --accent-2: #2f6b47;
   --canal: #2f6ba8;
   --rail: #332924;
+  --highlight: #c98a2c;
   --coal: #3a3a3a;
   --iron: #8a6a4a;
   --cotton: #4a7ba6;
@@ -24,24 +25,30 @@
   box-sizing: border-box;
 }
 
-/* The `hidden` attribute must win over any element/class display rule below (e.g. `main {
-   display: grid }` or `.overlay { display: flex }`), otherwise a hidden element still renders
-   and — worse, for a fixed-position overlay — still intercepts clicks. */
+/* The `hidden` attribute must win over any element/class display rule below, otherwise a
+   hidden element still renders and — worse, for a fixed-position overlay — still intercepts
+   clicks (a real bug found while testing this UI in an actual browser). */
 [hidden] {
   display: none !important;
 }
 
+html,
 body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background:
-    radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.25), transparent 60%),
-    linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
+  background: linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
   color: var(--text);
+  display: flex;
+  flex-direction: column;
 }
 
 header {
-  padding: 10px 20px;
+  padding: 8px 20px;
   background: linear-gradient(180deg, #3a2a1a, #2b2013);
   border-bottom: 3px solid var(--accent);
   display: flex;
@@ -49,11 +56,12 @@ header {
   gap: 20px;
   flex-wrap: wrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
 }
 
 h1 {
   font-family: var(--serif);
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   margin: 0;
@@ -63,16 +71,11 @@ h1 {
 
 h1::after {
   content: ' \2014  1770\2013 1870';
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 400;
   font-style: italic;
   color: #c9b787;
   letter-spacing: normal;
-}
-
-header .setup label,
-header .status {
-  color: #d8c9a3;
 }
 
 .setup {
@@ -83,8 +86,8 @@ header .status {
 }
 
 .setup label {
-  font-size: 0.85rem;
-  color: var(--muted);
+  font-size: 0.82rem;
+  color: #d8c9a3;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -117,48 +120,98 @@ button:hover {
   filter: brightness(1.1);
 }
 
-button.secondary {
-  background: #eee;
-  color: var(--text);
+.status {
+  font-size: 0.82rem;
+  color: #d8c9a3;
 }
 
-.status {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
+/* ---------- Main stage layout: top strip, map fills the rest, hand docked at bottom ---------- */
 
 main {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 16px;
-  padding: 16px 20px;
-  align-items: start;
-}
-
-.main-col {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 0;
+  min-height: 0;
 }
 
-.map-panel {
-  padding-bottom: 6px;
+.top-strip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: rgba(43, 32, 19, 0.92);
+  color: #f1e6c8;
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+
+.strip-era {
+  font-family: var(--serif);
+  color: #d8c9a3;
+  margin-right: auto;
+}
+
+.strip-player {
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--pcolor, #888);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.strip-player.human {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.strip-player.active {
+  box-shadow: 0 0 0 2px var(--pcolor, #888);
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  overflow: hidden;
+}
+
+.map-svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: 100%;
+  background: #f1e6c8;
+  border: 3px double var(--border-dark);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 24px rgba(90, 70, 30, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .map-legend {
+  position: absolute;
+  top: 20px;
+  left: 26px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 0.75rem;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
   color: var(--muted);
-  margin-bottom: 6px;
+  background: rgba(251, 245, 230, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  pointer-events: none;
 }
 
 .map-legend .dot {
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
@@ -166,218 +219,142 @@ main {
 
 .map-legend .line {
   display: inline-block;
-  width: 16px;
+  width: 14px;
   height: 2px;
-  background: var(--border);
   margin-right: 4px;
   vertical-align: middle;
 }
 
-.map-svg {
-  width: 100%;
-  height: auto;
-  max-height: 620px;
-  background: #f1e6c8;
-  border: 3px double var(--border-dark);
-  border-radius: 4px;
-  box-shadow: inset 0 0 24px rgba(90, 70, 30, 0.18);
-}
-
-.board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 8px;
-}
-
-.location {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-}
-
-.location h3 {
-  margin: 0 0 6px;
-  font-size: 0.8rem;
+.map-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(43, 32, 19, 0.9);
+  color: #f1e6c8;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
   font-family: var(--serif);
-  color: var(--text);
-  text-transform: capitalize;
+  font-style: italic;
 }
 
-.location.market {
-  background: #f7ecc9;
-  border-color: #cbab52;
+/* Animate via `transform: scale()`, not the `r` attribute — animating `r` changes the
+   element's actual geometry/bounding box every frame, which is both less efficient and (found
+   while testing) makes hit-testing tools think the element never stops moving. A transform
+   only changes paint, not layout, so the clickable circle's real bounding box stays put. */
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.35;
+  }
 }
 
-.slot {
-  font-size: 0.75rem;
-  padding: 3px 5px;
-  margin-bottom: 3px;
-  border-radius: 4px;
-  border: 1px dashed var(--border);
-  color: var(--muted);
+.pulse-ring {
+  r: 18;
+  animation: pulse 1.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.slot.filled {
-  border-style: solid;
-  color: white;
-  font-weight: 600;
+.map-target-node circle:not(.pulse-ring) {
+  filter: drop-shadow(0 0 4px var(--highlight));
 }
 
-.tile-coal { background: var(--coal); }
-.tile-iron { background: var(--iron); }
-.tile-cotton { background: var(--cotton); }
-.tile-manufacturer { background: var(--manufacturer); }
-.tile-pottery { background: var(--pottery); }
-.tile-brewery { background: var(--brewery); }
-
-.slot.flipped {
-  opacity: 0.55;
+.map-target-line {
+  filter: drop-shadow(0 0 3px var(--highlight));
 }
 
-.links-box,
-.market-box {
+/* ---------- Popup: the few options at one clicked map spot ---------- */
+
+.map-popup {
+  position: absolute;
+  z-index: 50;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 2px solid var(--highlight);
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  grid-column: 1 / -1;
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.panel,
-.players {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  box-shadow: 0 1px 3px rgba(90, 70, 30, 0.12);
-}
-
-.panel h2 {
-  margin: 0 0 8px;
-  font-size: 0.85rem;
-  font-family: var(--serif);
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
-}
-
-.player-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.player-row:last-child {
-  border-bottom: none;
-}
-
-.player-row.human {
-  font-weight: 700;
-}
-
-.hint {
-  font-size: 0.7rem;
-  color: var(--muted);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 400;
-}
-
-#cardFilterLabel {
-  font-size: 0.7rem;
-  color: var(--accent);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 600;
-}
-
-.hand {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.card-chip {
-  font-size: 0.75rem;
-  background: #eee6d8;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 7px;
-  cursor: pointer;
-}
-
-.card-chip:hover {
-  border-color: var(--accent);
-}
-
-.card-chip.selected {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
-.action-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.action-types button {
-  background: #eee;
-  color: var(--text);
-  font-size: 0.8rem;
-  padding: 5px 9px;
-}
-
-.action-types button.active {
-  background: var(--accent);
-  color: white;
-}
-
-.action-list {
-  max-height: 320px;
+  padding: 8px;
+  min-width: 200px;
+  max-width: 320px;
+  /* A card can legally enable dozens of Develop/Sell combos at once — cap the popup's growth
+   * and scroll internally instead of overflowing the viewport (found while testing: with 21
+   * options the popup grew straight off the top of the screen, unclickable). */
+  max-height: min(420px, 55vh);
   overflow-y: auto;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.action-list button {
+.map-popup-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  margin-bottom: 4px;
+  color: var(--accent);
+}
+
+.map-popup button {
   background: white;
   color: var(--text);
   border: 1px solid var(--border);
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   padding: 6px 8px;
   border-radius: 6px;
   white-space: normal;
 }
 
-.action-list button:hover {
+.map-popup button:hover {
   border-color: var(--accent);
 }
 
-.log {
-  max-height: 220px;
-  overflow-y: auto;
+.map-popup .popup-close {
+  background: #eee;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+/* ---------- Log dock ---------- */
+
+.log-dock {
+  position: absolute;
+  top: 20px;
+  right: 26px;
+}
+
+.log-toggle {
+  background: rgba(43, 32, 19, 0.85);
+  color: #f1e6c8;
   font-size: 0.78rem;
+  border-radius: 20px;
+}
+
+.log {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  width: 320px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.74rem;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 .log div {
@@ -386,31 +363,147 @@ main {
   background: #f4f0e6;
 }
 
+/* ---------- Hand dock (Hearthstone-style fanned cards) ---------- */
+
+.hand-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 12px;
+  background: linear-gradient(0deg, rgba(43, 32, 19, 0.55), transparent);
+}
+
+.other-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.other-actions-hint {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
+  background: rgba(251, 245, 230, 0.85);
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.other-action-btn {
+  background: var(--accent-2);
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.hand-cards {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.hand-card {
+  --rotate: 0deg;
+  --lift: 0px;
+  width: 92px;
+  height: 128px;
+  margin: 0 -14px;
+  padding: 8px 6px;
+  background: linear-gradient(160deg, #fbf5e6, #ecdcb0);
+  border: 2px solid var(--border-dark);
+  border-radius: 10px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  transform: rotate(var(--rotate)) translateY(var(--lift));
+  transition:
+    transform 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.hand-card:hover {
+  transform: rotate(var(--rotate)) translateY(calc(var(--lift) - 14px));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+  z-index: 200 !important;
+}
+
+.hand-card.selected {
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 3px var(--highlight), 0 8px 18px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(160deg, #fff6df, #f3dfa8);
+}
+
+.hand-card.scout-pick {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px var(--accent-2), 0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+.hand-card.wild {
+  background: linear-gradient(160deg, #f0e6fb, #d9c3f2);
+}
+
+.hand-card-icon {
+  font-size: 1.7rem;
+}
+
+.hand-card-label {
+  font-family: var(--serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  line-height: 1.1;
+}
+
+.hand-card-type {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Game over overlay ---------- */
+
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 500;
 }
 
 .overlay-card {
   background: var(--panel);
+  border: 3px double var(--border-dark);
   border-radius: 12px;
   padding: 24px 28px;
   min-width: 280px;
   text-align: center;
 }
 
+.overlay-card h2 {
+  font-family: var(--serif);
+}
+
 .overlay-card .score-row {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
+  font-size: 0.9rem;
 }
 
-@media (max-width: 800px) {
-  main {
-    grid-template-columns: 1fr;
+@media (max-width: 700px) {
+  .hand-card {
+    width: 68px;
+    height: 96px;
   }
 }

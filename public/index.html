@@ -22,34 +22,24 @@
     </header>
 
     <main id="app" hidden>
-      <section class="main-col">
-        <div class="panel map-panel">
-          <h2>Mapa</h2>
-          <div id="mapLegend" class="map-legend"></div>
-          <svg id="map" class="map-svg" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-        <section id="board" class="board"></section>
-      </section>
+      <div id="topStrip" class="top-strip"></div>
 
-      <aside class="sidebar">
-        <div id="players" class="players"></div>
+      <div id="stage" class="stage">
+        <svg id="map" class="map-svg" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="mapLegend" class="map-legend"></div>
+        <div id="mapHint" class="map-hint" hidden></div>
+        <div id="mapPopup" class="map-popup" hidden></div>
+      </div>
 
-        <div id="handPanel" class="panel">
-          <h2>Sua mão <span class="hint">(clique numa carta para ver o que ela permite)</span></h2>
-          <div id="hand" class="hand"></div>
-        </div>
+      <div id="logDock" class="log-dock">
+        <button id="logToggleBtn" class="log-toggle">📜 registro</button>
+        <div id="log" class="log" hidden></div>
+      </div>
 
-        <div id="actionsPanel" class="panel">
-          <h2>Ações <span id="cardFilterLabel"></span></h2>
-          <div id="actionTypes" class="action-types"></div>
-          <div id="actionList" class="action-list"></div>
-        </div>
-
-        <div id="logPanel" class="panel">
-          <h2>O que aconteceu</h2>
-          <div id="log" class="log"></div>
-        </div>
-      </aside>
+      <div id="handDock" class="hand-dock">
+        <div id="otherActions" class="other-actions"></div>
+        <div id="hand" class="hand-cards"></div>
+      </div>
     </main>
 
     <div id="gameOverOverlay" class="overlay" hidden>
