@@ -48,7 +48,11 @@ export function generateNetworkActions(state: GameState, playerId: PlayerId): Ne
     return network.has(a) || network.has(b);
   });
 
+  const canAffordSingle = state.era === 'canal' ? player.money >= 3 : player.money >= 5;
+  const canAffordDouble = state.era === 'rail' && player.money >= 15;
+
   for (const card of cards) {
+    if (!canAffordSingle) break;
     for (const slotId of reachableSlotIds) {
       if (state.era === 'canal') {
         actions.push({ type: 'network', player: playerId, card, linkSlotIds: [slotId], coalSources: [], beerSource: null });
@@ -68,7 +72,7 @@ export function generateNetworkActions(state: GameState, playerId: PlayerId): Ne
     }
   }
 
-  if (state.era === 'rail') {
+  if (canAffordDouble) {
     const breweries: { kind: 'brewery'; locationId: string; slotIndex: number }[] = [];
     for (const location of Object.values(state.locations)) {
       location.slots.forEach((slot, slotIndex) => {

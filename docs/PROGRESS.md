@@ -123,7 +123,38 @@
     para o orçamento de tempo do ISMCTS no M7, não um bloqueio agora).
 - `npm run verify` passa: 167 testes, cobertura 93.98% em `src/rules` + `src/engine`.
 
-**Próximo passo concreto:** M5 — bot aleatório e harness: bot que escolhe uniformemente
-entre `legalActions`, harness rodando N partidas em lote com semente, validando 10.000
-partidas sem exceção/estado inválido/loop infinito, e registrando distribuição de pontuação e
-duração média.
+## M5 — Bot aleatório e harness — CONCLUÍDO
+
+- `src/bots/random.ts`: escolhe uniformemente entre `legalActions` usando o RNG semeado.
+- `src/bots/harness.ts`: `playGame` (uma partida completa até `gameOver`, com limite de
+  5000 turnos para detectar loop infinito) e `runBatch` (N partidas em lote, com resumo de
+  turnos/duração/VP do vencedor).
+- **Bug real encontrado e corrigido durante este marco**: nenhuma ação verificava se o
+  jogador tinha dinheiro suficiente — `payMoney` (`player-ops.ts`) permitia saldo negativo.
+  Uma partida aleatória completa terminou com um jogador em -£18. Corrigido: `payMoney` agora
+  lança erro se o custo excede o saldo, o que automaticamente faz `legalActions` (via seu
+  filtro de "verificar aplicando de verdade") parar de oferecer ações que o jogador não pode
+  pagar. Isso também reduziu o tamanho médio da lista de ações legais (menos candidatos
+  descartáveis gerados) e teve como efeito colateral melhorar a performance.
+- Otimização: `legal/build.ts` e `legal/network.ts` agora descartam candidatos obviamente
+  inacessíveis (custo mínimo > dinheiro do jogador) antes de gerar as combinações de
+  carvão/ferro/cerveja, evitando gerar-e-descartar via exceção em excesso.
+- `scripts/run-random-batch.ts`: script standalone (fora da suíte `npm test`, roda partidas
+  demais para isso) que joga N partidas por contagem de jogadores e imprime a distribuição.
+- Validação de 10.014 partidas (3338 × 2/3/4 jogadores) com bots aleatórios: todas terminaram
+  com `gameOver = true`, nenhuma exceção, nenhum estado inválido, nenhum loop infinito.
+  Achado estrutural interessante: como o número de ações por turno é fixo (1 na primeira
+  rodada da era Canal, 2 depois) e independente das escolhas dos jogadores, a duração de uma
+  partida em turnos é **determinística** por número de jogadores (sempre 58 turnos com 2
+  jogadores, 105 com 3, 152 com 4) — só o *conteúdo* de cada turno varia com a semente.
+  <!-- RESULTADOS_10K_AQUI -->
+- Testes rápidos (`tests/unit/harness.test.ts`): 2/3/4 jogadores terminam sem exceção,
+  determinismo por seed, e uma amostra de 24 partidas com invariantes (dinheiro/VP/cubos
+  nunca negativos) — mantidos na suíte padrão; a validação de 10k roda à parte por ser lenta
+  (script acima).
+- `npm run verify` passa: 170 testes, cobertura 95.66% em `src/rules` + `src/engine`.
+
+**Próximo passo concreto:** M6 — bot heurístico: avaliação posicional simples (prioriza
+ferro cedo, desenvolve antes de construir nível baixo, evita deixar peça sem virar, gerencia
+renda e ordem de turno), com teste que falha se a taxa de vitória contra o bot aleatório cair
+abaixo de 80% em 1.000 partidas.

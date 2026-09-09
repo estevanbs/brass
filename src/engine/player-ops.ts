@@ -18,7 +18,14 @@ export function updatePlayer(
   return { ...state, players: { ...state.players, [playerId]: update(player) } };
 }
 
+/** Throws if the player cannot afford `amount` — every action must be fully payable, unlike
+ * the end-of-round negative-income shortfall (engine/cycle.ts), which is covered separately
+ * by selling tiles or losing VP rather than being rejected outright. */
 export function payMoney(state: GameState, playerId: PlayerId, amount: number): GameState {
+  const player = getPlayerOrThrow(state, playerId);
+  if (amount > player.money) {
+    throw new Error(`${playerId} cannot afford £${amount} (has £${player.money})`);
+  }
   return updatePlayer(state, playerId, (p) => ({
     ...p,
     money: p.money - amount,
