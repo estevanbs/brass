@@ -1,13 +1,14 @@
 import type { Era, IndustryType, LinkSlotDef, MerchantBonus } from '../core/types.js';
 
 /**
- * Board topology. Reconstructed from a photo of the physical board the user plays with
- * (docs/ASSUMPTIONS.md #1) — location list, per-location slot counts, market min-player
- * gates, and link connectivity are all read off that board, not invented. Two things remain
- * genuine reconstruction rather than direct transcription: the exact industry type accepted
- * by each slot (the board's tile icons are too small in a phone photo to read with full
- * confidence for every slot) and a handful of links whose era (see `LinkSlotDef.era`) couldn't
- * be read with confidence — both documented in ASSUMPTIONS.md with what's certain vs inferred.
+ * Board topology. Reconstructed from photos of the physical board the user plays with
+ * (docs/ASSUMPTIONS.md #1, #23) — location list, per-location slot counts, market min-player
+ * gates, and link connectivity are all read off that board, not invented. Link eras (`RAW_LINKS`
+ * below) were re-verified against a second, much higher-resolution photo (#23), which corrected
+ * about a third of them, including one outright wrong connection (Uttoxeter links to Derby, not
+ * Burton-on-Trent). The one thing that remains genuine reconstruction rather than direct
+ * transcription: the exact industry type accepted by each slot (the board's tile icons are too
+ * small even in the higher-resolution photo to read with full confidence for every slot).
  */
 export interface IndustrialLocationDef {
   readonly id: string;
@@ -231,39 +232,39 @@ interface RawLink {
 const RAW_LINKS: readonly RawLink[] = [
   // North (Warrington / Potteries / Peak District towns)
   { locations: ['warrington', 'stoke_on_trent'], era: 'both' },
-  { locations: ['stoke_on_trent', 'stone'], era: 'canal' },
+  { locations: ['stoke_on_trent', 'stone'], era: 'both' },
   { locations: ['stoke_on_trent', 'leek'], era: 'rail' },
-  { locations: ['stone', 'stafford'], era: 'canal' },
+  { locations: ['stone', 'stafford'], era: 'rail' },
   { locations: ['stone', 'uttoxeter'], era: 'rail' },
   { locations: ['stafford', 'cannock'], era: 'rail' },
   { locations: ['leek', 'belper'], era: 'rail' },
-  { locations: ['belper', 'derby'], era: 'both' },
+  { locations: ['belper', 'derby'], era: 'rail' },
   { locations: ['belper', 'burton_on_trent'], era: 'canal' },
   { locations: ['derby', 'nottingham'], era: 'rail' },
-  { locations: ['uttoxeter', 'burton_on_trent'], era: 'rail' },
+  { locations: ['uttoxeter', 'derby'], era: 'rail' },
   { locations: ['burton_on_trent', 'tamworth'], era: 'both' },
 
   // Black Country core
   { locations: ['shrewsbury', 'coalbrookdale'], era: 'canal' },
   { locations: ['coalbrookdale', 'wolverhampton'], era: 'canal' },
-  { locations: ['coalbrookdale', 'dudley'], era: 'canal' },
+  { locations: ['coalbrookdale', 'dudley'], era: 'both' },
   { locations: ['cannock', 'wolverhampton'], era: 'canal' },
   { locations: ['cannock', 'walsall'], era: 'canal' },
   { locations: ['cannock', 'farm_brewery_north'], era: 'both' },
   { locations: ['wolverhampton', 'dudley'], era: 'rail' },
   { locations: ['walsall', 'birmingham'], era: 'both' },
-  { locations: ['dudley', 'birmingham'], era: 'rail' },
+  { locations: ['dudley', 'birmingham'], era: 'both' },
   { locations: ['dudley', 'kidderminster'], era: 'both' },
-  { locations: ['birmingham', 'redditch'], era: 'both' },
+  { locations: ['birmingham', 'redditch'], era: 'rail' },
   { locations: ['birmingham', 'tamworth'], era: 'rail' },
 
   // South / East
-  { locations: ['tamworth', 'nuneaton'], era: 'canal' },
-  { locations: ['nuneaton', 'coventry'], era: 'both' },
-  { locations: ['coventry', 'oxford'], era: 'canal' },
-  { locations: ['redditch', 'oxford'], era: 'canal' },
+  { locations: ['tamworth', 'nuneaton'], era: 'both' },
+  { locations: ['nuneaton', 'coventry'], era: 'rail' },
+  { locations: ['coventry', 'oxford'], era: 'both' },
+  { locations: ['redditch', 'oxford'], era: 'both' },
   { locations: ['kidderminster', 'worcester'], era: 'canal' },
-  { locations: ['worcester', 'gloucester'], era: 'canal' },
+  { locations: ['worcester', 'gloucester'], era: 'both' },
 ];
 
 export const LINK_SLOTS: readonly LinkSlotDef[] = RAW_LINKS.map(({ locations: [a, b], era }) => ({

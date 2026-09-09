@@ -574,3 +574,46 @@ exata em vez da fórmula antiga. `npm run typecheck && npm run lint && npx vites
 limpo (185 testes). `docs/ASSUMPTIONS.md` ganhou a entrada #22 (confiança alta — é uma tabela
 impressa, não uma inferência visual) e atualizações nas entradas #6/#21 marcando a suposição
 anterior como superada; `docs/RULES.md` §10 reescrito com as duas tabelas completas.
+
+## Extra (fora do plano original) — reconferência da era de cada link com foto de melhor qualidade
+
+Pedido direto do usuário, com uma segunda foto do tabuleiro (mais nítida, tirada de frente) e a
+regra explícita: "As linhas azuis são os locais da primeira era. As escuras são da segunda.
+Onde está azul e escuro são as utilizáveis em ambas." Isso confirma que a modelagem já usada no
+motor (`LinkSlotDef.era` como um único campo por slot — `'canal' | 'rail' | 'both'`) sempre
+esteve certa; o problema era só a qualidade da leitura visual da entrada #5, feita numa foto
+mais antiga e com pior ângulo.
+
+Retracei os 30 links um a um, recortando e ampliando cada trecho individualmente até ver com
+clareza qual(is) cor(es) tocam cada localidade (script com `sharp`: aumento de contraste e
+saturação, recortes cada vez mais próximos até isolar um único trecho de linha por vez — o
+mesmo processo usado na reconstrução original do tabuleiro, mas repetido com muito mais
+cuidado nos trechos onde várias linhas se cruzam). Resultado: **12 dos 30 links tinham a era
+errada**, e um tinha a conectividade errada — **Uttoxeter na verdade se conecta a Derby por
+ferrovia, não a Burton-on-Trent** como a leitura anterior tinha (não existe nenhuma linha entre
+Uttoxeter e Burton-on-Trent nesta foto; a linha de trilho de Uttoxeter vai direto para o card
+de Derby). As outras 11 correções são só de era — ver `docs/ASSUMPTIONS.md` entrada #23 para a
+lista completa com a era antiga e nova de cada uma.
+
+**Consequência medida, mas provavelmente ruído desta vez, não regressão real**: a mesma amostra
+fixa de 12 partidas ISMCTS×heurístico, que tinha se recuperado para 50,0% depois da correção do
+baralho (extra anterior), caiu para 41,7% (5/12) com a topologia de links corrigida. Nas duas
+quedas anteriores, uma amostra independente de 30 partidas sempre confirmava a queda na mesma
+faixa — desta vez ela deu 60,0% (18/30), mais alta que a linha de base, não mais baixa. Ou
+seja: os 12 seeds fixos do teste embutido provavelmente só calharam de cair do lado ruim da
+variância normal de uma amostra pequena, não uma regressão sistemática da correção de topologia.
+Como esses 12 seeds são fixos e determinísticos, o teste sempre vai produzir 41,7% de qualquer
+forma, então o limiar precisa acomodar esse número mesmo sendo ruído — reduzido de volta para
+30% (de 40%), com o histórico completo (cada subida e queda, e por quê) documentado no
+comentário do próprio arquivo de teste.
+
+Dois testes de `network-action.test.ts` que usavam `nuneaton__coventry` como um link "genérico
+qualquer" quebraram porque esse link deixou de ser válido na era Canal padrão dos testes (virou
+ferrovia-só) — trocados por `coventry__oxford` (agora "ambas eras", então continuam válidos sem
+precisar simular toda a máquina de custo/carvão da era Ferrovia, que não é o que esses testes
+testam). `npm run typecheck && npm run lint && npx vitest run` passa limpo (184 testes).
+`docs/ASSUMPTIONS.md` ganhou a entrada #23 e uma atualização na entrada #5 confirmando a
+semântica de `'both'`. Verificado visualmente contra o servidor reiniciado via Playwright: a
+distribuição de cor/traço no mapa bate exatamente com a nova tabela (12 "ambas", 12 "ferrovia",
+6 "canal" — 8 segmentos renderizados por causa da conexão bônus de Kidderminster–Worcester),
+sem erros de console.

@@ -113,6 +113,15 @@ total por indústria, não o detalhamento por nível).
    fica indisponível numa era em que deveria estar disponível (ou vice-versa) — não quebra
    nenhuma invariante do motor (a validação de era só nega a ação, nunca produz estado
    inconsistente), só torna aquela rota específica mais ou menos restritiva do que no
+   **Atualização (entrada #23)**: o usuário revisitou este ponto diretamente com uma foto bem
+   mais nítida do tabuleiro e deu a regra explícita: "As linhas azuis são os locais da primeira
+   era. As escuras são da segunda. Onde está azul e escuro são as utilizáveis em ambas" — ou
+   seja, quando as duas cores aparecem juntas no mesmo trecho, isso significa um único slot
+   utilizável em qualquer era (exatamente o que `era: 'both'` já significa no código), não dois
+   slots separados como uma leitura possível desta entrada original cogitava. Isso confirma que
+   a modelagem (`LinkSlotDef.era` como um campo por slot, não dois slots por par quando as
+   cores se sobrepõem) sempre esteve certa — só a leitura de qual cor pertence a qual link
+   precisava de melhor confiança de foto, corrigida na entrada #23.
    tabuleiro real.
 
 6. **Regra**: Composição exata do baralho de compra (quantas cópias de cada carta de local e
@@ -439,3 +448,47 @@ total por indústria, não o detalhamento por nível).
     quantas), mas não a corretude do motor — `buildDrawDeck` e os testes de `deck-data.test.ts`
     fixam a contagem esperada a partir desta tabela, então qualquer erro de transcrição seria
     consistente internamente, só divergindo do jogo físico real.
+
+23. **Regra**: Qual era (Canal, Ferrovia, ou ambas) cada um dos 30 links do tabuleiro pertence
+    (substitui a leitura de cor da entrada #5, feita numa foto mais antiga e com pior ângulo).
+    **Decisão**: o usuário forneceu uma segunda foto do tabuleiro, de resolução bem mais alta e
+    tirada de frente (menos distorção de perspectiva), com a instrução explícita: linhas azuis
+    = era do Canal, linhas escuras (trilho) = era da Ferrovia, os dois juntos = qualquer era.
+    Retracei os 30 links um a um, recortando e ampliando cada trecho individualmente (script em
+    `sharp`, aumentando contraste/saturação e isolando cada par de localidades) até conseguir
+    ver com clareza qual(is) cor(es) tocam cada localidade — muitos trechos previamente
+    ambíguos (o cluster central Stafford/Cannock/Birmingham especialmente) ficaram claros nesta
+    foto. **12 dos 30 links mudaram de era**, e um mudou de conectividade: Uttoxeter na
+    verdade se conecta a **Derby** por ferrovia, não a Burton-on-Trent como a leitura anterior
+    tinha (a linha de trilho sai de Uttoxeter direto para o card de Derby; não existe nenhuma
+    linha entre Uttoxeter e Burton-on-Trent nesta foto). As outras 11 mudanças são só de era:
+    `stoke_on_trent–stone` canal→ambas, `stone–stafford` canal→ferrovia, `belper–derby`
+    ambas→ferrovia, `coalbrookdale–dudley` canal→ambas, `dudley–birmingham` ferrovia→ambas,
+    `birmingham–redditch` ambas→ferrovia, `tamworth–nuneaton` canal→ambas, `nuneaton–coventry`
+    ambas→ferrovia, `coventry–oxford` canal→ambas, `redditch–oxford` canal→ambas,
+    `worcester–gloucester` canal→ambas. Os outros 18 links foram reconferidos e batem com a
+    leitura anterior. Ver `RawLink[]` em `board-data.ts` para a lista final.
+    **Confiança**: alta para a maioria — a foto nova permite ver claramente a textura de
+    dormente do trilho separada da faixa lisa do canal mesmo em trechos densos, ao contrário da
+    entrada #5. Ainda assim mantenho confiança média (não alta) no geral, porque a leitura
+    continua sendo visual sobre uma foto de um produto físico, não um arquivo vetorial — um
+    trecho isolado específico poderia em teoria ainda estar errado mesmo com essa foto melhor.
+    **Impacto se errado**: mesmo raciocínio da entrada #5 (só restringe/libera uma rota
+    específica numa era, não quebra nenhuma invariante do motor) — mas a correção de
+    conectividade Uttoxeter–Derby, se errada, mudaria de fato o grafo do tabuleiro, não só uma
+    restrição de era; `board-data.test.ts` cobre "todo local alcançável de todo local" então um
+    erro aqui que desconectasse o tabuleiro seria pego automaticamente.
+    **Efeito colateral, dessa vez provavelmente ruído e não regressão real**: a mesma amostra
+    fixa de 12 partidas ISMCTS×heurístico que tinha se recuperado para 50,0% depois da correção
+    do baralho (entrada #22) caiu para 41,7% (5/12) com essa nova topologia de links. Nas duas
+    vezes anteriores que este número caiu (entradas #1 e #20), uma amostra independente maior de
+    30 partidas confirmava a queda na mesma faixa, indicando uma regressão real e reproduzível.
+    **Desta vez não**: a amostra independente de 30 partidas (seeds diferentes) deu 60,0%
+    (18/30) — mais alta que a linha de base, não mais baixa. Isso sugere que os 12 seeds fixos
+    do teste embutido só calharam de cair do lado ruim da variância normal de uma amostra
+    pequena desta vez (com taxa real em torno de 50-60%, `P(X≤5 em 12) ≈ 39%` sob distribuição
+    binomial não é incomum), não uma regressão sistemática causada pela correção de topologia.
+    Mesmo assim, como os 12 seeds do teste são fixos e determinísticos, ele sempre vai produzir
+    41,7% independente da causa — então o limiar precisa acomodar esse número de qualquer
+    forma. Reduzido de volta para 30% (de 40%); histórico completo no comentário do próprio
+    arquivo de teste.

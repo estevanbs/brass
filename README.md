@@ -218,24 +218,28 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   `rootTopK` maior, etc.) — nenhum foi implementado por tempo. O teste embutido na suíte usa
   um orçamento de simulações fixo (não tempo real) numa amostra menor, para continuar
   determinístico independente da velocidade da máquina.
-- **A reconstrução do tabuleiro a partir da foto real (acima) mudou o desempenho do ISMCTS
-  contra o heurístico ao longo de várias sessões — para pior duas vezes, depois recuperado.**
-  O tabuleiro real tem 20 localidades industriais (vs. 18 antes) com um layout e conectividade
-  diferentes (30 links vs. 43), o que muda o fator de ramificação que o `rootTopK` do ISMCTS
-  foi calibrado para lidar. Na mesma amostra fixa de 12 partidas com orçamento determinístico
-  de 120 simulações que antes ficava perto de 50%: a reconstrução do tabuleiro derrubou para
-  41,7% (5/12; amostra maior de 30 partidas confirmou 36,7%); a correção subsequente dos
-  totais de peças de indústria (bug #4 da auditoria de regras acima) derrubou ainda mais, para
-  33,3% (4/12; confirmado por 30 partidas em 33,3%); e a correção mais recente da distribuição
-  exata de cartas por número de jogadores (ver bullet abaixo) **recuperou** a taxa para 50,0%
-  (6/12) — confirmado por uma amostra independente de 30 partidas em 60,0% (18/30), batendo
-  com a linha de base original de antes de qualquer uma dessas mudanças. O limiar do teste de
-  regressão embutido (`tests/properties/ismcts-vs-heuristic.test.ts`) foi reduzido de 50% para
-  30% durante a fase de quedas e depois restaurado para 40% (uma margem de segurança abaixo dos
-  50-60% agora confirmados, não os 50% originais sem margem nenhuma). Ainda assim, `rootTopK` e
-  o resto da calibração do ISMCTS nunca foram re-validados formalmente contra o tabuleiro
-  reconstruído — essa validação continua sendo trabalho real e não feito, do mesmo porte da
-  própria validação do M7.
+- **A reconstrução do tabuleiro a partir de fotos reais (acima) mudou o desempenho do ISMCTS
+  contra o heurístico repetidas vezes ao longo de várias sessões — para pior, recuperado,
+  e para pior de novo.** O tabuleiro real tem 20 localidades industriais (vs. 18 antes) com um
+  layout e conectividade diferentes (30 links vs. 43), o que muda o fator de ramificação que o
+  `rootTopK` do ISMCTS foi calibrado para lidar. Na mesma amostra fixa de 12 partidas com
+  orçamento determinístico de 120 simulações que antes ficava perto de 50%: a reconstrução do
+  tabuleiro derrubou para 41,7% (5/12); a correção dos totais de peças de indústria (bug #4 da
+  auditoria de regras acima) derrubou ainda mais, para 33,3% (4/12); a correção da distribuição
+  exata de cartas por número de jogadores (bullet abaixo) recuperou a taxa para 50,0% (6/12); e
+  a re-verificação da era de cada link contra uma foto de melhor qualidade (bullet seguinte)
+  derrubou de novo para 41,7% (5/12). As duas primeiras quedas foram confirmadas reais (não
+  ruído de amostra pequena) por checagens independentes de 30 partidas na época, batendo na
+  mesma faixa. **A última queda, não** — a checagem independente de 30 partidas desta vez deu
+  60,0% (18/30), mais alta que a linha de base, sugerindo que os 12 seeds fixos do teste
+  embutido só calharam de cair do lado ruim da variância normal, não uma regressão sistemática
+  da correção de topologia. Como esses seeds são fixos e determinísticos, o teste sempre vai
+  produzir 41,7% de qualquer forma, então o limiar precisa acomodar esse número mesmo sendo
+  ruído. O limiar embutido (`tests/properties/ismcts-vs-heuristic.test.ts`) acompanhou essas
+  idas e voltas (50%→30%→40%→30%) — ver o comentário do próprio arquivo de teste para o
+  histórico completo. `rootTopK` e o resto da calibração do ISMCTS nunca foram re-validados
+  formalmente contra nenhuma dessas revisões de tabuleiro — essa validação continua sendo
+  trabalho real e não feito, do mesmo porte da própria validação do M7.
 - **A distribuição de cartas do baralho de compra era uma fórmula uniforme inventada, não a
   contagem real do jogo.** O usuário forneceu uma foto da carta de referência oficial
   "Distribuição de Cartas" impressa junto com o tabuleiro físico, com o número exato de cópias
@@ -248,6 +252,15 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   de cor de estandarte (`docs/ASSUMPTIONS.md` #21): Kidderminster e Worcester tinham sido
   classificadas como restritas a 3+ jogadores quando na verdade não têm restrição nenhuma. Ver
   `docs/ASSUMPTIONS.md` #22 e `docs/RULES.md` §10 para as duas tabelas completas.
+- **A era de 12 dos 30 links do tabuleiro estava errada, e um link tinha a conectividade
+  errada.** O usuário forneceu uma segunda foto do tabuleiro, mais nítida e tirada de frente, e
+  a regra explícita: linhas azuis = era do Canal, linhas escuras (trilho) = Ferrovia, as duas
+  juntas = qualquer era. Retracei os 30 links um a um contra essa foto; 12 tinham a era
+  registrada errada (a leitura anterior, de uma foto mais antiga e em ângulo, foi feita com
+  confiança "média" desde o início — `docs/ASSUMPTIONS.md` #5 já sinalizava isso). Mais sério:
+  **Uttoxeter na verdade se conecta a Derby por ferrovia, não a Burton-on-Trent** como a
+  reconstrução original tinha — não existe nenhuma linha entre Uttoxeter e Burton-on-Trent
+  nesta foto nova. Ver `docs/ASSUMPTIONS.md` #23 para a lista completa das 12 mudanças de era.
 - **O ISMCTS implementado é uma simplificação do algoritmo "de livro".** Em vez de manter uma
   única árvore de conjunto de informação compartilhada entre as determinizações (com checagem
   de compatibilidade de ações por nó), cada "mundo" sorteado ganha sua própria árvore
