@@ -108,6 +108,53 @@ main {
   align-items: start;
 }
 
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.map-panel {
+  padding-bottom: 6px;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.map-legend .dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.map-legend .line {
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  background: var(--border);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.map-svg {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  background: #fbf9f4;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -206,6 +253,22 @@ main {
   font-weight: 700;
 }
 
+.hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+#cardFilterLabel {
+  font-size: 0.7rem;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+}
+
 .hand {
   display: flex;
   flex-wrap: wrap;
@@ -215,8 +278,21 @@ main {
 .card-chip {
   font-size: 0.75rem;
   background: #eee6d8;
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 7px;
+  cursor: pointer;
+}
+
+.card-chip:hover {
+  border-color: var(--accent);
+}
+
+.card-chip.selected {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
 .action-types {

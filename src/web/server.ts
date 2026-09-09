@@ -8,11 +8,14 @@ import type { GameState, PlayerId } from '../core/types.js';
 import { applyAction } from '../engine/apply-action.js';
 import { advanceAfterAction, skipEmptyHandTurns } from '../engine/cycle.js';
 import { legalActions } from '../engine/legal/index.js';
+import { cardKey } from '../engine/cards.js';
+import type { Action } from '../engine/action-types.js';
 import { makeIsmctsBot } from '../bots/ismcts.js';
 import { evaluate } from '../bots/heuristic.js';
 import type { Bot } from '../bots/random.js';
 import { mulberry32, type Rng } from '../core/rng.js';
 import { describeAction } from '../cli/render.js';
+import { FARM_BREWERIES, INDUSTRIAL_LOCATIONS, LINK_SLOTS, MARKETS } from '../rules/board-data.js';
 
 const HUMAN_ID: PlayerId = 'você';
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
@@ -45,16 +48,37 @@ function advanceBotsUntilHumanOrOver(game: Game): void {
   }
 }
 
+function actionCardKeys(action: Action): string[] {
+  return action.type === 'scout' ? action.cards.map(cardKey) : [cardKey(action.card)];
+}
+
+/** Static board topology (never changes across games) — sent once per view so the frontend
+ * can draw a map without duplicating rules data. */
+const BOARD_SUMMARY = {
+  locations: [
+    ...INDUSTRIAL_LOCATIONS.map((l) => ({ id: l.id, kind: l.kind })),
+    ...FARM_BREWERIES.map((l) => ({ id: l.id, kind: l.kind })),
+    ...MARKETS.map((l) => ({ id: l.id, kind: l.kind })),
+  ],
+  links: LINK_SLOTS.map((l) => ({
+    id: l.id,
+    locations: l.locations,
+    bonusConnections: l.bonusConnections,
+  })),
+};
+
 function view(gameId: string, game: Game): unknown {
   const actions = game.state.gameOver ? [] : legalActions(game.state, HUMAN_ID);
   return {
     gameId,
     humanId: HUMAN_ID,
     state: game.state,
+    board: BOARD_SUMMARY,
     legalActions: actions.map((action, index) => ({
       index,
       type: action.type,
       label: describeAction(action),
+      cardKeys: actionCardKeys(action),
     })),
     log: game.log,
   };

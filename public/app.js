@@ -8,9 +8,19 @@ const TYPE_LABELS = {
   pass: 'Passar',
 };
 
+const KIND_COLOR = {
+  industrial: '#c9c0aa',
+  farm_brewery: '#8fae7a',
+  market: '#e0b23d',
+};
+
+const PLAYER_COLORS = ['#a8432f', '#2f6b47', '#2f5a8a', '#8a5a2f'];
+
 let currentGameId = null;
 let currentView = null;
 let selectedType = null;
+let selectedCard = null; // cardKey string, or null for "show all"
+let layout = null; // Map<locationId, {x,y}> — computed once per board topology
 
 const el = (id) => document.getElementById(id);
 
@@ -19,6 +29,12 @@ function incomeLevelForPosition(position) {
   if (position < 31) return Math.floor((position - 9) / 2);
   if (position < 61) return Math.floor((position + 2) / 3);
   return Math.floor((position + 23) / 4);
+}
+
+function cardKeyOf(card) {
+  if (card.kind === 'location') return `location:${card.locationId}`;
+  if (card.kind === 'industry') return `industry:${card.industry}`;
+  return card.kind;
 }
 
 function formatCard(card) {
@@ -48,9 +64,10 @@ async function newGame() {
     const view = await api('/api/games', { method: 'POST', body: JSON.stringify(body) });
     currentGameId = view.gameId;
     selectedType = null;
+    selectedCard = null;
     setView(view);
     el('app').hidden = false;
-    el('statusMsg').textContent = `Seed: ${view.state.rngState ?? ''}`.length ? '' : '';
+    el('statusMsg').textContent = '';
   } catch (err) {
     el('statusMsg').textContent = `Erro: ${err.message}`;
   }
@@ -65,6 +82,7 @@ async function submitAction(index) {
       body: JSON.stringify({ index }),
     });
     selectedType = null;
+    selectedCard = null;
     setView(view);
     el('statusMsg').textContent = '';
   } catch (err) {
@@ -79,6 +97,7 @@ function setView(view) {
 
 function render() {
   if (currentView === null) return;
+  renderMap();
   renderBoard();
   renderPlayers();
   renderHand();
@@ -86,6 +105,166 @@ function render() {
   renderLog();
   renderGameOver();
 }
+
+// ---------- Map (force-directed layout + SVG) ----------
+
+function computeLayout(board) {
+  const ids = board.locations.map((l) => l.id);
+  const edges = [];
+  for (const link of board.links) {
+    edges.push(link.locations);
+    for (const pair of link.bonusConnections) edges.push(pair);
+  }
+
+  const width = 900;
+  const height = 620;
+  const nodes = new Map();
+  ids.forEach((id, i) => {
+    const angle = (i / ids.length) * 2 * Math.PI;
+    nodes.set(id, {
+      x: width / 2 + Math.cos(angle) * 260,
+      y: height / 2 + Math.sin(angle) * 220,
+    });
+  });
+
+  const k = Math.sqrt((width * height) / ids.length) * 1.35;
+  for (let iter = 0; iter < 300; iter++) {
+    const disp = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
+
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = nodes.get(ids[i]);
+        const b = nodes.get(ids[j]);
+        let dx = a.x - b.x;
+        let dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        const force = (k * k) / dist;
+        dx /= dist;
+        dy /= dist;
+        disp.get(ids[i]).x += dx * force;
+        disp.get(ids[i]).y += dy * force;
+        disp.get(ids[j]).x -= dx * force;
+        disp.get(ids[j]).y -= dy * force;
+      }
+    }
+
+    for (const [a, b] of edges) {
+      const na = nodes.get(a);
+      const nb = nodes.get(b);
+      let dx = na.x - nb.x;
+      let dy = na.y - nb.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const force = (dist * dist) / k;
+      dx /= dist;
+      dy /= dist;
+      disp.get(a).x -= dx * force;
+      disp.get(a).y -= dy * force;
+      disp.get(b).x += dx * force;
+      disp.get(b).y += dy * force;
+    }
+
+    const temp = 12 * (1 - iter / 300);
+    for (const id of ids) {
+      const d = disp.get(id);
+      const dist = Math.sqrt(d.x * d.x + d.y * d.y) || 0.01;
+      const move = Math.min(dist, temp);
+      const n = nodes.get(id);
+      n.x += (d.x / dist) * move;
+      n.y += (d.y / dist) * move;
+      n.x = Math.max(60, Math.min(width - 60, n.x));
+      n.y = Math.max(45, Math.min(height - 45, n.y));
+    }
+  }
+
+  return nodes;
+}
+
+function svgEl(tag, attrs) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+
+function playerColor(playerId, humanId) {
+  if (playerId === humanId) return '#a8432f';
+  const idx = Number(String(playerId).replace(/\D/g, '')) || 1;
+  return PLAYER_COLORS[idx % PLAYER_COLORS.length];
+}
+
+function renderMap() {
+  const { state, board, humanId } = currentView;
+  if (layout === null) layout = computeLayout(board);
+
+  const svg = el('map');
+  svg.innerHTML = '';
+
+  const builtByLinkId = new Map(state.links.map((l) => [l.slotId, l]));
+
+  // Edges first (so nodes draw on top).
+  for (const link of board.links) {
+    const pairs = [link.locations, ...link.bonusConnections];
+    const built = builtByLinkId.get(link.id);
+    for (const [a, b] of pairs) {
+      const na = layout.get(a);
+      const nb = layout.get(b);
+      if (!na || !nb) continue;
+      const line = svgEl('line', {
+        x1: na.x,
+        y1: na.y,
+        x2: nb.x,
+        y2: nb.y,
+        stroke: built ? playerColor(built.owner, humanId) : '#c9c0aa',
+        'stroke-width': built ? 3.5 : 1.2,
+        'stroke-dasharray': built ? 'none' : '4,4',
+        opacity: built ? 0.9 : 0.5,
+      });
+      svg.appendChild(line);
+    }
+  }
+
+  // Nodes.
+  for (const location of board.locations) {
+    const pos = layout.get(location.id);
+    if (!pos) continue;
+    const g = svgEl('g', { transform: `translate(${pos.x},${pos.y})` });
+
+    const hasHumanTile =
+      state.locations[location.id] &&
+      (state.locations[location.id].slots || []).some((s) => s.tile && s.tile.owner === humanId);
+
+    const circle = svgEl('circle', {
+      r: location.kind === 'market' ? 16 : 12,
+      fill: KIND_COLOR[location.kind] || '#c9c0aa',
+      stroke: hasHumanTile ? '#a8432f' : '#7a7266',
+      'stroke-width': hasHumanTile ? 3 : 1,
+    });
+    g.appendChild(circle);
+
+    const label = svgEl('text', {
+      y: location.kind === 'market' ? 30 : 26,
+      'text-anchor': 'middle',
+      'font-size': '10',
+      fill: '#2b2620',
+    });
+    label.textContent = location.id.replace(/_/g, ' ');
+    g.appendChild(label);
+
+    svg.appendChild(g);
+  }
+}
+
+function renderMapLegend() {
+  const legend = el('mapLegend');
+  legend.innerHTML = `
+    <span><i class="dot" style="background:${KIND_COLOR.industrial}"></i> industrial</span>
+    <span><i class="dot" style="background:${KIND_COLOR.farm_brewery}"></i> fazenda cervejeira</span>
+    <span><i class="dot" style="background:${KIND_COLOR.market}"></i> mercador</span>
+    <span><i class="line"></i> link livre</span>
+    <span><i class="line built" style="background:#a8432f"></i> seu link</span>
+  `;
+}
+
+// ---------- Board detail grid ----------
 
 function renderBoard() {
   const { state } = currentView;
@@ -153,32 +332,55 @@ function renderPlayers() {
   }
 }
 
+// ---------- Hand (clickable cards) ----------
+
 function renderHand() {
   const { state, humanId } = currentView;
   const hand = el('hand');
   hand.innerHTML = '';
   for (const card of state.players[humanId].hand) {
-    const chip = document.createElement('span');
-    chip.className = 'card-chip';
+    const key = cardKeyOf(card);
+    const chip = document.createElement('button');
+    chip.className = 'card-chip' + (key === selectedCard ? ' selected' : '');
     chip.textContent = formatCard(card);
+    chip.onclick = () => {
+      selectedCard = selectedCard === key ? null : key;
+      selectedType = null;
+      renderActions();
+      renderHand();
+    };
     hand.appendChild(chip);
   }
 }
+
+// ---------- Actions (filtered by selected card, grouped by type) ----------
 
 function renderActions() {
   const { legalActions } = currentView;
   const typesBox = el('actionTypes');
   const listBox = el('actionList');
+  const filterLabel = el('cardFilterLabel');
   typesBox.innerHTML = '';
   listBox.innerHTML = '';
+
+  const pool =
+    selectedCard === null
+      ? legalActions
+      : legalActions.filter((a) => a.cardKeys.includes(selectedCard));
+
+  filterLabel.textContent = selectedCard === null ? '' : `— só ações com a carta selecionada (${pool.length})`;
 
   if (legalActions.length === 0) {
     typesBox.textContent = currentView.state.gameOver ? 'Partida encerrada.' : 'Aguardando...';
     return;
   }
+  if (pool.length === 0) {
+    typesBox.textContent = 'Essa carta não habilita nenhuma ação legal agora (ela ainda pode ser usada para Rede/Desenvolver/Vender/Empréstimo/Passar caso tenham entradas próprias).';
+    return;
+  }
 
   const byType = new Map();
-  for (const action of legalActions) {
+  for (const action of pool) {
     if (!byType.has(action.type)) byType.set(action.type, []);
     byType.get(action.type).push(action);
   }
@@ -233,6 +435,7 @@ function renderGameOver() {
   }
 }
 
+renderMapLegend();
 el('newGameBtn').addEventListener('click', newGame);
 el('playAgainBtn').addEventListener('click', () => {
   el('gameOverOverlay').hidden = true;

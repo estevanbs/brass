@@ -22,18 +22,25 @@
     </header>
 
     <main id="app" hidden>
-      <section id="board" class="board"></section>
+      <section class="main-col">
+        <div class="panel map-panel">
+          <h2>Mapa</h2>
+          <div id="mapLegend" class="map-legend"></div>
+          <svg id="map" class="map-svg" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <section id="board" class="board"></section>
+      </section>
 
       <aside class="sidebar">
         <div id="players" class="players"></div>
 
         <div id="handPanel" class="panel">
-          <h2>Sua mão</h2>
+          <h2>Sua mão <span class="hint">(clique numa carta para ver o que ela permite)</span></h2>
           <div id="hand" class="hand"></div>
         </div>
 
         <div id="actionsPanel" class="panel">
-          <h2>Ações</h2>
+          <h2>Ações <span id="cardFilterLabel"></span></h2>
           <div id="actionTypes" class="action-types"></div>
           <div id="actionList" class="action-list"></div>
         </div>
