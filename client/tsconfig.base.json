@@ -18,7 +18,12 @@
       "@brass/domain": ["./libs/domain/src/index.ts"],
       "@brass/application": ["./libs/application/src/index.ts"],
       "@brass/infrastructure": ["./libs/infrastructure/src/index.ts"],
-      "@brass/presentation": ["./libs/presentation/src/index.ts"]
+      "@brass/presentation": ["./libs/presentation/src/index.ts"],
+      "@brass/backend-domain": ["./libs/backend-domain/src/index.ts"],
+      "@brass/backend-application": ["./libs/backend-application/src/index.ts"],
+      "@brass/backend-infrastructure": [
+        "./libs/backend-infrastructure/src/index.ts"
+      ]
     }
   }
 }

@@ -1,38 +1,42 @@
 # Brass: Birmingham — bot pessoal
 
 Motor completo de **Brass: Birmingham** em TypeScript — regras, três bots de força crescente
-(aleatório, heurístico, ISMCTS) e uma CLI de terminal para jogar contra eles — construído do
-zero, sem UI gráfica e sem dependências pesadas. Ver `docs/PLANO.md` para o prompt original,
-`docs/RULES.md` para a especificação de regras que o código implementa, `docs/ASSUMPTIONS.md`
-para toda decisão tomada diante de ambiguidade, e `docs/PROGRESS.md` para o histórico marco a
-marco (incluindo os bugs reais encontrados e corrigidos ao longo do caminho).
+(aleatório, heurístico, ISMCTS), uma CLI de terminal e uma GUI web (Angular + NestJS) para
+jogar contra eles. Todo o projeto — backend e frontend — vive num único **monorepo Nx** em
+`client/` (o nome ficou do tempo em que a pasta só tinha o frontend; hoje ela é o workspace
+inteiro). Ver `docs/PLANO.md` para o prompt original, `docs/RULES.md` para a especificação de
+regras que o código implementa, `docs/ASSUMPTIONS.md` para toda decisão tomada diante de
+ambiguidade, e `docs/PROGRESS.md` para o histórico marco a marco (incluindo os bugs reais
+encontrados e corrigidos ao longo do caminho).
 
 ## Instalação
 
-Requer Node.js 20+.
+Requer Node.js ≥24.15 (exigido pelo Angular/Nx mais recentes — ex. `nvm install 24 && nvm use 24`).
 
 ```sh
+cd client
 npm install
 ```
 
 ## Rodar os testes
 
 ```sh
-npm run verify     # typecheck + lint + testes + cobertura (o que também roda no CI local)
-npm test           # só os testes
-npm run typecheck   # só o typecheck
-npm run lint        # só o lint
+cd client
+npx nx run-many -t lint typecheck test build   # tudo — os 8 projetos do workspace
+npx nx test backend-domain                      # só as regras do motor
+npx nx test backend-infrastructure              # só os bots (é o alvo lento, ver abaixo)
 ```
 
-`npm run verify` leva **2-4 minutos**: três dos testes jogam centenas de partidas completas
-bot-contra-bot para validar taxas de vitória reais (não simuladas) — ver a seção de
-Limitações. Todos os testes são determinísticos (nenhum depende de tempo real ou aleatoriedade
-não semeada); os poucos testes lentos usam orçamentos de simulação fixos, não relógio de
-parede, especificamente para evitar variar com a velocidade da máquina.
+Os testes de `backend-infrastructure` levam **3-4 minutos**: dois deles jogam centenas de
+partidas completas bot-contra-bot para validar taxas de vitória reais (não simuladas) — ver a
+seção de Limitações. Todos os testes são determinísticos (nenhum depende de tempo real ou
+aleatoriedade não semeada); os poucos testes lentos usam orçamentos de simulação fixos, não
+relógio de parede, especificamente para evitar variar com a velocidade da máquina.
 
 ## Como jogar
 
 ```sh
+cd client
 npm run play
 ```
 
@@ -51,62 +55,91 @@ npm run play -- --replay <arquivo>
 
 O formato salvo é só `{ seed, playerIds, actions }` — o motor é determinístico o bastante
 para que reaplicar a mesma sequência de ações a partir da mesma seed sempre chegue exatamente
-no mesmo estado final (ver `tests/unit/cli.test.ts`).
+no mesmo estado final (ver `libs/backend-application/tests/unit/render-and-game-log.test.ts`).
 
 ### GUI web (opcional, mais amigável que a CLI)
 
+Em desenvolvimento, backend e frontend rodam como dois processos separados (dois apps Nx), com
+o Angular fazendo proxy de `/api/*` para o Nest:
+
 ```sh
-npm run web
+cd client
+npx nx serve api    # NestJS em http://localhost:3000/api
+npx nx serve web    # Angular em http://localhost:4200 (proxy.conf.json encaminha /api para :3000)
 ```
 
-Sobe um servidor HTTP local (`src/web/server.ts`, sem framework — só `node:http`) na porta
-3000 (configurável via `PORT=...`); abra `http://localhost:3000` no navegador. É a mesma
-partida da CLI, com a mesma lógica de motor por baixo (o servidor só expõe
-`legalActions`/`applyAction`/os bots por uma API JSON pequena), servindo o build compilado do
-frontend Angular a partir de `public/`. Estilo Hearthstone: o tabuleiro (mapa cujo layout
-reproduz o posicionamento real das localidades no tabuleiro físico do jogo — ver
-`docs/ASSUMPTIONS.md` #16) ocupa a tela inteira como fundo, a mão fica em cartas na frente, e
-selecionar uma carta destaca diretamente no mapa os locais/links jogáveis — clicar neles
-executa a ação (ou abre um popup pequeno quando há mais de uma opção no mesmo lugar). Cada
-jogador tem seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda)
-acessível por um painel lateral. Não salva/carrega partida nem faz replay (só a CLI faz isso,
-por enquanto) — o estado de cada partida fica em memória no processo do servidor e se perde ao
+Abra `http://localhost:4200`. Para rodar como um único processo/origem (mais perto de produção
+— era assim que o antigo servidor `node:http` funcionava):
+
+```sh
+npx nx build web && npx nx build api
+node dist/apps/api/main.js   # serve a API em /api/* e o build do Angular (client/../public) em /
+```
+
+É a mesma partida da CLI, com a mesma lógica de motor por baixo — o backend só expõe
+`legalActions`/`applyAction`/os bots por uma API JSON pequena (`apps/api`, NestJS). Estilo
+Hearthstone: o tabuleiro (mapa cujo layout reproduz o posicionamento real das localidades no
+tabuleiro físico do jogo — ver `docs/ASSUMPTIONS.md` #16) ocupa a tela inteira como fundo, a
+mão fica em cartas na frente, e selecionar uma carta destaca diretamente no mapa os
+locais/links jogáveis — clicar neles abre uma caixa de confirmação mostrando o que a ação vai
+custar (dinheiro, peça, fonte de carvão/ferro/cerveja) antes de executá-la. Cada jogador tem
+seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda) acessível
+por um painel lateral. Não salva/carrega partida nem faz replay (só a CLI faz isso, por
+enquanto) — o estado de cada partida fica em memória no processo do backend e se perde ao
 reiniciá-lo.
-
-O frontend em si vive em `client/`, um **monorepo Nx** separado (Angular mais recente
-compatível, TypeScript, Vitest) com sua própria cadeia de ferramentas — ver a seção
-"Frontend (client/)" abaixo para arquitetura, como rodar os testes, e o requisito de versão do
-Node (diferente do resto do projeto). Para gerar/atualizar o build servido por `public/`:
-
-```sh
-npm run client:build
-```
 
 ## Arquitetura
 
-O código segue quatro camadas com dependência em uma única direção. `src/core` define o
-vocabulário do domínio (`GameState`, `PlayerState`, `Card`, etc.), o RNG semeado
-(`mulberry32`, único gerador de aleatoriedade permitido em código de produção) e as funções
-de setup/serialização/hash do estado. `src/rules` guarda os dados estáticos do jogo —
-tabuleiro (localidades, slots, links), tabela de indústrias e composição do baralho — como
-constantes puras, sem lógica de aplicação. `src/engine` é onde as regras viram código:
-`applyAction` aplica cada uma das 7 ações como uma função pura `(state, action) -> state` que
-nunca muta a entrada e lança erro em qualquer caminho ilegal; `engine/cycle.ts` orquestra o
-ciclo de turno/rodada/era por cima disso; `engine/legal` gera a lista de ações legais.
-`src/bots` e `src/cli` são os dois consumidores do motor — nenhum dos dois conhece as regras
-diretamente, só a API pública do engine.
+Todo o código vive num único **monorepo Nx** em `client/`, com dois apps (`apps/api` —
+NestJS; `apps/web` — Angular) e sete libs em `client/libs/`, cada uma um projeto Nx separado
+com seu próprio `lint`/`typecheck`/`test`/`build`:
 
-O ponto mais delicado do projeto foi a geração de ações legais (`engine/legal/`), por causa
-do fator de ramificação real do jogo: um turno típico oferece de 100 a mais de 600 ações
-legais distintas, contando cada escolha de local, slot, carta e fonte de carvão/ferro/cerveja
-como uma ação separada. Gerar esse espaço combinatório à mão e depois confiar que cada
-candidata é de fato aplicável seria arriscado; em vez disso, cada gerador (`legal/build.ts`,
-`legal/network.ts`, etc.) produz candidatas de forma razoavelmente enxuta — mas o filtro
-final e definitivo é literalmente chamar o código real de cada ação (`applyBuild`,
-`applyNetworkAction`, ...) dentro de um `try/catch`: uma candidata só chega ao chamador depois
-de ter sido genuinamente validada por aplicação, e a deduplicação usa a mesma serialização
-canônica usada para o hash do estado. Isso elimina uma classe inteira de bugs "a lista disse
-que essa ação era legal, mas aplicá-la lançou um erro".
+```sh
+cd client
+npx nx run-many -t lint typecheck test build   # os 8 projetos
+```
+
+**Backend — clean architecture em três camadas, sem nenhuma delas conhecer NestJS:**
+
+- **`libs/backend-domain`** — o motor em si, puro TypeScript sem nenhuma dependência de
+  framework. Define o vocabulário do domínio (`GameState`, `PlayerState`, `Card`, etc.), o RNG
+  semeado (`mulberry32`, único gerador de aleatoriedade permitido em código de produção), as
+  funções de setup/serialização/hash do estado (`core/`), os dados estáticos do jogo —
+  tabuleiro, tabela de indústrias, composição do baralho — como constantes puras (`rules/`), e
+  onde as regras viram código (`engine/`): `applyAction` aplica cada uma das 7 ações como uma
+  função pura `(state, action) -> state` que nunca muta a entrada e lança erro em qualquer
+  caminho ilegal; `engine/cycle.ts` orquestra o ciclo de turno/rodada/era por cima disso;
+  `engine/legal` gera a lista de ações legais.
+- **`libs/backend-infrastructure`** — os três bots (`bots/random.ts`, `bots/heuristic.ts`,
+  `bots/ismcts.ts`) e o harness que os joga uns contra os outros (`bots/harness.ts`), como
+  implementações plugáveis do motor — nenhuma conhece HTTP nem Nest.
+- **`libs/backend-application`** — casos de uso, framework-agnósticos: `GameService` (criar
+  partida, aplicar a ação do humano, deixar os bots jogarem até voltar a vez do humano —
+  extração comportamentalmente idêntica do antigo `src/web/server.ts`), `action-cost.ts`
+  (o que uma ação vai custar, para a caixa de confirmação da GUI), `render.ts` (formatação de
+  texto a partir do `GameState`, compartilhada pela CLI e pela API) e `game-log.ts` (salvar
+  uma partida é só `{ seed, playerIds, actions }`, nunca o estado completo — o replay é
+  literalmente `createInitialState(seed)` seguido de reaplicar cada ação do log, o que dobra
+  como uma prova de determinismo do motor inteiro toda vez que roda). `InMemoryGameRepository`
+  também mora aqui, junto ao *port* `GameRepository` que implementa.
+- **`apps/api`** — só a fiação NestJS: `GamesController` (as mesmas 3 rotas de sempre —
+  `POST /api/games`, `GET|POST /api/games/:id[/actions]`), DTOs com `class-validator`, e um
+  filtro de exceção que traduz os erros de `GameService` para os mesmos status code/mensagem
+  de antes. `GameService` é conectado via `useFactory` no módulo — não é decorado com
+  `@Injectable()`, então continua 100% testável fora do Nest (ver
+  `libs/backend-application/tests/unit/game.service.test.ts`).
+
+O ponto mais delicado do motor continua sendo a geração de ações legais (`engine/legal/`),
+por causa do fator de ramificação real do jogo: um turno típico oferece de 100 a mais de 600
+ações legais distintas, contando cada escolha de local, slot, carta e fonte de
+carvão/ferro/cerveja como uma ação separada. Gerar esse espaço combinatório à mão e depois
+confiar que cada candidata é de fato aplicável seria arriscado; em vez disso, cada gerador
+(`legal/build.ts`, `legal/network.ts`, etc.) produz candidatas de forma razoavelmente enxuta —
+mas o filtro final e definitivo é literalmente chamar o código real de cada ação
+(`applyBuild`, `applyNetworkAction`, ...) dentro de um `try/catch`: uma candidata só chega ao
+chamador depois de ter sido genuinamente validada por aplicação, e a deduplicação usa a mesma
+serialização canônica usada para o hash do estado. Isso elimina uma classe inteira de bugs "a
+lista disse que essa ação era legal, mas aplicá-la lançou um erro".
 
 Os três bots formam uma escada de sofisticação crescente sobre a mesma `legalActions`. O
 aleatório escolhe uniformemente. O heurístico faz uma busca gulosa de 1 ply: simula cada ação
@@ -121,43 +154,21 @@ essa poda o fator de ramificação do jogo torna qualquer orçamento realista de
 estatisticamente cego (ver `docs/ASSUMPTIONS.md` #14 para os detalhes e o bug real que essa
 poda corrigiu).
 
-A CLI (`src/cli`) é deliberadamente fina: `render.ts` só formata texto a partir do
-`GameState`, e `game-log.ts` trata "salvar uma partida" como "salvar a seed + a lista de
-ações tomadas", nunca o estado completo — o replay é literalmente `createInitialState(seed)`
-seguido de reaplicar cada ação do log, o que dobra como uma prova de determinismo do motor
-inteiro toda vez que roda. `src/web` é um terceiro consumidor do mesmo tipo: um servidor HTTP
-minúsculo (`node:http`, sem framework) que mantém partidas em memória e expõe
-`legalActions`/`applyAction`/os bots por uma API JSON pequena (`POST /api/games`,
-`GET|POST /api/games/:id[/actions]`); quem consome essa API é o frontend Angular em `client/`
-(ver seção própria abaixo), cujo build compilado é servido estaticamente a partir de
-`public/`. Nenhuma regra de jogo é duplicada no backend — tanto a CLI quanto a GUI web só
-formatam o mesmo estado e despacham para o mesmo `applyAction`; o frontend por sua vez também
-não reimplementa regra nenhuma, só *exibe* o `GameState` que o servidor manda e envia de volta
-o índice da ação escolhida dentre as `legalActions` que o servidor já calculou.
+A CLI (`client/tools/cli.ts`) é deliberadamente fina — só chama `backend-domain`,
+`backend-infrastructure` e os helpers de `backend-application`, sem regra própria nenhuma.
+Nenhuma regra de jogo é duplicada no backend — tanto a CLI quanto a GUI web só formatam o
+mesmo estado e despacham para o mesmo `applyAction`; o frontend por sua vez também não
+reimplementa regra nenhuma, só *exibe* o `GameState` que a API manda e envia de volta o índice
+da ação escolhida dentre as `legalActions` que a API já calculou.
 
-## Frontend (`client/`)
-
-O frontend é um **monorepo Nx** (Angular mais recente compatível, standalone components,
-signals, change detection zoneless, sem `zone.js`) separado do resto do projeto, com seu
-próprio `package.json`/`node_modules`/toolchain — porque o Angular CLI/Nx mais recentes
-exigem uma versão de Node mais nova que o restante do projeto (`engines.node` na raiz é
-`>=20`; `client/` precisa de **Node ≥24.15**, ex. `nvm install 24 && nvm use 24`). É por isso
-que ele não está sob o mesmo `npm install`/`npm run verify` da raiz.
-
-```sh
-cd client
-npx nx run-many -t lint typecheck test build   # equivalente a `npm run client:verify` na raiz
-```
-
-**Arquitetura em camadas (clean architecture), cada uma um projeto Nx separado sob
-`client/libs/`:**
+**Frontend — clean architecture em quatro camadas, cada uma um projeto Nx sob `client/libs/`:**
 
 - **`domain`** — modelos (`Card`, `GameState`, `GameView`, ...) e funções puras sem nenhuma
   dependência de Angular ou de framework nenhum: `cardKey`/formatação de carta,
-  `incomeLevelForPosition` (mesma fórmula de `src/engine/income.ts`, duplicada só para
-  exibição), o layout do mapa (`computeMapLayout`, posições lidas do tabuleiro físico real —
-  `docs/ASSUMPTIONS.md` #16 — mais um passo de "desamontoamento" de rótulos) e a atribuição de
-  cor por jogador. Testável com Vitest puro, sem `TestBed`.
+  `incomeLevelForPosition` (mesma fórmula de `backend-domain/engine/income.ts`, duplicada só
+  para exibição), o layout do mapa (`computeMapLayout`, posições lidas do tabuleiro físico real
+  — `docs/ASSUMPTIONS.md` #16 — mais um passo de "desamontoamento" de rótulos) e a atribuição
+  de cor por jogador. Testável com Vitest puro, sem `TestBed`.
 - **`application`** — `GameStateService`, o único lugar que guarda estado de seleção/UI (carta
   selecionada, modo Scout, popup aberto) como signals, e o *port* `GameGateway` (uma classe
   abstrata usada como token de injeção) que ele depende — nunca de um cliente HTTP concreto.
@@ -172,9 +183,11 @@ npx nx run-many -t lint typecheck test build   # equivalente a `npm run client:v
   implementado por `HttpGameGateway` (`app.config.ts` faz esse `provide`), e que renderiza o
   componente-raiz de `presentation`. Propositalmente fino — nenhuma lógica de tela mora aqui.
 
-A regra de dependência é de mão única: `domain` não depende de nada; `application` só de
-`domain`; `infrastructure` e `presentation` de `application` e `domain`; `apps/web` de todos —
-nunca o inverso. Essa inversão (via o port `GameGateway`) é o que permite testar
+A regra de dependência é de mão única em cada lado: no backend, `backend-domain` não depende
+de nada, `backend-infrastructure` só de `backend-domain`, `backend-application` dos dois,
+`apps/api` de todos; no frontend, `domain` não depende de nada, `application` só de `domain`,
+`infrastructure` e `presentation` de `application` e `domain`, `apps/web` de todos — nunca o
+inverso. Do lado do frontend, essa inversão (via o port `GameGateway`) é o que permite testar
 `GameStateService` e todos os componentes de `presentation` com um `FakeGameGateway` em vez de
 subir um backend HTTP de verdade nos testes (ver `libs/application/.../game-state.service.spec.ts`
 e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
@@ -211,7 +224,7 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   Como efeito colateral, a correção dos totais de peças mudou de novo o desempenho do ISMCTS
   contra o heurístico (ver bullet seguinte).
 - **O ISMCTS (M7) não atinge a meta formal do marco.** A validação completa (300 partidas
-  ISMCTS × heurístico, orçamento real de 1s/jogada, `scripts/run-ismcts-validation.ts`, ~142
+  ISMCTS × heurístico, orçamento real de 1s/jogada, `client/tools/run-ismcts-validation.ts`, ~142
   minutos) terminou em **182/300 vitórias (60,7%)**, abaixo do alvo de 65%. O ISMCTS joga
   visivelmente melhor que o bot aleatório e vence o heurístico na maioria das partidas, só não
   na margem pedida. Ver `docs/PROGRESS.md` (seção M7) para os caminhos identificados para
@@ -234,7 +247,7 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   regressão real); e a reescrita final da topologia a partir dos dois arquivos de fonte final
   de verdade (bullet anterior) subiu para **75,0% (9/12)**, confirmado por uma amostra
   independente de 30 partidas em 63,3% (19/30). O limiar embutido
-  (`tests/properties/ismcts-vs-heuristic.test.ts`) acompanhou essas idas e voltas — ver o
+  (`client/libs/backend-infrastructure/tests/properties/ismcts-vs-heuristic.test.ts`) acompanhou essas idas e voltas — ver o
   comentário do próprio arquivo de teste para o histórico completo com todos os números e a
   justificativa de cada mudança de limiar. `rootTopK` e o resto da calibração do ISMCTS nunca
   foram re-validados formalmente contra nenhuma dessas revisões de tabuleiro — essa validação
@@ -292,6 +305,6 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
 - **Ao pagar uma renda negativa sem dinheiro suficiente, o motor vende peças automaticamente**
   pela política fixa "mais baratas primeiro" (`docs/ASSUMPTIONS.md` #10) — mesmo no modo
   interativo, um jogador humano não escolhe qual peça sacrificar.
-- **A GUI web (`npm run web`) guarda as partidas só em memória do processo** — sem
+- **A GUI web (`apps/api`) guarda as partidas só em memória do processo** — sem
   save/load/replay em disco (isso continua sendo só da CLI), sem autenticação, e pensada para
   uso local de um único jogador por vez, não para expor na rede.

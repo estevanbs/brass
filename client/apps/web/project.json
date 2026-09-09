@@ -11,7 +11,10 @@
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": { "base": "../public", "browser": "" },
+        "outputPath": {
+          "base": "../public",
+          "browser": ""
+        },
         "browser": "apps/web/src/main.ts",
         "tsConfig": "apps/web/tsconfig.app.json",
         "assets": [
@@ -56,6 +59,10 @@
         "development": {
           "buildTarget": "web:build:development"
         }
+      },
+      "dependsOn": ["api:serve"],
+      "options": {
+        "proxyConfig": "apps/web/proxy.conf.json"
       }
     },
     "test": {

@@ -666,3 +666,67 @@ Checagem visual real contra o servidor reiniciado via Playwright — o mapa rend
 ligações e os novos slots de Cervejaria em localidades comuns sem nenhum erro de console, mesmo
 com quase 40% mais links que a versão anterior. `docs/RULES.md` §11 e `docs/ASSUMPTIONS.md`
 (entrada #24, mais atualização no parágrafo de abertura) documentam a mudança.
+
+## Extra (fora do plano original) — backend reescrito com NestJS, workspace Nx unificado
+
+Pedido direto do usuário: reescrever o backend com NestJS, mantendo a separação em camadas de
+clean architecture, e unificar tudo — backend e frontend — num único workspace Nx, com um app
+para cada lado, sem alterar nenhuma regra do jogo. Antes desta sessão o projeto vivia em duas
+árvores desconectadas: a raiz do repo (TypeScript puro, sem Nx — `src/core`/`src/engine`/
+`src/rules`/`src/bots`/`src/cli`, um servidor `node:http` artesanal em `src/web/server.ts`,
+testes vitest em `tests/`) e `client/` (workspace Nx só com o frontend Angular).
+
+Decisão de layout, confirmada com o usuário antes de mexer em qualquer arquivo: reaproveitar
+`client/` como o workspace único (em vez de mover o frontend inteiro para a raiz), para não
+arriscar nada do trabalho já feito lá (incluindo a caixa de confirmação de ação, sessão
+anterior) e preservar os caminhos `@brass/domain`/`@brass/application`/`@brass/infrastructure`/
+`@brass/presentation` sem tocar.
+
+**Layout novo**: `client/apps/api` (NestJS, novo) + `client/apps/web` (Angular, intocado) +
+três libs novas — `libs/backend-domain` (`src/core`+`src/engine`+`src/rules` movidos
+literalmente, zero mudança de lógica, só ajuste de imports), `libs/backend-infrastructure`
+(os três bots + harness) e `libs/backend-application` (`GameService` — extração
+comportamentalmente idêntica de `createGame`/`advanceBotsUntilHumanOrOver`/`view` de
+`src/web/server.ts`, agora como classe injetável via `useFactory`, não decorada com
+`@Injectable()` para continuar testável sem subir o Nest; `action-cost.ts`, `render.ts`,
+`game-log.ts`; `InMemoryGameRepository`) — mais `client/tools/` para a CLI e os dois scripts de
+validação (`run-ismcts-validation.ts`, `run-random-batch.ts`), que não são apps Nx. A raiz do
+repo perdeu `src/`, `tests/`, `scripts/`, `public/` e os configs próprios (`package.json`,
+`tsconfig.json`, `vitest.config.ts`, `eslint.config.js`).
+
+**Preservação de regras**: a migração de `core`/`engine`/`rules` foi checada arquivo por
+arquivo antes de mover — todo import é relativo e interno a essas três pastas (nenhum
+referencia `bots`/`cli`/`web`), então a cópia foi literal, sem tocar em uma linha de lógica.
+Os testes existentes foram movidos com os mesmos asserts, só os imports trocados de
+`../../src/...` para os novos caminhos — e bateram exatamente com a contagem da baseline capturada
+antes de qualquer mudança (`npm run verify` na raiz, 193 testes, 27 arquivos, 96.41% de
+cobertura em `engine`+`rules`). Depois de migrados: 175 testes em `backend-domain` (193 menos
+os 18 que ainda não tinham sido movidos naquele ponto), depois cada lote seguinte bateu a
+contagem esperada, com as mesmas taxas de vitória exatas dos bots (984/1000 heurístico×aleatório,
+9/12 ISMCTS×heurístico — idênticas à baseline, confirmando que a extração não mudou nada de
+comportamento). Contrato HTTP idêntico ao antigo `src/web/server.ts`: mesmas 3 rotas, mesmo
+formato `{error: string}` nos erros, mesmos status codes (incluindo `@HttpCode(200)` nos POSTs,
+já que o padrão do Nest é 201 e o servidor antigo sempre respondia 200) — verificado com um
+teste de `GamesController` novo (`@nestjs/testing` + `supertest`, 7 testes cobrindo criar
+partida, buscar partida, submeter ação válida/inválida, e os dois casos de partida não
+encontrada) e com checagem manual via `curl` direto contra o servidor buildado.
+
+**Achado de tooling, não de regra**: as três libs novas geradas pelo `@nx/js:library` vieram
+com um target `build` *explícito* (`@nx/js:tsc`, saída em `dist/libs/<nome>`) em vez do target
+*inferido* que `domain`/`application`/etc. já usavam (via o plugin `@nx/js/typescript` do
+`nx.json`, saída em `dist/out-tsc/<nome>`) — os dois mecanismos não compartilham o mesmo
+`.d.ts` de saída, então `apps/api:typecheck` (que depende via project reference composta do
+`.d.ts` de `backend-application`) falhava com `TS6305` mesmo depois de `backend-application:
+typecheck` reportar sucesso. Corrigido igualando o `project.json` das três libs novas ao
+padrão das libs existentes (`"targets": {}`, deixando o plugin inferir tudo) e removendo o
+`package.json` que o gerador tinha criado para elas (as libs do frontend também não têm um).
+`apps/api:build` usa `compiler: 'swc'` em vez do `'tsc'` padrão do gerador Nest, pelo mesmo
+motivo — evita depender de `.d.ts` pré-buildado de outra lib só para empacotar.
+
+Verificação: `npx nx run-many -t lint typecheck test build` limpo nos 8 projetos (backend-domain,
+backend-infrastructure, backend-application, api, domain, application, infrastructure,
+presentation, web). Smoke test real via Playwright contra `nx serve api` + `nx serve web`
+(proxy `/api` de :4200 para :3000): novo jogo, seleção de carta, popup de confirmação de ação
+no mapa, ação de fato submetida pela API — sem erro de console. `nx build web && nx build api`
+seguido de `node dist/apps/api/main.js` também verificado manualmente: serve o SPA em `/` e a
+API em `/api/*` no mesmo processo/porta, exatamente como o antigo `tsx src/web/server.ts`.
