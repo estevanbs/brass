@@ -161,7 +161,7 @@ export function deserializeState(json: string): GameState {
   return JSON.parse(json) as GameState;
 }
 
-function canonicalize(value: unknown): unknown {
+export function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }

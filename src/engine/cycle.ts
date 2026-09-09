@@ -120,17 +120,42 @@ export function advanceAfterAction(state: GameState): GameState {
   if (state.gameOver) return state;
 
   const allowed = actionsAllowedThisTurn(state);
-  if (state.actionsTakenThisTurn < allowed) {
-    return state;
-  }
-
   const currentPlayer = state.turnOrder[state.activePlayerIndex];
   if (currentPlayer === undefined) throw new Error('unreachable');
+
+  if (state.actionsTakenThisTurn < allowed) {
+    // A turn with actions left can still be stuck if the hand ran out mid-turn (every action
+    // needs a card to discard) — in that case, treat the remaining actions as forfeited.
+    if (getPlayerOrThrow(state, currentPlayer).hand.length > 0) {
+      return state;
+    }
+    return advanceAfterAction({ ...state, actionsTakenThisTurn: allowed });
+  }
+
   const working = refillHand(state, currentPlayer);
 
   const nextIndex = state.activePlayerIndex + 1;
   if (nextIndex < state.turnOrder.length) {
-    return { ...working, activePlayerIndex: nextIndex, actionsTakenThisTurn: 0 };
+    return skipEmptyHandTurns({ ...working, activePlayerIndex: nextIndex, actionsTakenThisTurn: 0 });
   }
-  return endOfRound(working);
+  return skipEmptyHandTurns(endOfRound(working));
+}
+
+/**
+ * Every action requires discarding at least 1 card, so a player whose hand is empty (which
+ * can happen a little before the draw deck and every hand empty simultaneously — our card
+ * counts are an original approximation, docs/ASSUMPTIONS.md #6, #12) cannot act at all.
+ * Their turn is skipped with no effect, as if they had silently taken their full allotment of
+ * actions, until either they have cards again (next era) or the era itself ends.
+ */
+export function skipEmptyHandTurns(state: GameState): GameState {
+  let working = state;
+  while (!working.gameOver) {
+    const activeId = working.turnOrder[working.activePlayerIndex];
+    if (activeId === undefined) return working;
+    const player = getPlayerOrThrow(working, activeId);
+    if (player.hand.length > 0) return working;
+    working = advanceAfterAction({ ...working, actionsTakenThisTurn: actionsAllowedThisTurn(working) });
+  }
+  return working;
 }

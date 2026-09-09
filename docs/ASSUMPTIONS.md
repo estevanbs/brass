@@ -122,3 +122,44 @@ criação própria, não uma transcrição do produto da Roxley.
     **Confiança**: média. **Impacto se errado**: um jogador humano perderia a escolha de
     *qual* peça sacrificar durante o jogo interativo — não afeta a corretude do motor nem os
     bots, que precisam de uma regra fixa de qualquer forma.
+
+11. **Regra** (M4): o que conta como "escolhas equivalentes que devem colapsar numa única
+    ação" versus escolhas genuinamente distintas, ao gerar `legalActions`.
+    **Decisão**: colapso apenas quando as opções são estritamente intercambiáveis:
+    - Cartas duplicadas (2+ cópias idênticas na mão) colapsam em 1 (`engine/cards.ts`).
+    - Empates de distância na mina de carvão mais próxima colapsam em 1 representante
+      canônico (menor `locationId`/`slotIndex`) — a regra já exige "a mais próxima", então
+      empates são simetria pura, não uma decisão estratégica real.
+    Mantive como escolhas **distintas** (não colapsadas), mesmo custando mais ramificações:
+    qual siderúrgica usar (afeta a renda de quem quer que a possua), qual cervejaria usar,
+    e qual combinação de cartas descartar no Scout (afeta o descarte público visível).
+    Para o caso combinatoriamente mais perigoso — a ação de Rede dupla (2 trilhos + cerveja +
+    2 carvões) — restrinjo os pares candidatos a links alcançáveis a partir da rede atual do
+    jogador (em vez de todos os pares entre as ~43 linhas do tabuleiro), o que sub-representa
+    ligeiramente o espaço real (perde o caso raro em que o segundo link só fica alcançável
+    *depois* do primeiro ser colocado). Do mesmo modo, a ação de Vender com mais de 4 peças
+    vendáveis simultâneas usa apenas subconjuntos de 1 peça e "vender tudo" (não o conjunto de
+    partes completo), e com mais de 2 peças no mesmo Sell usa uma única fonte de cerveja
+    representativa por peça em vez do produto cartesiano completo de fontes.
+    **Confiança**: média. **Impacto se errado**: em posições de tabuleiro muito desenvolvidas
+    e raras, `legalActions` pode omitir uma ação legal de Rede-dupla ou uma combinação
+    específica de venda — não gera nenhuma ação ilegal (toda ação retornada é sempre
+    verificada de fato aplicando-a com o código real da ação antes de ser devolvida). Fica
+    registrado como possível refinamento futuro se os bots (M6/M7) mostrarem lacunas
+    perceptíveis de desempenho por causa disso.
+
+12. **Regra** (M4): o que acontece quando é a vez de um jogador, mas a mão dele já está vazia
+    (toda ação exige descartar ao menos 1 carta) — o texto oficial só diz "sua mão vai
+    diminuir a cada rodada até você não ter mais cartas", sem detalhar o turno em que isso
+    acontece no meio da era.
+    **Decisão**: `engine/cycle.ts` detecta essa situação e pula o turno inteiro do jogador
+    (ou as ações restantes, se a mão esvaziar no meio do turno) sem nenhum efeito, em vez de
+    travar por falta de ação legal. Isso expôs — e corrigiu — uma consequência prática da
+    decisão #6 (minha composição própria do baralho): diferente do jogo real, cujas
+    quantidades de carta são calibradas para todos os jogadores esgotarem a mão exatamente na
+    mesma rodada final, minha composição às vezes deixa um jogador sem cartas um pouco antes
+    dos outros.
+    **Confiança**: alta para a correção em si (skip é o único jeito sensato de continuar o
+    jogo); média para a composição do baralho que causa a assimetria.
+    **Impacto se errado**: nenhum jogador trava mais o motor; o único efeito é que, em raras
+    partidas, um jogador pode ficar 1-2 turnos "de fora" perto do fim de uma era.

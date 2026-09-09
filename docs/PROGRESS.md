@@ -95,7 +95,35 @@
   para o M4, quando `legalActions` existir para gerá-las.
 - `npm run verify` passa: cobertura 92.36% em `src/rules` + `src/engine` (limite: 90%).
 
-**Próximo passo concreto:** M4 — geração de ações legais: `legalActions(state) -> Action[]`
-canônica e desduplicada (o ponto mais delicado do projeto, por causa da combinatória de
-fontes de carvão/ferro/cerveja). Depois disso, expandir o teste de propriedade do M3 para
-cobrir qualquer ação legal, não só Pass/Loan.
+## M4 — Geração de ações legais — CONCLUÍDO
+
+- `src/engine/cards.ts`: cópias idênticas de carta colapsam em uma só (`distinctCards`).
+- `src/engine/legal/{build,network,develop,sell,misc}.ts`: geradores de candidatos por tipo
+  de ação — específicos o bastante para não explodir (aplicam a prioridade de slot de ícone
+  único, colapsam empates de distância de carvão, restringem a Rede-dupla a links alcançáveis
+  da rede atual, limitam subconjuntos/fontes de cerveja de Vender acima de um teto) — ver
+  `docs/ASSUMPTIONS.md` #11.
+- `src/engine/legal/index.ts`: agrega os candidatos e os filtra chamando de fato o código real
+  de cada ação (`applyBuild`, `applyNetworkAction`, etc.) — nenhuma ação chega ao chamador sem
+  ter sido literalmente validada por aplicação, e a deduplicação final usa a mesma
+  canonicalização de `core/state.ts`.
+- **Bug real encontrado e corrigido durante este marco**: uma partida aleatória completa
+  travava com "nenhuma ação legal" quando a mão de um jogador esvaziava antes da dos outros
+  (consequência da minha própria composição de baralho, `ASSUMPTIONS.md` #6, não calibrada
+  como a do jogo real para esvaziar todas as mãos na mesma rodada). Corrigido em
+  `engine/cycle.ts` (`skipEmptyHandTurns`): um jogador sem cartas pula o turno (ou as ações
+  restantes) sem efeito, em vez de travar o motor — `ASSUMPTIONS.md` #12.
+- Testes: sem duplicatas, toda ação devolvida é de fato aplicável, ações legais construídas à
+  mão aparecem na lista gerada (Build e Sell), e um benchmark que joga partidas aleatórias
+  completas de 2/3/4 jogadores até o fim, registrando tamanho médio/máximo da lista:
+  - 2p: 58 turnos, tamanho médio 211, máximo 620.
+  - 3p: 105 turnos, tamanho médio 205, máximo 603.
+  - 4p: 152 turnos, tamanho médio 185, máximo 568 (observado em exploração manual: até ~8300
+    num tabuleiro tardio muito desenvolvido, com uma chamada de até ~690ms — ponto de atenção
+    para o orçamento de tempo do ISMCTS no M7, não um bloqueio agora).
+- `npm run verify` passa: 167 testes, cobertura 93.98% em `src/rules` + `src/engine`.
+
+**Próximo passo concreto:** M5 — bot aleatório e harness: bot que escolhe uniformemente
+entre `legalActions`, harness rodando N partidas em lote com semente, validando 10.000
+partidas sem exceção/estado inválido/loop infinito, e registrando distribuição de pontuação e
+duração média.

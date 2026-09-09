@@ -14,7 +14,7 @@ describe('advanceAfterAction', () => {
       actionsTakenThisTurn: 2,
       players: {
         p1: makePlayer('p1', { hand: [{ kind: 'wildLocation' }] }),
-        p2: makePlayer('p2'),
+        p2: makePlayer('p2', { hand: [{ kind: 'wildLocation' }] }),
       },
       drawDeck: [
         { kind: 'wildLocation' },
@@ -122,5 +122,36 @@ describe('advanceAfterAction', () => {
   it('is a no-op once the game is already over', () => {
     const state = makeState({ gameOver: true, actionsTakenThisTurn: 2 });
     expect(advanceAfterAction(state)).toEqual(state);
+  });
+
+  it('skips a player whose hand is empty (nothing left to discard) without acting', () => {
+    const state = makeState({
+      activePlayerIndex: 0,
+      actionsTakenThisTurn: 2,
+      turnOrder: ['p1', 'p2'],
+      players: {
+        p1: makePlayer('p1', { hand: [{ kind: 'wildLocation' }] }),
+        p2: makePlayer('p2', { hand: [] }),
+      },
+    });
+    const result = advanceAfterAction(state);
+    // p2 (now active) has no cards: their turn is skipped entirely, landing back on p1.
+    expect(result.activePlayerIndex).toBe(0);
+    expect(result.round).toBe(3);
+  });
+
+  it('forfeits remaining actions this turn if the hand empties mid-turn', () => {
+    const state = makeState({
+      activePlayerIndex: 0,
+      actionsTakenThisTurn: 1,
+      turnOrder: ['p1', 'p2'],
+      players: {
+        p1: makePlayer('p1', { hand: [] }),
+        p2: makePlayer('p2', { hand: [{ kind: 'wildLocation' }] }),
+      },
+    });
+    const result = advanceAfterAction(state);
+    expect(result.activePlayerIndex).toBe(1);
+    expect(result.actionsTakenThisTurn).toBe(0);
   });
 });
