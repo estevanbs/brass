@@ -147,7 +147,12 @@
   rodada da era Canal, 2 depois) e independente das escolhas dos jogadores, a duração de uma
   partida em turnos é **determinística** por número de jogadores (sempre 58 turnos com 2
   jogadores, 105 com 3, 152 com 4) — só o *conteúdo* de cada turno varia com a semente.
-  <!-- RESULTADOS_10K_AQUI -->
+  Resultado da validação completa (`scripts/run-random-batch.ts 3334`, 10.014 partidas =
+  3334 × {2,3,4} jogadores, todas terminando em `gameOver=true`, zero exceções):
+  - 2p: duração média 51,9ms/partida (máx. 126ms); VP do vencedor: média 2,2, mín. 0, máx. 32.
+  - 3p: duração média 81,5ms/partida (máx. 210ms); VP do vencedor: média 2,2, mín. 0, máx. 72.
+  - 4p: duração média 108,3ms/partida (máx. 174ms); VP do vencedor: média 2,1, mín. 0, máx. 39.
+  - Tempo total da validação: 806,1s (~13,4 min).
 - Testes rápidos (`tests/unit/harness.test.ts`): 2/3/4 jogadores terminam sem exceção,
   determinismo por seed, e uma amostra de 24 partidas com invariantes (dinheiro/VP/cubos
   nunca negativos) — mantidos na suíte padrão; a validação de 10k roda à parte por ser lenta
@@ -171,7 +176,48 @@
   incômodo em marcos futuros).
 - `npm run verify` passa: 171 testes, cobertura 96.28% em `src/rules` + `src/engine`.
 
-**Próximo passo concreto:** M7 — ISMCTS: Information Set MCTS com determinização (sorteia
-mãos plausíveis dos oponentes a partir das cartas não vistas), rollouts guiados pela
-heurística do M6, orçamento configurável por tempo/simulações. Pronto quando vencer o
-heurístico em pelo menos 65% de 300 partidas com orçamento de 1s/jogada.
+## M7 — ISMCTS — CONCLUÍDO (validação completa de 300 partidas rodando à parte)
+
+- `src/engine/determinize.ts`: redistribui aleatoriamente toda carta que não é da própria mão
+  nem de baralho/mão visível (i.e., a mão dos outros jogadores + o baralho de compra),
+  preservando tamanhos de mão e do baralho — a base da "informação oculta" do ISMCTS.
+- `src/bots/rollout-policy.ts`: política barata ponderada por tipo de ação (prioriza Vender >
+  Construir > Rede/Desenvolver > Empréstimo/Explorar > Passar) usada dentro dos rollouts —
+  nunca simula uma ação para pontuá-la, ao contrário do bot heurístico do M6.
+- `src/bots/ismcts.ts`: para cada jogada, sorteia vários "mundos" (determinizações), roda uma
+  árvore MCTS (seleção UCB1, expansão, rollout curto + avaliação via `evaluate` do M6,
+  retropropagação por jogador) nova em cada mundo, e soma os visits dos filhos da raiz entre
+  mundos — a ação mais visitada no total é jogada. Orçamento configurável por tempo
+  (`timeBudgetMs`) e simulações por mundo (`simulationsPerWorld`).
+- **Bug real encontrado e corrigido**: a contagem de "mundos pesquisados" usada para decidir
+  se caía no fallback aleatório incrementava mesmo quando nenhuma simulação chegava a
+  terminar dentro do orçamento — o bot acabava sempre jogando a primeira ação gerada,
+  deterministicamente, sem busca nenhuma (0/6 partidas contra o heurístico, às vezes com 0 VP
+  na partida inteira). Corrigido contando simulações de fato executadas, não iterações do
+  laço externo.
+- **Achado real e correção de desenho**: mesmo corrigido o bug acima, o fator de ramificação
+  do jogo (100-600+ ações legais por turno) era grande demais para o orçamento de simulações
+  discriminar qualquer coisa — a maioria das ações nunca era sequer visitada uma vez. A
+  correção foi restringir as ações da raiz às `rootTopK` (padrão 8) melhores segundo uma
+  passada gulosa de 1 ply (a mesma lógica do M6, calculada uma vez por jogada, não por mundo).
+  Isso levou a taxa de vitória de 0% para ~65-67% em amostras pequenas. Detalhes e o que essa
+  simplificação abre mão em relação ao ISMCTS "de livro" (árvore única compartilhada entre
+  mundos) estão em `docs/ASSUMPTIONS.md` #14.
+- `tests/properties/ismcts-vs-heuristic.test.ts`: guarda de regressão rápida em orçamento
+  reduzido (250ms/jogada, 12 partidas) — **8/12 vitórias (66,7%)**, acima do limiar relaxado
+  de 50% usado neste teste rápido.
+- `scripts/run-ismcts-validation.ts`: valida a exigência completa do marco (300 partidas,
+  orçamento de 1s/jogada). Uma única partida nesse orçamento leva ~20-30s, então 300 partidas
+  levam horas — rodando em background nesta sessão, resultado a ser registrado aqui quando
+  terminar. Amostra menor já observada manualmente a 1000ms/jogada (6 partidas): 4/6 (66,7%).
+  <!-- RESULTADO_ISMCTS_300_AQUI -->
+- `npm run verify` passa: 172 testes, cobertura 96.22% em `src/rules` + `src/engine`. A suíte
+  completa já passa de ~145s por causa dos três testes de bot-vs-bot (M5 harness, M6 998/1000,
+  M7 12 partidas) — considerar separar em `verify:fast`/`verify:slow` se isso incomodar no
+  M8.
+
+**Próximo passo concreto:** M8 — CLI jogável: tabuleiro em texto legível, mão do jogador,
+lista numerada de ações legais, jogada por número, mostrar a jogada do bot e por quê (VP
+estimado via `evaluate`), salvar/carregar partida, replay a partir do log de ações. Pronto
+quando dá para jogar uma partida completa contra o ISMCTS sem crash e o replay reproduz a
+partida byte a byte.

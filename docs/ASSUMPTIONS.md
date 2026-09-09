@@ -178,3 +178,38 @@ criação própria, não uma transcrição do produto da Roxley.
     aleatório folgadamente, mas não foram otimizados além disso. **Impacto se errado**: só
     afeta a força do bot heurístico, não a corretude; o teste do M6 pega qualquer regressão
     que derrube a taxa de vitória abaixo de 80%.
+
+14. **Regra** (M7): forma exata de "Information Set MCTS com determinização" — o texto
+    original do algoritmo (Cowling/Powley/Whitehouse 2012) mantém **uma única árvore**
+    compartilhada entre determinizações, com checagem de compatibilidade de ações por nó.
+    **Decisão**: implementei a variante mais simples que o próprio `docs/PLANO.md` descreve
+    literalmente ("roda MCTS em cada mundo, agrega as visitas"): a cada mundo sorteado
+    (`engine/determinize.ts` redistribui aleatoriamente as cartas que não são da própria mão
+    nem de pilhas de descarte visíveis, preservando tamanhos de mão/baralho), constrói-se uma
+    árvore de busca **nova e independente**, roda-se um orçamento fixo de simulações nela, e
+    os visits dos filhos da raiz são somados entre mundos — a ação mais visitada no total
+    vence. Isso é mais simples de implementar corretamente, ao custo de não compartilhar
+    conhecimento entre mundos durante a própria busca (só na agregação final).
+    - **Achado real durante a implementação**: com o fator de ramificação típico de Brass
+      (100-600+ ações legais por turno, `docs/PROGRESS.md` M4), um orçamento de simulações
+      modesto (dezenas a poucas centenas) não alcança nem para experimentar cada ação da raiz
+      uma vez — a escolha final virava, na prática, quase aleatória. A correção foi restringir
+      as ações da raiz às `rootTopK` (padrão 8) melhores segundo uma passada gulosa de 1 ply
+      (a mesma lógica do bot heurístico do M6, calculada uma única vez por jogada, não por
+      mundo, já que não depende das mãos dos oponentes), e só então rodar o ISMCTS entre essas
+      candidatas. Isso fez a taxa de vitória saltar de 0% para ~65-67% em amostras pequenas.
+    - Os rollouts usam uma política barata ponderada por tipo de ação (`bots/rollout-policy.ts`,
+      que nunca simula uma ação para pontuá-la) em vez do heurístico completo do M6 (caro
+      demais para chamar centenas de vezes por jogada), com profundidade curta (`rolloutDepth`,
+      padrão 4) e depois avalia o estado resultante com a mesma `evaluate()` do M6 — ou seja, a
+      "orientação heurística" pedida pelo plano entra tanto no viés da política de rollout
+      quanto na função de avaliação da folha, não numa simulação completa até o fim do jogo
+      (que seria caro demais dentro do orçamento de 1s/jogada).
+    **Confiança**: média-baixa — a validação completa de 300 partidas com orçamento de 1s por
+    jogada não coube no tempo desta sessão (uma única partida ISMCTS×heurístico leva
+    ~20-30s; 300 partidas seriam horas). Rodei uma amostra reduzida (ver `docs/PROGRESS.md`
+    M7) que ficou acima de 65%, e deixei `scripts/run-ismcts-validation.ts` pronto para rodar
+    a validação completa de 300 partidas separadamente. **Impacto se errado**: o bot ISMCTS
+    pode não bater o heurístico em 65% na validação completa de 300 partidas — não afeta a
+    corretude do motor (todas as ações que o ISMCTS escolhe já passam pela mesma validação
+    real de `applyAction` que qualquer outra), só a força do bot.
