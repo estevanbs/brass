@@ -62,9 +62,9 @@ export function applyBuild(state: GameState, action: BuildAction): GameState {
     throw new Error(`${action.player} has no ${action.industry} tiles left`);
   }
   const tileDef = getIndustryTile(action.industry, level);
-  if (tileDef.locked) {
+  if (tileDef.eraRestricted && state.era === 'rail') {
     throw new Error(
-      `${action.industry} level ${level} is locked and must be removed via Develop, not built`,
+      `${action.industry} level ${level} can only be built in the canal era and must now be removed via Develop`,
     );
   }
 
@@ -77,9 +77,12 @@ export function applyBuild(state: GameState, action: BuildAction): GameState {
   }
 
   const targetOccupied = slot.tile !== null;
-  const occupiedCount = location.slots.filter((s) => s.tile !== null).length;
-  if (state.era === 'canal' && !targetOccupied && occupiedCount >= 1) {
-    throw new Error(`${action.locationId} already has an industry tile this era (canal era limit)`);
+  // Canal era: at most 1 tile per location *per player* — other players may already occupy a
+  // different slot at the same location (docs/RULES.md §4.1: "pode ter uma indústria no mesmo
+  // local que outros jogadores").
+  const ownOccupiedCount = location.slots.filter((s) => s.tile?.owner === action.player).length;
+  if (state.era === 'canal' && !targetOccupied && ownOccupiedCount >= 1) {
+    throw new Error(`${action.player} already has an industry tile at ${action.locationId} this era (canal era limit)`);
   }
 
   if (!targetOccupied) {

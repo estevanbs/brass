@@ -479,3 +479,58 @@ interface frontend lembre isso no possicionamento das informações."
   nenhum cluster, incluindo o novo grupo norte Stoke/Leek/Belper/Derby/Uttoxeter/Stafford/
   Burton-on-Trent), painel do tabuleiro pessoal, e o roteiro funcional completo sem erros de
   console.
+
+## Extra (fora do plano original) — auditoria de regras contra o manual oficial
+
+Pedido direto do usuário, depois de adicionar `docs/HANDBOOK_RULES.md` (cópia fiel do manual
+oficial, reescrita por ele) ao repositório: "Verifique se o jogo implementado aqui segue essas
+regras. Se não seguir, faça as adaptações. Atualize o ASSUMPTIONS quando finalizar."
+
+Comparando seção a seção contra `RULES.md`, encontrei e corrigi **quatro divergências reais**
+(não só lacunas de dado sem fonte — comportamento genuinamente errado):
+
+1. **Limite de "1 peça por local" na era Canal era global, devia ser por jogador.**
+   `applyBuild` contava peças de qualquer dono; o manual diz explicitamente que jogadores
+   diferentes podem ocupar o mesmo local. Corrigido em `src/engine/actions/build.ts` para
+   contar só peças do próprio jogador.
+2. **A peça "bloqueada" de Cerâmica nível 1 tinha a trava na ação errada.** O motor impedia
+   Build (só permitia sair via Develop); o manual diz o oposto — não pode ser Developed, só
+   sai efetivamente construindo-a. Corrigido: removida a trava de `build.ts`, adicionada em
+   `develop.ts` (o bônus grátis de Develop do mercador Gloucester, em `sell.ts`, já estava
+   certo).
+3. **Restrição de era por peça (nível 1 de toda indústria exceto Cerâmica) não existia no
+   motor.** Novo campo `IndustryTileDef.eraRestricted`: peças de nível 1 (exceto Cerâmica, que
+   tem o mecanismo #2 em vez disso) ficam impossíveis de construir uma vez que a era Ferrovia
+   começa, só saindo via Develop a partir daí.
+4. **Contagem de peças de indústria por jogador estava com um total errado.** O motor usava um
+   padrão uniforme inventado (8 por indústria, 48 no total); o manual dá os totais reais por
+   indústria na lista de componentes — 45 no total, bem desigual entre indústrias (Ferro só 4,
+   Tecelagem/Manufatura 11 cada). Corrigido `initialIndustryStock`; a distribuição exata por
+   nível dentro de cada indústria continua sendo design próprio, já que o manual só dá o
+   total por indústria.
+
+Também implementei um mecanismo inteiro que faltava, não coberto por nenhuma das divergências
+acima porque o motor simplesmente não tinha nada equivalente:
+
+5. **"Estandartes de Local"**: a cor do estandarte de cada localidade no tabuleiro físico
+   determina se a carta daquela localidade entra no baralho de compra em partidas menores.
+   Reexaminei os recortes de alta resolução da foto do tabuleiro (já usados na reconstrução
+   do tabuleiro) especificamente pela cor do estandarte: azul em 6 localidades (Stoke-on-
+   Trent, Stone, Leek, Uttoxeter, Kidderminster, Worcester, exigindo 3+ jogadores) e
+   verde-azulado em 2 (Belper, Derby, exigindo 4). Novo campo `IndustrialLocationDef.
+   deckMinPlayers`; `buildDrawDeck` agora pula a carta de uma localidade cujo limiar não é
+   atingido (a localidade continua sempre construível, só a carta some do baralho).
+
+**Consequência real e honestamente medida**: a correção #4 (contagem de peças) empurrou o
+desempenho do ISMCTS ainda mais para baixo — a mesma amostra fixa de 12 partidas caiu de
+41,7% para 33,3%, ainda acima do piso de 30% do teste de regressão (ajustado na sessão
+anterior), mas com margem menor. Consistente com o padrão desta sessão inteira: correções de
+regra legítimas podem mudar o equilíbrio do jogo, e isso é reportado, não escondido.
+
+Todas as correções vieram com testes atualizados ou novos (nunca só a implementação):
+`tests/unit/actions/build.test.ts`, `develop.test.ts`, `industry-data.test.ts`,
+`deck-data.test.ts`, `board-data.test.ts`, `state.test.ts`. `npm run typecheck && npm run lint
+&& npx vitest run` passa limpo (185 testes). `docs/ASSUMPTIONS.md` (entradas #17-#21) e
+`docs/RULES.md` (§4.1, §4.3, §5.4, §10) atualizados para refletir cada correção, com grau de
+confiança explícito por item (a distinção de cor azul/verde-azulado do estandarte tem
+confiança média, lida de foto; todo o resto tem confiança alta, texto literal do manual).

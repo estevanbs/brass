@@ -109,6 +109,18 @@ describe('board-data', () => {
     expect(byId.get('oxford')?.minPlayers).toBe(2);
   });
 
+  it('industrial locations have the deck-card min-player thresholds read from the board\'s banner colors', () => {
+    const byId = new Map(INDUSTRIAL_LOCATIONS.map((l) => [l.id, l]));
+    for (const id of ['stoke_on_trent', 'stone', 'leek', 'uttoxeter', 'kidderminster', 'worcester']) {
+      expect(byId.get(id)?.deckMinPlayers).toBe(3);
+    }
+    for (const id of ['belper', 'derby']) {
+      expect(byId.get(id)?.deckMinPlayers).toBe(4);
+    }
+    const unrestrictedIds = [...byId.values()].filter((l) => l.deckMinPlayers === 2);
+    expect(unrestrictedIds).toHaveLength(INDUSTRIAL_LOCATIONS.length - 8);
+  });
+
   it('every link slot has an era of canal, rail, or both', () => {
     for (const link of LINK_SLOTS) {
       expect(['canal', 'rail', 'both']).toContain(link.era);

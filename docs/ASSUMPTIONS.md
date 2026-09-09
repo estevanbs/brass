@@ -28,6 +28,17 @@ alguma indústria). Isso mantém o motor jogável, testável e balanceado, mas o
 numéricos específicos de `board-data.ts` / `industry-data.ts` / `deck-data.ts` são uma
 criação própria, não uma transcrição do produto da Roxley.
 
+**Atualização**: em sessão posterior, o usuário forneceu duas fontes reais que substituem boa
+parte do parágrafo acima — uma foto de alta resolução do tabuleiro físico (entradas #1, #5,
+#15, #16, #21) e `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
+integralmente (entradas #17-#21). Com o manual em mãos, foi possível **auditar** o motor
+contra ele e corrigir divergências reais encontradas (não só preencher lacunas) — ver as
+entradas #17-#20 para os casos onde o comportamento anterior estava genuinamente errado, não
+apenas "inventado sem fonte". O que ainda continua sendo composição própria, mesmo com essas
+duas fontes: o tipo exato de indústria aceito por cada slot individual do tabuleiro (ícones
+pequenos demais numa foto de celular) e a distribuição exata de cópias por nível dentro de
+cada indústria (o manual dá só o total por indústria, não o detalhamento por nível).
+
 ## Entradas
 
 1. **Regra**: Topologia exata do tabuleiro (quais localidades reais se conectam a quais).
@@ -276,3 +287,108 @@ criação própria, não uma transcrição do produto da Roxley.
     estético — o mapa ainda é internamente consistente (toda localidade aparece, todo link
     conecta os pontos certos), só a posição relativa de algum ponto específico pode não
     bater exatamente com o tabuleiro físico.
+
+17. **Regra**: Limite de "no máximo 1 peça de indústria por local" na era Canal — é um teto
+    por jogador ou um teto global do local?
+    **Decisão original (bug, não uma ambiguidade de regra)**: `applyBuild` contava peças de
+    *qualquer* dono no local para aplicar o limite, bloqueando um jogador de construir num
+    local onde só um oponente já tinha peça.
+    **Correção**: o usuário forneceu `docs/HANDBOOK_RULES.md`, cópia fiel do manual oficial,
+    que diz explicitamente (§6): "Você pode ter no máximo 1 Indústria por local, mas pode ter
+    uma Indústria no mesmo local que outros jogadores." O limite é por jogador.
+    `src/engine/actions/build.ts` corrigido para contar só peças do jogador que está agindo.
+    **Confiança**: alta (texto literal do manual). **Impacto do bug original**: o motor era
+    artificialmente mais restritivo que o jogo real — um jogador podia ficar impedido de
+    construir num local só porque um oponente já tinha uma peça lá, algo que o jogo real
+    permite. Não quebrava nenhuma invariante (jogos ainda terminavam normalmente), só tornava
+    certas jogadas legais no jogo real ilegais no motor.
+
+18. **Regra**: A peça de Cerâmica nível 1 ("bloqueada", com ícone de lâmpada no jogo físico)
+    — bloqueada de qual ação, Build ou Develop?
+    **Decisão original (M2, sem fonte confiável)**: bloqueada de Build (não podia ser
+    construída; só removível via Develop) — a leitura mais intuitiva sem uma fonte para
+    conferir, mas **invertida** em relação à regra real.
+    **Correção**: `docs/HANDBOOK_RULES.md` §10 diz o oposto, explicitamente: "Peças de Olaria
+    que mostram o ícone de lâmpada **não podem ser desenvolvidas**. Elas só podem ser
+    removidas do seu tabuleiro de jogador com o uso da ação de **Construir**." Ou seja: a
+    peça É construível (mesmo sendo de baixo valor) — Develop é que não pode tocá-la.
+    `src/engine/actions/build.ts` parou de bloquear a construção; `src/engine/actions/
+    develop.ts` ganhou o bloqueio que faltava (o bônus grátis de Develop do mercador
+    Gloucester, em `sell.ts`, já tinha esse bloqueio corretamente há mais tempo — só o
+    Develop pago é que estava sem ele).
+    **Confiança**: alta (texto literal do manual). **Impacto do bug original**: o motor
+    proibia exatamente a jogada que o jogo real exige (construir a peça de Cerâmica nível 1
+    para desbloquear as peças melhores por baixo dela) e permitia exatamente a jogada que o
+    jogo real proíbe (removê-la de graça via Develop). Como a peça tem baixo valor e os bots
+    provavelmente evitam Cerâmica de qualquer forma, isso não chegou a quebrar nenhum teste
+    de propriedade — mas é uma regra de jogo genuinamente errada, agora corrigida.
+
+19. **Regra**: "Indústrias marcadas com o ícone da era seguinte não podem ser construídas"
+    (Canal) / "marcadas com o ícone de canal não podem ser construídas [na era Ferrovia]"
+    (`docs/HANDBOOK_RULES.md` §6) — um mecanismo inteiro que o motor não implementava.
+    **Decisão**: `docs/HANDBOOK_RULES.md` §13 esclarece que essa restrição de era é
+    especificamente sobre a peça de **nível 1** de cada indústria ("Diferentemente das outras
+    Indústrias de nível 1, a Olaria de nível 1 pode ser construída durante a Era das
+    Ferrovias" — implicando que as outras 5 indústrias, sim, ficam restritas). Implementado
+    como `IndustryTileDef.eraRestricted: boolean`, `true` para o nível 1 de Carvão, Ferro,
+    Tecelagem, Manufatura e Cervejaria (não Cerâmica, que tem o mecanismo separado da entrada
+    #18). `src/engine/actions/build.ts` recusa construir uma peça era-restrita na era
+    Ferrovia; ela só sai do tabuleiro pessoal via Develop a partir daí.
+    **Confiança**: alta para "o mecanismo existe e afeta nível 1" (texto do manual); o manual
+    não especifica se *algum* nível 2 de *alguma* indústria também teria essa restrição — não
+    encontrei indicação disso em lugar nenhum do texto, então assumi que é exclusivamente
+    nível 1. **Impacto se errado**: se algum nível 2+ também fosse era-restrito no jogo real,
+    o motor permitiria construir uma peça que deveria estar bloqueada na era Ferrovia — não
+    quebra nenhuma invariante, só uma diferença de fidelidade num caso não confirmado.
+
+20. **Regra**: Quantas cópias de cada peça de indústria cada jogador possui, por nível.
+    **Decisão original (M2)**: 8 peças por indústria (3/2/2/1 por nível 1-4), exceto Cerâmica
+    com 7 (1/2/2/2) — **48 peças no total por jogador**, um padrão uniforme inventado sem
+    fonte.
+    **Correção**: `docs/HANDBOOK_RULES.md` (lista de componentes) dá o total real por
+    indústria: "180 Indústrias (45 por cor): 11 Manufaturas, 11 Fábricas de Algodão, 7
+    Cervejarias, 5 Olarias, 4 Siderúrgicas, 7 Minas de Carvão" — **45 peças por jogador**,
+    numa distribuição bem diferente do padrão uniforme anterior (Ferro tem só 4 peças no
+    total; Tecelagem e Manufatura têm 11 cada). `src/rules/industry-data.ts
+    #initialIndustryStock` atualizado com os totais corretos por indústria.
+    **Confiança**: alta para os **totais por indústria** (texto literal do manual); média
+    para a **distribuição exata entre os 4 níveis dentro de cada indústria** — o manual não
+    detalha isso, então continua sendo um design próprio e razoável deste projeto (mantendo o
+    padrão de mais cópias nos níveis baratos, menos nos caros, e nível 1 de Cerâmica com
+    exatamente 1 cópia — essa parte específica já tinha confiança alta antes, por ser "a peça
+    bloqueada", singular). **Impacto se errado**: só de equilíbrio entre indústrias/bots —
+    Ferro ficando "raro" (só 4 peças) muda a dinâmica de quem consegue minerar ferro ao longo
+    do jogo, mas não quebra nenhuma invariante estrutural.
+    - **Achado colateral**: a topologia nova do tabuleiro (entrada #1) já tinha mudado o
+      desempenho do ISMCTS contra o heurístico; essa correção de contagem de peças mudou
+      ainda mais (a amostra fixa de 12 partidas caiu de 41,7% para 33,3%, ainda acima do piso
+      de 30% do teste de regressão, mas com margem menor). Consistente com o padrão desta
+      sessão: mudanças de regra corretas podem legitimamente mudar o equilíbrio do jogo, e
+      isso é reportado, não escondido — ver `docs/PROGRESS.md`.
+
+21. **Regra**: "Estandartes de Local" — a cor do estandarte de cada localidade no tabuleiro
+    físico determina se a carta daquela localidade entra no baralho de compra em partidas
+    menores (`docs/HANDBOOK_RULES.md` §2) — mecanismo inteiro que o motor não implementava
+    (o baralho variava só a *quantidade* de cópias por jogador, nunca *quais* localidades
+    tinham carta no baralho).
+    **Decisão**: reexaminei os recortes de alta resolução da foto do tabuleiro (já usados nas
+    entradas #1/#5) especificamente pela cor do estandarte atrás do nome de cada localidade.
+    Identifiquei duas cores distintas das demais (marrom/roxo-escuro, sem restrição): **azul**
+    em Stoke-on-Trent, Stone, Leek, Uttoxeter, Kidderminster e Worcester; **verde-azulado**
+    (mais escuro que o azul) em Belper e Derby. Pelo texto do manual ("2 jogadores: cartas
+    azuis e verde-azuladas ficam fora; 3 jogadores: só verde-azuladas ficam fora"), isso vira
+    `IndustrialLocationDef.deckMinPlayers`: 3 para as azuis, 4 para as verde-azuladas, 2 (sem
+    restrição) para as demais. `src/rules/deck-data.ts#buildDrawDeck` passou a pular a carta
+    de localidades cujo `deckMinPlayers` não é atingido pelo `playerCount` da partida — a
+    localidade em si continua sempre no tabuleiro, só a carta específica fica fora do baralho
+    (`docs/HANDBOOK_RULES.md` confirma: "ainda é possível construir em Locais cujas cartas
+    foram removidas do Baralho").
+    **Confiança**: média — diferente das entradas #1/#15 (que liam números/selos nítidos), a
+    distinção azul vs. verde-azulado é uma leitura de cor entre duas tonalidades próximas
+    numa foto de celular, mais sujeita a erro do que um número lido diretamente. Repeti a
+    leitura em três recortes independentes da mesma região com resultado consistente, o que
+    aumenta a confiança, mas não elimina a possibilidade de ter classificado uma localidade
+    específica na cor errada. **Impacto se errado**: uma localidade específica teria sua carta
+    disponível numa contagem de jogadores errada — não afeta corretude do motor (a localidade
+    continua construível de qualquer forma), só a composição exata do baralho numa partida
+    menor.

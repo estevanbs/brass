@@ -61,11 +61,10 @@ describe('applyDevelop', () => {
     expect(result.market.ironCubes).toBe(7);
   });
 
-  it('can remove the locked pottery level-1 tile (Develop is exempt from the Build lock)', () => {
+  it('rejects developing the locked pottery level-1 tile — Build is the only way to clear it (docs/HANDBOOK_RULES.md §10)', () => {
     const action = developAction(['pottery'], [{ kind: 'market' }]);
     const state = stateWithHand('p1', [action.card]);
-    const result = applyDevelop(state, action);
-    expect(result.players['p1']?.industryStock.pottery).toEqual([2, 2, 3, 3, 4, 4]);
+    expect(() => applyDevelop(state, action)).toThrow(/locked/);
   });
 
   it('throws when the player has no tiles left in that industry', () => {

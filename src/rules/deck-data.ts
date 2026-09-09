@@ -21,6 +21,10 @@ export function buildDrawDeck(playerCount: number): Card[] {
   const deck: Card[] = [];
   const locationCopies = copiesForPlayerCount(LOCATION_CARD_COPIES, playerCount);
   for (const location of INDUSTRIAL_LOCATIONS) {
+    // docs/HANDBOOK_RULES.md §2 "Estandartes de Local": below a location's own banner-color
+    // threshold, its card is left out of the deck entirely — the location stays on the board
+    // and buildable via an industry card or wildcard, it just can't be drawn by name.
+    if (playerCount < location.deckMinPlayers) continue;
     for (let i = 0; i < locationCopies; i++) {
       deck.push({ kind: 'location', locationId: location.id });
     }

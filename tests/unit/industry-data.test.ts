@@ -6,6 +6,15 @@ import {
   initialIndustryStock,
 } from '../../src/rules/industry-data.js';
 
+const STOCK_TOTAL_BY_INDUSTRY: Readonly<Record<string, number>> = {
+  coal: 7,
+  iron: 4,
+  cotton: 11,
+  manufacturer: 11,
+  pottery: 5,
+  brewery: 7,
+};
+
 describe('industry-data', () => {
   it('defines exactly 4 levels for each of the 6 industry types', () => {
     for (const industry of INDUSTRY_TYPES) {
@@ -38,10 +47,17 @@ describe('industry-data', () => {
     }
   });
 
-  it('only pottery level 1 is locked', () => {
+  it('only pottery level 1 is locked (removable only via Build, never Develop)', () => {
     const locked = INDUSTRY_TILES.filter((t) => t.locked);
     expect(locked).toHaveLength(1);
     expect(locked[0]).toMatchObject({ industry: 'pottery', level: 1 });
+  });
+
+  it('level 1 of every industry except pottery is era-restricted (canal-only)', () => {
+    const eraRestricted = INDUSTRY_TILES.filter((t) => t.eraRestricted);
+    expect(eraRestricted.map((t) => `${t.industry}:${t.level}`).sort()).toEqual(
+      ['brewery:1', 'coal:1', 'cotton:1', 'iron:1', 'manufacturer:1'].sort(),
+    );
   });
 
   it('getIndustryTile throws for an unknown combination', () => {
@@ -49,30 +65,27 @@ describe('industry-data', () => {
     expect(() => getIndustryTile('coal', 5)).toThrow();
   });
 
-  it('initialIndustryStock has 8 tiles for every industry except pottery, which has 7', () => {
+  it('initialIndustryStock totals match docs/HANDBOOK_RULES.md\'s per-industry component counts (45 per player)', () => {
+    let total = 0;
     for (const industry of INDUSTRY_TYPES) {
       const stock = initialIndustryStock(industry);
-      if (industry === 'pottery') {
-        expect(stock).toHaveLength(7);
-      } else {
-        expect(stock).toHaveLength(8);
-      }
+      expect(stock).toHaveLength(STOCK_TOTAL_BY_INDUSTRY[industry]!);
       expect(stock[0]).toBe(1);
       expect([...stock].sort()).toEqual(stock.slice().sort());
+      total += stock.length;
     }
+    expect(total).toBe(45);
   });
 
-  it('initialIndustryStock has 3/2/2/1 copies of levels 1-4 for non-pottery industries', () => {
-    const stock = initialIndustryStock('coal');
-    const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
-    for (const level of stock) counts[level]++;
-    expect(counts).toEqual({ 1: 3, 2: 2, 3: 2, 4: 1 });
+  it('initialIndustryStock gives iron exactly 1 copy of each level', () => {
+    const stock = initialIndustryStock('iron');
+    expect(stock).toEqual([1, 2, 3, 4]);
   });
 
-  it('initialIndustryStock has 1/2/2/2 copies of levels 1-4 for pottery', () => {
+  it('initialIndustryStock gives pottery a single (locked) level-1 copy', () => {
     const stock = initialIndustryStock('pottery');
     const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
     for (const level of stock) counts[level]++;
-    expect(counts).toEqual({ 1: 1, 2: 2, 3: 2, 4: 2 });
+    expect(counts[1]).toBe(1);
   });
 });

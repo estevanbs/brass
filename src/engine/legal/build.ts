@@ -122,7 +122,7 @@ export function generateBuildActions(state: GameState, playerId: PlayerId): Buil
         const level = stock[0];
         if (level === undefined) continue;
         const tileDef = getIndustryTile(industry, level);
-        if (tileDef.locked) continue;
+        if (tileDef.eraRestricted && state.era === 'rail') continue;
         if (tileDef.cost > player.money) continue; // cheapest possible cost is already unaffordable
 
         const slots = candidateSlots(state, locationId, industry, playerId, level);

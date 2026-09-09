@@ -98,11 +98,12 @@ export class PlayerMatComponent {
   ): TileChipViewModel {
     const info = tiles.find((t) => t.industry === industry && t.level === level) ?? null;
     const resourceNote = info === null ? '' : `${info.coalCost ? ` + ${info.coalCost} carvão` : ''}${info.ironCost ? ` + ${info.ironCost} ferro` : ''}`;
-    const lockedNote = info?.locked ? ' · TRAVADA (só via Desenvolver)' : '';
+    const lockedNote = info?.locked ? ' · TRAVADA (só via Construir — não pode ser Desenvolvida)' : '';
+    const eraNote = info?.eraRestricted ? ' · só era Canal (depois só via Desenvolver)' : '';
     const tooltip =
       info === null
         ? `Nível ${level}`
-        : `Nível ${level} — custo £${info.cost}${resourceNote} · ${info.victoryPoints}VP · renda +${info.incomeGain}${lockedNote}`;
+        : `Nível ${level} — custo £${info.cost}${resourceNote} · ${info.victoryPoints}VP · renda +${info.incomeGain}${lockedNote}${eraNote}`;
     return {
       level,
       isNext,

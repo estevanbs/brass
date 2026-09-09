@@ -75,12 +75,18 @@ pode ser repetida) ou passa. Toda ação (inclusive Pass) exige descartar 1 cart
 2. Pega a peça de nível mais baixo daquela indústria no seu tabuleiro pessoal e a coloca
    (lado virado para baixo) num slot livre do local escolhido que aceite aquele ícone,
    preferindo slots que aceitem *apenas* aquele ícone.
-   - Era Canal: no máximo 1 peça de indústria por local (de qualquer jogador cabe 1 peça por
-     local, mas jogadores diferentes podem ocupar locais diferentes do mesmo local se houver
-     mais de 1 slot).
-   - Era Ferrovia: múltiplas peças por local são permitidas (uma por slot).
-   - Uma peça marcada como **bloqueada** (ver §5.4) não pode ser construída — precisa ser
-     removida antes via Develop.
+   - Era Canal: no máximo 1 peça de indústria **do próprio jogador** por local — jogadores
+     diferentes podem ter cada um a sua própria peça no mesmo local, em slots diferentes
+     (docs/HANDBOOK_RULES.md §6: "pode ter uma Indústria no mesmo local que outros
+     jogadores"). O limite é por dono, não um teto global de 1 peça por local.
+   - Era Ferrovia: múltiplas peças por local são permitidas (uma por slot), de qualquer dono.
+   - Peças **era-restritas** (nível 1 de toda indústria exceto Cerâmica —
+     `IndustryTileDef.eraRestricted`, docs/HANDBOOK_RULES.md §6 e §13) só podem ser
+     construídas na era Canal; se ainda não construídas quando a era Ferrovia começa, ficam
+     bloqueadas para Build e só saem do tabuleiro pessoal via Develop.
+   - A peça **bloqueada** de Cerâmica nível 1 (a "peça com ícone de lâmpada", ver §5.4) é o
+     oposto: **só pode ser removida via Build** (nunca via Develop) — é preciso efetivamente
+     construí-la no tabuleiro para acessar as peças de Cerâmica de nível maior por baixo dela.
 3. Paga o custo da peça (em £) e consome carvão/ferro exigidos pela peça (ver §6).
 4. Efeitos imediatos:
    - **Mina de carvão / siderúrgica**: coloca cubos de recurso (quantidade impressa na peça)
@@ -120,7 +126,8 @@ nível maior da mesma indústria, pagando o custo normal de construção:
 2. Remove 1 ou 2 peças (a de nível mais baixo de cada indústria escolhida) do próprio
    tabuleiro pessoal e devolve à caixa (fora do jogo).
 3. Consome 1 ferro para cada peça removida.
-4. Peças bloqueadas (§5.4) só podem ser removidas por Develop, nunca por Build.
+4. A peça bloqueada de Cerâmica nível 1 (§5.4) **não pode** ser removida via Develop — só via
+   Build (o inverso das peças era-restritas do §4.1, que só saem via Develop).
 
 ### 4.4 Sell (Vender)
 
@@ -198,15 +205,29 @@ recurso de venda, VP, renda ganha ao virar)
 | Cervejaria | 3 | £9 | 0 | 0 | 1/2 cerveja | — | 7 | +2 |
 | Cervejaria | 4 | £11 | 0 | 0 | 1/2 cerveja | — | 8 | +2 |
 
-### 5.4 Cópias por jogador e bloqueio
+### 5.4 Cópias por jogador, bloqueio, e restrição de era
 
-Cada jogador possui, por indústria: **3 cópias do nível 1, 2 do nível 2, 2 do nível 3, 1 do
-nível 4** (8 peças por indústria, 48 no total) — exceto Cerâmica, que tem **1 cópia do nível 1
-(bloqueada), 2 do nível 2, 2 do nível 3, 2 do nível 4** (7 peças).
+Cada jogador possui, por indústria: **Carvão 7, Ferro 4, Tecelagem 11, Manufatura 11, Cerâmica
+5, Cervejaria 7** (45 peças no total) — totais lidos diretamente de
+`docs/HANDBOOK_RULES.md` (lista de componentes: "180 Indústrias (45 por cor): 11 Manufaturas,
+11 Fábricas de Algodão, 7 Cervejarias, 5 Olarias, 4 Siderúrgicas, 7 Minas de Carvão"). A
+distribuição exata *dentro* de cada indústria entre os 4 níveis não vem do manual (só o total
+por indústria) — é este projeto que decide uma divisão razoável e decrescente por nível; ver
+`src/rules/industry-data.ts#initialIndustryStock` e `docs/ASSUMPTIONS.md` #4.
 
-A peça de Cerâmica nível 1 é **bloqueada**: não pode ser construída via Build; só pode ser
-removida do tabuleiro pessoal via Develop (sem custo de ferro reduzido — segue a regra normal
-de Develop). Nenhuma outra indústria tem peças bloqueadas.
+Dois mecanismos diferentes de "peça presa", com direção oposta:
+
+- **Bloqueada** (`IndustryTileDef.locked`): só a peça de Cerâmica nível 1 (a peça com o ícone
+  de lâmpada no jogo físico). Não pode ser removida via Develop — a *única* forma de tirá-la
+  do tabuleiro pessoal é efetivamente **construí-la** (Build) no tabuleiro, mesmo sendo uma
+  peça de baixo valor, antes de acessar as peças de Cerâmica de nível maior por baixo dela.
+- **Era-restrita** (`IndustryTileDef.eraRestricted`): a peça de **nível 1 de toda indústria,
+  exceto Cerâmica** (Carvão, Ferro, Tecelagem, Manufatura, Cervejaria). Só pode ser construída
+  via Build durante a era Canal; se ainda estiver no tabuleiro pessoal quando a era Ferrovia
+  começar, não pode mais ser construída — só sai via Develop. Cerâmica nível 1 é a exceção
+  documentada explicitamente (`docs/HANDBOOK_RULES.md` §13: "Diferentemente das outras
+  Indústrias de nível 1, a Olaria de nível 1 pode ser construída durante a Era das
+  Ferrovias").
 
 ## 6. Consumo de recursos
 
@@ -330,6 +351,15 @@ Duas categorias de cartas no baralho de compra:
 - **Cartas de local**: uma por cada uma das 20 localidades industriais do tabuleiro (ver
   `board-data.ts`). Quantidade de cópias por número de jogadores: **1 (2 jogadores), 2 (3
   jogadores), 3 (4 jogadores)**.
+  - **Exceção por cor de estandarte** (`IndustrialLocationDef.deckMinPlayers`,
+    `docs/HANDBOOK_RULES.md` §2, lida da cor do estandarte de cada localidade no tabuleiro
+    físico): a carta de uma localidade de estandarte **azul** (Stoke-on-Trent, Stone, Leek,
+    Uttoxeter, Kidderminster, Worcester) só entra no baralho com **3+ jogadores**; de
+    estandarte **verde-azulado** (Belper, Derby), só com **4 jogadores**. As demais
+    localidades não têm essa restrição. Isso afeta só quais cartas existem no baralho —
+    a localidade em si continua sempre no tabuleiro e construível (via carta de indústria, a
+    exceção "sem peças no tabuleiro" do §4.1, ou carta curinga), mesmo com sua própria carta
+    de local fora do baralho.
 - **Cartas de indústria**: uma por cada um dos 6 tipos de indústria. Cópias por número de
   jogadores: **2 (2 jogadores), 3 (3 jogadores), 4 (4 jogadores)**.
 

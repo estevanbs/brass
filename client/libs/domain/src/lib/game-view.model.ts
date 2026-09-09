@@ -42,7 +42,10 @@ export interface IndustryTileDef {
   readonly beerToSell: number;
   readonly victoryPoints: number;
   readonly incomeGain: number;
+  /** Cannot be removed via Develop — the only way to clear it is to actually Build it. */
   readonly locked: boolean;
+  /** Canal-only: unbuildable once the rail era starts if not built yet (must Develop instead). */
+  readonly eraRestricted: boolean;
 }
 
 /** The full payload the backend sends after creating a game or applying an action

@@ -13,6 +13,13 @@ export interface IndustrialLocationDef {
   readonly id: string;
   readonly kind: 'industrial';
   readonly slots: readonly (readonly IndustryType[])[];
+  /** Minimum player count for this location's *card* to be in the draw deck
+   * (docs/HANDBOOK_RULES.md §2 "Estandartes de Local": banner color on the board indicates
+   * this — blue-banner locations need 3+, teal/green-banner need 4; everything else has no
+   * restriction, i.e. `2`). The location itself is always on the board and buildable at any
+   * player count via an industry card or the wildcard — only its own dedicated location card
+   * is ever missing from a smaller game's deck (`src/rules/deck-data.ts`). */
+  readonly deckMinPlayers: number;
 }
 
 export interface FarmBreweryDef {
@@ -34,101 +41,124 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
     id: 'birmingham',
     kind: 'industrial',
     slots: [['iron'], ['cotton', 'manufacturer'], ['manufacturer', 'pottery'], ['coal', 'manufacturer']],
+    deckMinPlayers: 2,
   },
   {
     id: 'wolverhampton',
     kind: 'industrial',
     slots: [['coal'], ['iron', 'manufacturer']],
+    deckMinPlayers: 2,
   },
   {
     id: 'dudley',
     kind: 'industrial',
     slots: [['coal'], ['coal', 'iron']],
+    deckMinPlayers: 2,
   },
   {
     id: 'walsall',
     kind: 'industrial',
     slots: [['manufacturer', 'cotton'], ['iron']],
+    deckMinPlayers: 2,
   },
   {
     id: 'coventry',
     kind: 'industrial',
     slots: [['cotton'], ['cotton', 'manufacturer'], ['manufacturer']],
+    deckMinPlayers: 2,
   },
   {
     id: 'tamworth',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton']],
+    deckMinPlayers: 2,
   },
   {
     id: 'nuneaton',
     kind: 'industrial',
     slots: [['cotton', 'manufacturer'], ['manufacturer']],
+    deckMinPlayers: 2,
   },
   {
     id: 'redditch',
     kind: 'industrial',
     slots: [['manufacturer'], ['iron', 'manufacturer']],
+    deckMinPlayers: 2,
   },
+  // Blue banner on the physical board (docs/HANDBOOK_RULES.md §2): card removed from the deck
+  // below 3 players, though the location itself is always on the board and buildable.
   {
     id: 'kidderminster',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton']],
+    deckMinPlayers: 3,
   },
   {
     id: 'worcester',
     kind: 'industrial',
     slots: [['cotton', 'manufacturer'], ['pottery']],
+    deckMinPlayers: 3,
   },
   {
     id: 'cannock',
     kind: 'industrial',
     slots: [['coal'], ['coal', 'manufacturer']],
+    deckMinPlayers: 2,
   },
   {
     id: 'coalbrookdale',
     kind: 'industrial',
     slots: [['iron'], ['coal', 'iron']],
+    deckMinPlayers: 2,
   },
   {
     id: 'stoke_on_trent',
     kind: 'industrial',
     slots: [['pottery'], ['pottery', 'coal']],
+    deckMinPlayers: 3,
   },
   {
     id: 'stone',
     kind: 'industrial',
     slots: [['pottery'], ['manufacturer', 'pottery']],
+    deckMinPlayers: 3,
   },
   {
     id: 'leek',
     kind: 'industrial',
     slots: [['cotton'], ['pottery', 'cotton']],
+    deckMinPlayers: 3,
   },
   {
     id: 'stafford',
     kind: 'industrial',
     slots: [['manufacturer', 'pottery'], ['iron']],
+    deckMinPlayers: 2,
   },
   {
     id: 'uttoxeter',
     kind: 'industrial',
     slots: [['cotton'], ['manufacturer', 'cotton']],
+    deckMinPlayers: 3,
   },
   {
     id: 'burton_on_trent',
     kind: 'industrial',
     slots: [['manufacturer'], ['coal', 'manufacturer']],
+    deckMinPlayers: 2,
   },
+  // Teal/green banner (docs/HANDBOOK_RULES.md §2): card removed below 4 players.
   {
     id: 'belper',
     kind: 'industrial',
     slots: [['cotton'], ['coal', 'cotton'], ['pottery']],
+    deckMinPlayers: 4,
   },
   {
     id: 'derby',
     kind: 'industrial',
     slots: [['coal', 'manufacturer'], ['iron']],
+    deckMinPlayers: 4,
   },
 ];
 

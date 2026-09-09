@@ -44,7 +44,7 @@ describe('applyBuild', () => {
       flipped: false,
       resourceRemaining: 2,
     });
-    expect(result.players['p1']?.industryStock.coal).toEqual([1, 1, 2, 2, 3, 3, 4]);
+    expect(result.players['p1']?.industryStock.coal).toEqual([1, 2, 2, 3, 3, 4]);
   });
 
   it('discards the card used and does not mutate the input state', () => {
@@ -145,11 +145,21 @@ describe('applyBuild', () => {
     expect(() => applyBuild(state, action)).not.toThrow();
   });
 
-  it('enforces the canal-era 1-tile-per-location limit', () => {
+  it('enforces the canal-era 1-tile-per-location limit — per player, not shared across owners', () => {
+    // docs/HANDBOOK_RULES.md §6: "Você pode ter no máximo 1 Indústria por local, mas pode ter
+    // uma Indústria no mesmo local que outros jogadores" — the limit is scoped to the acting
+    // player's own tiles, not a global "1 tile total" cap on the location.
+    const action = buildAction();
+    let state = stateFor(action.card);
+    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 1, tile('p1', 'manufacturer', 1)) };
+    expect(() => applyBuild(state, action)).toThrow(/canal era/);
+  });
+
+  it('allows building at a location where only an opponent already has a tile, in the canal era', () => {
     const action = buildAction();
     let state = stateFor(action.card);
     state = { ...state, locations: withTile(state.locations, 'wolverhampton', 1, tile('p2', 'manufacturer', 1)) };
-    expect(() => applyBuild(state, action)).toThrow(/canal era/);
+    expect(() => applyBuild(state, action)).not.toThrow();
   });
 
   it('requires using a single-industry slot over a shared slot when one is free', () => {
@@ -169,7 +179,7 @@ describe('applyBuild', () => {
     expect(() => applyBuild(state, action)).toThrow(/does not accept/);
   });
 
-  it('rejects building the locked pottery level-1 tile', () => {
+  it('allows building the locked pottery level-1 tile — Build is the only way to clear it (docs/HANDBOOK_RULES.md §10)', () => {
     const action = buildAction({
       card: { kind: 'location', locationId: 'worcester' },
       locationId: 'worcester',
@@ -177,7 +187,29 @@ describe('applyBuild', () => {
       industry: 'pottery',
     });
     const state = stateFor(action.card);
-    expect(() => applyBuild(state, action)).toThrow(/locked/);
+    expect(() => applyBuild(state, action)).not.toThrow();
+  });
+
+  it('rejects building an era-restricted level-1 tile once the rail era has started (docs/HANDBOOK_RULES.md §6)', () => {
+    const action = buildAction(); // default: coal level 1, which is canal-only
+    const state = stateFor(action.card, { era: 'rail' });
+    expect(() => applyBuild(state, action)).toThrow(/canal era/);
+  });
+
+  it('era restriction only applies to level 1 — a level-2 tile of the same industry builds fine in the rail era', () => {
+    const action = buildAction();
+    let state = stateFor(action.card, { era: 'rail' });
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        p1: makePlayer('p1', {
+          hand: [action.card],
+          industryStock: { ...makePlayer('p1').industryStock, coal: [2, 2, 3, 3, 4] },
+        }),
+      },
+    };
+    expect(() => applyBuild(state, action)).not.toThrow();
   });
 
   it('allows overbuilding your own tile with a higher level of the same industry', () => {

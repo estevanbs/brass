@@ -1,6 +1,7 @@
 import type { GameState } from '../../core/types.js';
 import type { DevelopAction } from '../action-types.js';
-import { discardCard, payMoney, removeLowestStockTile } from '../player-ops.js';
+import { getIndustryTile } from '../../rules/industry-data.js';
+import { discardCard, getPlayerOrThrow, payMoney, removeLowestStockTile } from '../player-ops.js';
 import { applyFlip, consumeIron, validateIronSource } from '../resources.js';
 
 export function applyDevelop(state: GameState, action: DevelopAction): GameState {
@@ -18,6 +19,12 @@ export function applyDevelop(state: GameState, action: DevelopAction): GameState
     const ironSource = action.ironSources[i];
     if (industry === undefined || ironSource === undefined) {
       throw new Error('unreachable');
+    }
+    const nextLevel = getPlayerOrThrow(working, action.player).industryStock[industry][0];
+    if (nextLevel !== undefined && getIndustryTile(industry, nextLevel).locked) {
+      throw new Error(
+        `${industry} level ${nextLevel} is locked and cannot be removed via Develop — it must be Built instead`,
+      );
     }
     validateIronSource(working, ironSource);
     const result = consumeIron(working, ironSource);

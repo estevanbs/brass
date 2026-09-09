@@ -195,6 +195,20 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   as fórmulas de mercado e a trilha de renda, por outro lado, foram verificados contra o
   resumo de regras oficial da Roxley e batem exatamente. Ver `docs/ASSUMPTIONS.md` (entradas
   #1, #5, #15, #16) para cada decisão, com grau de confiança e impacto.
+- **A auditoria contra `docs/HANDBOOK_RULES.md` (o manual oficial, fornecido pelo usuário)
+  achou e corrigiu 4 bugs reais de regras**, não só lacunas de design: (1) o limite de
+  indústrias na era do canal era contado somando todos os jogadores no local, quando a regra
+  é por jogador; (2) a peça travada de olaria (pottery) bloqueava a ação Construir e liberava
+  Desenvolver — o oposto do que o manual diz; (3) faltava por completo o mecanismo de
+  "restrição de era" do nível 1 de 5 indústrias (carvão, ferro, algodão, fabricante,
+  cervejaria), que só podem ser construídas na era do canal e precisam ser desenvolvidas ao
+  virar a era do trem; (4) os totais de peças de indústria por jogador estavam errados (48
+  peças uniformes em vez das 45 reais, distribuídas de forma desigual por indústria). Também
+  foi implementado o mecanismo dos "estandartes de local" (banner colors) — cartas de local só
+  entram no baralho de compra a partir de um número mínimo de jogadores. Ver
+  `docs/ASSUMPTIONS.md` (entradas #17-#21) para os detalhes e o grau de confiança de cada um.
+  Como efeito colateral, a correção dos totais de peças mudou de novo o desempenho do ISMCTS
+  contra o heurístico (ver bullet seguinte).
 - **O ISMCTS (M7) não atinge a meta formal do marco.** A validação completa (300 partidas
   ISMCTS × heurístico, orçamento real de 1s/jogada, `scripts/run-ismcts-validation.ts`, ~142
   minutos) terminou em **182/300 vitórias (60,7%)**, abaixo do alvo de 65%. O ISMCTS joga
@@ -211,7 +225,10 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   lidar. Na mesma amostra fixa de 12 partidas com orçamento determinístico de 120 simulações
   que antes ficava perto de 50%, a taxa de vitória caiu para 41,7% (5/12) — e uma amostra
   maior e não rastreada de 30 partidas confirmou a queda (36,7%, 11/30), então não é ruído de
-  amostra pequena. O limiar do teste de regressão embutido (`tests/properties/ismcts-vs-
+  amostra pequena. A correção subsequente dos totais de peças de indústria (bug #4 da
+  auditoria de regras acima) derrubou a taxa ainda mais, para 33,3% (4/12) na mesma amostra
+  fixa — confirmado de novo por uma amostra independente de 30 partidas (33,3%, 10/30). O
+  limiar do teste de regressão embutido (`tests/properties/ismcts-vs-
   heuristic.test.ts`) foi reduzido de 50% para 30% para continuar pegando uma regressão real
   (o bot colapsando a nível de jogada aleatória) sem falhar por causa dessa queda já conhecida
   e documentada. Re-calibrar o ISMCTS para o tabuleiro novo (provavelmente `rootTopK` maior,
