@@ -14,7 +14,9 @@
     "test:coverage": "vitest run --coverage",
     "play": "tsx src/cli/index.ts",
     "web": "tsx src/web/server.ts",
-    "verify": "npm run typecheck && npm run lint && npm run test:coverage"
+    "verify": "npm run typecheck && npm run lint && npm run test:coverage",
+    "client:build": "cd client && npx nx build web",
+    "client:verify": "cd client && npx nx run-many -t lint typecheck test build"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",

@@ -1,63 +1,13 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en" data-beasties-container>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8">
     <title>Brass: Birmingham</title>
-    <link rel="stylesheet" href="/style.css" />
-  </head>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>:root{color-scheme:light dark;--bg:#ece0c4;--bg-2:#e3d4ac;--panel:#fbf5e6;--border:#cdb888;--border-dark:#8a7550;--text:#2b2013;--muted:#71624a;--accent:#a8432f;--accent-2:#2f6b47;--highlight:#c98a2c;--coal:#3a3a3a;--iron:#8a6a4a;--cotton:#4a7ba6;--manufacturer:#6a4a9a;--pottery:#b3752c;--brewery:#a63f5a;--serif:Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:linear-gradient(160deg,var(--bg) 0%,var(--bg-2) 100%);color:var(--text)}app-root{display:flex;flex-direction:column;height:100%}</style><link rel="stylesheet" href="styles-5NTZZZKK.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles-5NTZZZKK.css"></noscript></head>
   <body>
-    <header>
-      <h1>Brass: Birmingham</h1>
-      <div id="setup" class="setup">
-        <label>Jogadores <select id="playerCount">
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-        </select></label>
-        <label>Seed <input id="seed" type="number" placeholder="aleatória" /></label>
-        <button id="newGameBtn">Novo jogo</button>
-        <span id="statusMsg" class="status"></span>
-      </div>
-    </header>
-
-    <main id="app" hidden>
-      <div id="topStrip" class="top-strip"></div>
-
-      <div id="stage" class="stage">
-        <svg id="map" class="map-svg" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet"></svg>
-        <div id="mapLegend" class="map-legend"></div>
-        <div id="mapHint" class="map-hint" hidden></div>
-        <div id="mapPopup" class="map-popup" hidden></div>
-      </div>
-
-      <div id="logDock" class="log-dock">
-        <button id="logToggleBtn" class="log-toggle">📜 registro</button>
-        <div id="log" class="log" hidden></div>
-      </div>
-
-      <div id="matDock" class="mat-dock">
-        <button id="matToggleBtn" class="mat-toggle">🗂 tabuleiros</button>
-        <div id="matPanel" class="mat-panel" hidden>
-          <div id="matTabs" class="mat-tabs"></div>
-          <div id="matStock" class="mat-stock"></div>
-        </div>
-      </div>
-
-      <div id="handDock" class="hand-dock">
-        <div id="otherActions" class="other-actions"></div>
-        <div id="hand" class="hand-cards"></div>
-      </div>
-    </main>
-
-    <div id="gameOverOverlay" class="overlay" hidden>
-      <div class="overlay-card">
-        <h2>Fim de jogo</h2>
-        <div id="scoreboard"></div>
-        <button id="playAgainBtn">Jogar de novo</button>
-      </div>
-    </div>
-
-    <script src="/app.js"></script>
-  </body>
+    <app-root></app-root>
+  <script src="main-IGVNJMR4.js" type="module"></script></body>
 </html>

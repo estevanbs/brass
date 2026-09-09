@@ -9,8 +9,6 @@
   --muted: #71624a;
   --accent: #a8432f;
   --accent-2: #2f6b47;
-  --canal: #2f6ba8;
-  --rail: #332924;
   --highlight: #c98a2c;
   --coal: #3a3a3a;
   --iron: #8a6a4a;
@@ -43,8 +41,12 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
   color: var(--text);
+}
+
+app-root {
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 header {
@@ -127,11 +129,12 @@ button:hover {
 
 /* ---------- Main stage layout: top strip, map fills the rest, hand docked at bottom ---------- */
 
-main {
+.app-main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
 .top-strip {
@@ -292,6 +295,13 @@ main {
   gap: 4px;
 }
 
+.map-popup.corner {
+  left: 16px !important;
+  top: auto !important;
+  bottom: 16px;
+  right: auto;
+}
+
 .map-popup-title {
   font-family: var(--serif);
   font-weight: 700;
@@ -355,6 +365,12 @@ main {
   flex-direction: column;
   gap: 4px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.log div {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #f4f0e6;
 }
 
 /* ---------- Player board dock (each player's personal stock of industry tiles) ---------- */
@@ -468,12 +484,6 @@ main {
   font-style: italic;
 }
 
-.log div {
-  padding: 3px 5px;
-  border-radius: 4px;
-  background: #f4f0e6;
-}
-
 /* ---------- Hand dock (Hearthstone-style fanned cards) ---------- */
 
 .hand-dock {
@@ -548,13 +558,17 @@ main {
 
 .hand-card.selected {
   border-color: var(--highlight);
-  box-shadow: 0 0 0 3px var(--highlight), 0 8px 18px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 3px var(--highlight),
+    0 8px 18px rgba(0, 0, 0, 0.4);
   background: linear-gradient(160deg, #fff6df, #f3dfa8);
 }
 
 .hand-card.scout-pick {
   border-color: var(--accent-2);
-  box-shadow: 0 0 0 3px var(--accent-2), 0 8px 18px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 3px var(--accent-2),
+    0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
 .hand-card.wild {

@@ -299,3 +299,81 @@ concluídos, mais a GUI web pedida à parte. Ver `README.md` para a entrega fina
 testes, como jogar — CLI e GUI web —, arquitetura, limitações conhecidas). O único item em
 aberto é a validação completa de 300 partidas do M7 (1s/jogada), que ainda pode estar rodando
 em background — ver a nota na seção do M7 acima.
+
+## Extra (fora do plano original) — GUI estilo Hearthstone, tabuleiro real, tabuleiro do jogador
+
+Sequência de pedidos diretos do usuário sobre a GUI web já entregue acima: mostrar cartas e o
+que cada uma habilita ("gere uma interface mais amigável..."); redesenhar a interação inteira
+no estilo Hearthstone ("mapa em tela cheia, mão em cartas na frente, seleção de carta destaca
+opções direto no mapa em vez de lista"); fazer o visual lembrar o tabuleiro físico real; e
+implementar o "tabuleiro do jogador" (o estoque pessoal de peças de indústria que no jogo
+físico fica visível para todos na mesa).
+
+- Mapa redesenhado com as posições geográficas reais (lat/lon) das cidades que dão nome às
+  localidades do tabuleiro — não é cópia da arte do jogo físico (a topologia já era uma
+  reconstrução própria, documentada em `docs/ASSUMPTIONS.md` #1), só usa a geografia real do
+  West Midlands para o layout ficar parecido com um mapa de verdade em vez de um grafo
+  abstrato. Tema visual "época vitoriana" (paleta pergaminho/serifada) em vez de reaproveitar
+  qualquer arte do jogo publicado.
+- Painel "tabuleiro do jogador": abas por jogador, colunas por indústria, mostrando a pilha de
+  peças restantes (nível, custo, VP, ganho de renda) com a peça do topo destacada e peças
+  travadas (só via Desenvolver) marcadas — tudo derivado do mesmo `GameState`/`industryTiles`
+  que o servidor já mandava, nenhum dado novo do backend.
+- **Bug real encontrado via teste de navegador real (de novo)**: o popup de Desenvolver (até
+  21 opções para uma carta) era posicionado relativo ao ancestral DOM errado e sem scroll —
+  com muitas opções ele crescia para fora da tela, inclicável mesmo por um usuário real.
+  Corrigido ancorando num canto fixo do `.stage` com `max-height`/`overflow-y: auto`.
+- Validado com Playwright real a cada mudança (não só a API): seleção de carta, clique no
+  mapa com match único (submete direto) vs. múltiplo (abre popup), fluxo de Scout, e o painel
+  do tabuleiro do jogador.
+
+## Extra (fora do plano original) — frontend reescrito em Angular, monorepo Nx, clean architecture
+
+Pedido direto do usuário: "reescreva o código do frontend. Utilize angular como framework.
+Utilize clean code e injeção de dependencias, escrevendo um bom código angular. Escreva
+testes." — e, em seguida, no meio da execução: "reescreva como um monorepo nx, utilizando
+clean architecture e a última versão das dependências".
+
+- `client/` deixou de ser um app Angular CLI simples e virou um **workspace Nx** com quatro
+  bibliotecas em camadas (`domain` → `application` → `infrastructure`/`presentation` →
+  `apps/web`, regra de dependência de mão única — ver a seção "Frontend (`client/`)" do
+  `README.md` para o detalhamento completo de cada camada) e Angular na versão mais recente
+  compatível com o Node instalado.
+- **Bloqueio real de versão do Node**: o Angular CLI/Nx mais novos exigem Node ≥24.15, e o
+  Node ativo no ambiente era 24.14.0 (uma versão patch abaixo). Resolvido instalando uma
+  versão mais nova via `nvm` (sem `sudo`, sem afetar o resto do sistema) — `client/` agora
+  roda numa versão de Node diferente da raiz do projeto (`engines.node` na raiz continua
+  `>=20`), documentado no README.
+- **Vários atritos reais do preset "ts"/Nx + Angular resolvidos por tentativa e correção,
+  verificados a cada passo por build/test real, não assumidos**: o preset em branco do Nx
+  gerava `tsconfig`s com `composite`/`emitDeclarationOnly` globais que o compilador do
+  Angular rejeita explicitamente (`NG4006`) — a correção teve que ser cirúrgica: `composite`
+  só nos `tsconfig.lib.json` de cada biblioteca (usados pelo target `build`/`typecheck`
+  isolado de cada lib via `tsc --build`), nunca no `tsconfig.app.json` que o bundler do
+  Angular usa de verdade (confirmado quebrando o build real do app ao tentar, e revertido).
+  `rootDir`, `tsBuildInfoFile` e `outDir` únicos por projeto também precisaram de ajuste
+  manual para o grafo de referências de projeto do TypeScript não colidir entre si.
+- Arquitetura validada por injeção de dependência de verdade, não só por convenção: o port
+  `GameGateway` (classe abstrata) é a única coisa que `application` conhece; a composição
+  concreta com `HttpGameGateway` só acontece no `app.config.ts` do `apps/web` (a *composition
+  root*) — isso permitiu testar `GameStateService` e todos os componentes de `presentation`
+  com um `FakeGameGateway`, sem HTTP real, e sem duplicar lógica de seleção entre componentes.
+- **Bug real encontrado escrevendo os testes (não em produção, mas teria virado um)**: o
+  campo de seed no formulário de novo jogo (`<input type="number">` com `[(ngModel)]`) tinha o
+  signal tipado como `string` (`signal('')`), mas o `NumberValueAccessor` do Angular para
+  `type="number"` escreve `number | null`, nunca string — `this.seedInput().trim()` quebraria
+  em runtime assim que o teste realmente disparou o evento de input do jeito que o Angular
+  dispara de verdade. Só apareceu porque o teste simulou o evento do DOM em vez de chamar o
+  método diretamente; corrigido tipando o signal como `number | null`.
+- Suíte de testes nova, cobrindo as quatro camadas: 25 testes em `domain` (funções puras, sem
+  `TestBed`), 21 em `application` (`GameStateService` completo via `FakeGameGateway`, mais os
+  wrappers finos de formatação), 3 em `infrastructure` (`HttpGameGateway` via
+  `HttpTestingController`), 27 em `presentation` (todo componente de tela, incluindo o mapa
+  interativo — clique com ação única submete direto, múltipla abre popup) e 1 no shell do
+  `apps/web`. `npx nx run-many -t lint typecheck test build` passa limpo nas 5 projetos.
+- Validado de ponta a ponta com Playwright real contra o build compilado servido por
+  `public/` (mesmo roteiro de antes: novo jogo, seleção de carta, clique no mapa, Empréstimo,
+  popup de Desenvolver com 21 opções dentro da viewport, fluxo de Scout) — sem erros de
+  console, comportamento idêntico ao app anterior.
+- `public/{index.html,app.js,style.css}` (o app vanilla-JS anterior) foram substituídos pelo
+  build do Angular (`npm run client:build`); nada do JS antigo restou no diretório.

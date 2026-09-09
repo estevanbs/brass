@@ -62,11 +62,24 @@ npm run web
 Sobe um servidor HTTP local (`src/web/server.ts`, sem framework — só `node:http`) na porta
 3000 (configurável via `PORT=...`); abra `http://localhost:3000` no navegador. É a mesma
 partida da CLI, com a mesma lógica de motor por baixo (o servidor só expõe
-`legalActions`/`applyAction`/os bots por HTTP), mas com o tabuleiro desenhado como grade de
-localidades, mão como cartões, ações agrupadas por tipo como botões clicáveis, e um log das
-jogadas dos bots com o VP estimado de cada uma. Não salva/carrega partida nem faz replay (só
-a CLI faz isso, por enquanto) — o estado de cada partida fica em memória no processo do
-servidor e se perde ao reiniciá-lo.
+`legalActions`/`applyAction`/os bots por uma API JSON pequena), servindo o build compilado do
+frontend Angular a partir de `public/`. Estilo Hearthstone: o tabuleiro (mapa geográfico real
+das cidades do jogo) ocupa a tela inteira como fundo, a mão fica em cartas na frente, e
+selecionar uma carta destaca diretamente no mapa os locais/links jogáveis — clicar neles
+executa a ação (ou abre um popup pequeno quando há mais de uma opção no mesmo lugar). Cada
+jogador tem seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda)
+acessível por um painel lateral. Não salva/carrega partida nem faz replay (só a CLI faz isso,
+por enquanto) — o estado de cada partida fica em memória no processo do servidor e se perde ao
+reiniciá-lo.
+
+O frontend em si vive em `client/`, um **monorepo Nx** separado (Angular mais recente
+compatível, TypeScript, Vitest) com sua própria cadeia de ferramentas — ver a seção
+"Frontend (client/)" abaixo para arquitetura, como rodar os testes, e o requisito de versão do
+Node (diferente do resto do projeto). Para gerar/atualizar o build servido por `public/`:
+
+```sh
+npm run client:build
+```
 
 ## Arquitetura
 
@@ -114,9 +127,55 @@ seguido de reaplicar cada ação do log, o que dobra como uma prova de determini
 inteiro toda vez que roda. `src/web` é um terceiro consumidor do mesmo tipo: um servidor HTTP
 minúsculo (`node:http`, sem framework) que mantém partidas em memória e expõe
 `legalActions`/`applyAction`/os bots por uma API JSON pequena (`POST /api/games`,
-`GET|POST /api/games/:id[/actions]`); o frontend em `public/` é JavaScript puro sem build
-step, consumindo essa API por `fetch`. Nenhuma regra de jogo é duplicada — tanto a CLI quanto
-a GUI web só formatam o mesmo estado e despacham para o mesmo `applyAction`.
+`GET|POST /api/games/:id[/actions]`); quem consome essa API é o frontend Angular em `client/`
+(ver seção própria abaixo), cujo build compilado é servido estaticamente a partir de
+`public/`. Nenhuma regra de jogo é duplicada no backend — tanto a CLI quanto a GUI web só
+formatam o mesmo estado e despacham para o mesmo `applyAction`; o frontend por sua vez também
+não reimplementa regra nenhuma, só *exibe* o `GameState` que o servidor manda e envia de volta
+o índice da ação escolhida dentre as `legalActions` que o servidor já calculou.
+
+## Frontend (`client/`)
+
+O frontend é um **monorepo Nx** (Angular mais recente compatível, standalone components,
+signals, change detection zoneless, sem `zone.js`) separado do resto do projeto, com seu
+próprio `package.json`/`node_modules`/toolchain — porque o Angular CLI/Nx mais recentes
+exigem uma versão de Node mais nova que o restante do projeto (`engines.node` na raiz é
+`>=20`; `client/` precisa de **Node ≥24.15**, ex. `nvm install 24 && nvm use 24`). É por isso
+que ele não está sob o mesmo `npm install`/`npm run verify` da raiz.
+
+```sh
+cd client
+npx nx run-many -t lint typecheck test build   # equivalente a `npm run client:verify` na raiz
+```
+
+**Arquitetura em camadas (clean architecture), cada uma um projeto Nx separado sob
+`client/libs/`:**
+
+- **`domain`** — modelos (`Card`, `GameState`, `GameView`, ...) e funções puras sem nenhuma
+  dependência de Angular ou de framework nenhum: `cardKey`/formatação de carta,
+  `incomeLevelForPosition` (mesma fórmula de `src/engine/income.ts`, duplicada só para
+  exibição), a projeção do mapa geográfico (`computeMapLayout`) e a atribuição de cor por
+  jogador. Testável com Vitest puro, sem `TestBed`.
+- **`application`** — `GameStateService`, o único lugar que guarda estado de seleção/UI (carta
+  selecionada, modo Scout, popup aberto) como signals, e o *port* `GameGateway` (uma classe
+  abstrata usada como token de injeção) que ele depende — nunca de um cliente HTTP concreto.
+  Também expõe wrappers injetáveis finos (`CardFormatService`, `IncomeService`, etc.) em cima
+  das funções puras de `domain`, para que a UI sempre injete via DI em vez de importar função
+  solta.
+- **`infrastructure`** — `HttpGameGateway`, o único adaptador que de fato conhece a API HTTP
+  do backend (`/api/games...`), implementando o port `GameGateway` de `application`.
+- **`presentation`** — todos os componentes de UI (mapa, mão, tabuleiro pessoal, popups,
+  etc.), consumindo só `application`/`domain` — nunca `infrastructure` diretamente.
+- **`apps/web`** — a *composition root*: o único lugar que sabe que `GameGateway` é
+  implementado por `HttpGameGateway` (`app.config.ts` faz esse `provide`), e que renderiza o
+  componente-raiz de `presentation`. Propositalmente fino — nenhuma lógica de tela mora aqui.
+
+A regra de dependência é de mão única: `domain` não depende de nada; `application` só de
+`domain`; `infrastructure` e `presentation` de `application` e `domain`; `apps/web` de todos —
+nunca o inverso. Essa inversão (via o port `GameGateway`) é o que permite testar
+`GameStateService` e todos os componentes de `presentation` com um `FakeGameGateway` em vez de
+subir um backend HTTP de verdade nos testes (ver `libs/application/.../game-state.service.spec.ts`
+e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
 
 ## Limitações conhecidas
 

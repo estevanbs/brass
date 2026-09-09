@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "importHelpers": true,
+    "isolatedModules": true,
+    "lib": ["es2022", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "paths": {
+      "@brass/domain": ["./libs/domain/src/index.ts"],
+      "@brass/application": ["./libs/application/src/index.ts"],
+      "@brass/infrastructure": ["./libs/infrastructure/src/index.ts"],
+      "@brass/presentation": ["./libs/presentation/src/index.ts"]
+    }
+  }
+}
