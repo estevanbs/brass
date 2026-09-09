@@ -9,12 +9,54 @@ const TYPE_LABELS = {
 };
 
 const KIND_COLOR = {
-  industrial: '#c9c0aa',
+  industrial: '#d8c9a3',
   farm_brewery: '#8fae7a',
-  market: '#e0b23d',
+  market: '#d4a537',
 };
 
 const PLAYER_COLORS = ['#a8432f', '#2f6b47', '#2f5a8a', '#8a5a2f'];
+
+const INDUSTRY_ICON = {
+  coal: '⚫',
+  iron: '⛓',
+  cotton: '🧵',
+  manufacturer: '⚙',
+  pottery: '🏺',
+  brewery: '🍺',
+};
+
+/** Real-world [lat, lon] of each town the board is named after (docs/ASSUMPTIONS.md #1: the
+ * board's topology is an original design, but the town names are real West Midlands / England
+ * places — using their actual relative positions makes the map read like a real map instead
+ * of an abstract graph, without reproducing any of the physical game's own artwork). Farm
+ * breweries aren't real places; each is plotted near the town(s) it connects to. */
+const LOCATION_COORDS = {
+  birmingham: [52.4862, -1.8904],
+  wolverhampton: [52.5862, -2.1281],
+  dudley: [52.5083, -2.0807],
+  walsall: [52.586, -1.9822],
+  west_bromwich: [52.5186, -1.9945],
+  coventry: [52.4068, -1.5197],
+  tamworth: [52.6335, -1.6947],
+  nuneaton: [52.5231, -1.4677],
+  redditch: [52.3057, -1.9428],
+  bromsgrove: [52.3357, -2.0611],
+  kidderminster: [52.3891, -2.2494],
+  worcester: [52.1936, -2.2216],
+  cannock: [52.6883, -2.0311],
+  coalbrookdale: [52.6267, -2.4839],
+  stoke_on_trent: [53.0027, -2.1794],
+  stone: [52.9022, -2.1522],
+  leek: [53.1039, -2.0233],
+  stourbridge: [52.4573, -2.1483],
+  warrington: [53.39, -2.5972],
+  shrewsbury: [52.7069, -2.7527],
+  nottingham: [52.9548, -1.1581],
+  gloucester: [51.8642, -2.2382],
+  oxford: [51.752, -1.2577],
+  farm_brewery_north: [52.735, -2.09],
+  farm_brewery_south: [52.27, -2.29],
+};
 
 let currentGameId = null;
 let currentView = null;
@@ -106,76 +148,30 @@ function render() {
   renderGameOver();
 }
 
-// ---------- Map (force-directed layout + SVG) ----------
+// ---------- Map (projected from each town's real-world position) ----------
+
+const MAP_WIDTH = 900;
+const MAP_HEIGHT = 700;
+const MAP_PAD = 70;
 
 function computeLayout(board) {
   const ids = board.locations.map((l) => l.id);
-  const edges = [];
-  for (const link of board.links) {
-    edges.push(link.locations);
-    for (const pair of link.bonusConnections) edges.push(pair);
-  }
+  const coords = ids.map((id) => LOCATION_COORDS[id] || [52.3, -2.0]);
+  const lats = coords.map((c) => c[0]);
+  const lons = coords.map((c) => c[1]);
+  const latMin = Math.min(...lats);
+  const latMax = Math.max(...lats);
+  const lonMin = Math.min(...lons);
+  const lonMax = Math.max(...lons);
 
-  const width = 900;
-  const height = 620;
   const nodes = new Map();
-  ids.forEach((id, i) => {
-    const angle = (i / ids.length) * 2 * Math.PI;
-    nodes.set(id, {
-      x: width / 2 + Math.cos(angle) * 260,
-      y: height / 2 + Math.sin(angle) * 220,
-    });
+  ids.forEach((id) => {
+    const [lat, lon] = LOCATION_COORDS[id] || [52.3, -2.0];
+    const x = MAP_PAD + ((lon - lonMin) / (lonMax - lonMin || 1)) * (MAP_WIDTH - 2 * MAP_PAD);
+    // Latitude grows northward; SVG y grows downward, so invert.
+    const y = MAP_PAD + ((latMax - lat) / (latMax - latMin || 1)) * (MAP_HEIGHT - 2 * MAP_PAD);
+    nodes.set(id, { x, y });
   });
-
-  const k = Math.sqrt((width * height) / ids.length) * 1.35;
-  for (let iter = 0; iter < 300; iter++) {
-    const disp = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
-
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        const a = nodes.get(ids[i]);
-        const b = nodes.get(ids[j]);
-        let dx = a.x - b.x;
-        let dy = a.y - b.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const force = (k * k) / dist;
-        dx /= dist;
-        dy /= dist;
-        disp.get(ids[i]).x += dx * force;
-        disp.get(ids[i]).y += dy * force;
-        disp.get(ids[j]).x -= dx * force;
-        disp.get(ids[j]).y -= dy * force;
-      }
-    }
-
-    for (const [a, b] of edges) {
-      const na = nodes.get(a);
-      const nb = nodes.get(b);
-      let dx = na.x - nb.x;
-      let dy = na.y - nb.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const force = (dist * dist) / k;
-      dx /= dist;
-      dy /= dist;
-      disp.get(a).x -= dx * force;
-      disp.get(a).y -= dy * force;
-      disp.get(b).x += dx * force;
-      disp.get(b).y += dy * force;
-    }
-
-    const temp = 12 * (1 - iter / 300);
-    for (const id of ids) {
-      const d = disp.get(id);
-      const dist = Math.sqrt(d.x * d.x + d.y * d.y) || 0.01;
-      const move = Math.min(dist, temp);
-      const n = nodes.get(id);
-      n.x += (d.x / dist) * move;
-      n.y += (d.y / dist) * move;
-      n.x = Math.max(60, Math.min(width - 60, n.x));
-      n.y = Math.max(45, Math.min(height - 45, n.y));
-    }
-  }
-
   return nodes;
 }
 
@@ -198,7 +194,20 @@ function renderMap() {
   const svg = el('map');
   svg.innerHTML = '';
 
+  // Parchment backdrop with a faint compass rose, like an old survey map.
+  svg.appendChild(svgEl('rect', { x: 0, y: 0, width: MAP_WIDTH, height: MAP_HEIGHT, fill: '#f1e6c8' }));
+  const compass = svgEl('text', {
+    x: MAP_WIDTH - 40,
+    y: 46,
+    'text-anchor': 'middle',
+    'font-size': 26,
+    fill: '#c9b787',
+  });
+  compass.textContent = '✦';
+  svg.appendChild(compass);
+
   const builtByLinkId = new Map(state.links.map((l) => [l.slotId, l]));
+  const eraColor = { canal: '#2f6ba8', rail: '#332924' };
 
   // Edges first (so nodes draw on top).
   for (const link of board.links) {
@@ -213,38 +222,78 @@ function renderMap() {
         y1: na.y,
         x2: nb.x,
         y2: nb.y,
-        stroke: built ? playerColor(built.owner, humanId) : '#c9c0aa',
-        'stroke-width': built ? 3.5 : 1.2,
-        'stroke-dasharray': built ? 'none' : '4,4',
-        opacity: built ? 0.9 : 0.5,
+        stroke: built ? eraColor[built.kind] || '#332924' : '#b9a97e',
+        'stroke-width': built ? 4 : 1.4,
+        'stroke-dasharray': built ? 'none' : '5,4',
+        'stroke-linecap': 'round',
+        opacity: built ? 0.95 : 0.6,
       });
       svg.appendChild(line);
+
+      if (built) {
+        const mid = { x: (na.x + nb.x) / 2, y: (na.y + nb.y) / 2 };
+        svg.appendChild(
+          svgEl('circle', { cx: mid.x, cy: mid.y, r: 6, fill: playerColor(built.owner, humanId), stroke: '#f1e6c8', 'stroke-width': 1.5 }),
+        );
+      }
     }
   }
 
-  // Nodes.
+  // Nodes: town marker + small badges for any tiles already built there.
   for (const location of board.locations) {
     const pos = layout.get(location.id);
     if (!pos) continue;
     const g = svgEl('g', { transform: `translate(${pos.x},${pos.y})` });
 
-    const hasHumanTile =
-      state.locations[location.id] &&
-      (state.locations[location.id].slots || []).some((s) => s.tile && s.tile.owner === humanId);
+    const slots = (state.locations[location.id] && state.locations[location.id].slots) || [];
+    const builtSlots = slots.filter((s) => s.tile);
+    const hasHumanTile = builtSlots.some((s) => s.tile.owner === humanId);
 
+    const r = location.kind === 'market' ? 15 : 11;
     const circle = svgEl('circle', {
-      r: location.kind === 'market' ? 16 : 12,
-      fill: KIND_COLOR[location.kind] || '#c9c0aa',
-      stroke: hasHumanTile ? '#a8432f' : '#7a7266',
-      'stroke-width': hasHumanTile ? 3 : 1,
+      r,
+      fill: KIND_COLOR[location.kind] || '#d8c9a3',
+      stroke: hasHumanTile ? '#a8432f' : '#5a4d38',
+      'stroke-width': hasHumanTile ? 3 : 1.4,
     });
     g.appendChild(circle);
 
+    if (location.kind === 'market') {
+      const m = svgEl('text', { 'text-anchor': 'middle', 'font-size': 13, y: 5 });
+      m.textContent = '⚑';
+      g.appendChild(m);
+    }
+
+    // Tile badges in a small arc under the town marker.
+    builtSlots.forEach((slot, i) => {
+      const offset = (i - (builtSlots.length - 1) / 2) * 15;
+      const badge = svgEl('circle', {
+        cx: offset,
+        cy: r + 12,
+        r: 7,
+        fill: playerColor(slot.tile.owner, humanId),
+        opacity: slot.tile.flipped ? 0.55 : 1,
+        stroke: '#f1e6c8',
+        'stroke-width': 1,
+      });
+      g.appendChild(badge);
+      const icon = svgEl('text', {
+        x: offset,
+        y: r + 15.5,
+        'text-anchor': 'middle',
+        'font-size': 8,
+      });
+      icon.textContent = INDUSTRY_ICON[slot.tile.industry] || '';
+      g.appendChild(icon);
+    });
+
     const label = svgEl('text', {
-      y: location.kind === 'market' ? 30 : 26,
+      y: -(r + 6),
       'text-anchor': 'middle',
-      'font-size': '10',
+      'font-size': 11,
+      'font-weight': location.kind === 'market' ? 700 : 400,
       fill: '#2b2620',
+      'font-family': 'Georgia, "Times New Roman", serif',
     });
     label.textContent = location.id.replace(/_/g, ' ');
     g.appendChild(label);
@@ -256,11 +305,13 @@ function renderMap() {
 function renderMapLegend() {
   const legend = el('mapLegend');
   legend.innerHTML = `
-    <span><i class="dot" style="background:${KIND_COLOR.industrial}"></i> industrial</span>
+    <span><i class="dot" style="background:${KIND_COLOR.industrial}"></i> vila industrial</span>
     <span><i class="dot" style="background:${KIND_COLOR.farm_brewery}"></i> fazenda cervejeira</span>
-    <span><i class="dot" style="background:${KIND_COLOR.market}"></i> mercador</span>
-    <span><i class="line"></i> link livre</span>
-    <span><i class="line built" style="background:#a8432f"></i> seu link</span>
+    <span><i class="dot" style="background:${KIND_COLOR.market}"></i> ⚑ mercador</span>
+    <span><i class="line"></i> linha não construída</span>
+    <span><i class="line built" style="background:#2f6ba8"></i> canal construído</span>
+    <span><i class="line built" style="background:#332924"></i> ferrovia construída</span>
+    <span><i class="dot" style="background:#a8432f"></i> dono do link/peça</span>
   `;
 }
 

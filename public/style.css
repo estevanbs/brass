@@ -1,18 +1,23 @@
 :root {
   color-scheme: light dark;
-  --bg: #f7f5f0;
-  --panel: #ffffff;
-  --border: #ddd6c8;
-  --text: #2b2620;
-  --muted: #7a7266;
+  --bg: #ece0c4;
+  --bg-2: #e3d4ac;
+  --panel: #fbf5e6;
+  --border: #cdb888;
+  --border-dark: #8a7550;
+  --text: #2b2013;
+  --muted: #71624a;
   --accent: #a8432f;
   --accent-2: #2f6b47;
+  --canal: #2f6ba8;
+  --rail: #332924;
   --coal: #3a3a3a;
   --iron: #8a6a4a;
   --cotton: #4a7ba6;
   --manufacturer: #6a4a9a;
   --pottery: #b3752c;
   --brewery: #a63f5a;
+  --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
 }
 
 * {
@@ -29,24 +34,45 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.25), transparent 60%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
   color: var(--text);
 }
 
 header {
-  padding: 12px 20px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  background: linear-gradient(180deg, #3a2a1a, #2b2013);
+  border-bottom: 3px solid var(--accent);
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 h1 {
-  font-size: 1.1rem;
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   margin: 0;
   white-space: nowrap;
+  color: #f1e6c8;
+}
+
+h1::after {
+  content: ' \2014  1770\2013 1870';
+  font-size: 0.65rem;
+  font-weight: 400;
+  font-style: italic;
+  color: #c9b787;
+  letter-spacing: normal;
+}
+
+header .setup label,
+header .status {
+  color: #d8c9a3;
 }
 
 .setup {
@@ -70,8 +96,9 @@ button {
   font: inherit;
   padding: 5px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: white;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
 }
 
 input[type='number'] {
@@ -149,10 +176,11 @@ main {
 .map-svg {
   width: 100%;
   height: auto;
-  max-height: 420px;
-  background: #fbf9f4;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  max-height: 620px;
+  background: #f1e6c8;
+  border: 3px double var(--border-dark);
+  border-radius: 4px;
+  box-shadow: inset 0 0 24px rgba(90, 70, 30, 0.18);
 }
 
 .board {
@@ -164,19 +192,21 @@ main {
 .location {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px;
 }
 
 .location h3 {
   margin: 0 0 6px;
   font-size: 0.8rem;
-  color: var(--muted);
+  font-family: var(--serif);
+  color: var(--text);
   text-transform: capitalize;
 }
 
 .location.market {
-  background: #fff8e6;
+  background: #f7ecc9;
+  border-color: #cbab52;
 }
 
 .slot {
@@ -225,16 +255,20 @@ main {
 .players {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 10px 12px;
+  box-shadow: 0 1px 3px rgba(90, 70, 30, 0.12);
 }
 
 .panel h2 {
   margin: 0 0 8px;
   font-size: 0.85rem;
-  color: var(--muted);
+  font-family: var(--serif);
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
 }
 
 .player-row {
