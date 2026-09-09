@@ -2,14 +2,14 @@ import type { Action } from '../engine/action-types.js';
 import type { Card, GameState, IndustryType, PlayerId } from '../core/types.js';
 import { incomeLevelForPosition } from '../engine/income.js';
 
-function cardLabel(card: Card): string {
+export function cardLabel(card: Card): string {
   if (card.kind === 'location') return `Local(${card.locationId})`;
   if (card.kind === 'industry') return `Indústria(${card.industry})`;
   if (card.kind === 'wildLocation') return 'Local curinga';
   return 'Indústria curinga';
 }
 
-const INDUSTRY_LABEL: Readonly<Record<IndustryType, string>> = {
+export const INDUSTRY_LABEL: Readonly<Record<IndustryType, string>> = {
   coal: 'mina de carvão',
   iron: 'siderúrgica',
   cotton: 'tecelagem',

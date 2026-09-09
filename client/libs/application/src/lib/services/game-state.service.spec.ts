@@ -20,6 +20,7 @@ function legalAction(overrides: Partial<LegalActionView> = {}): LegalActionView 
     label: 'Empréstimo',
     cardKeys: ['industry:coal'],
     targets: { locationIds: [], linkSlotIds: [] },
+    costLines: [],
     ...overrides,
   };
 }

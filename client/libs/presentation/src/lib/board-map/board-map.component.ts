@@ -456,12 +456,11 @@ export class BoardMapComponent {
     this.resolveClick('construir link', matches, { x: line.midX, y: line.midY });
   }
 
+  /** Always opens the confirmation popup, even for a single match — it shows the exact cost
+   * (money, resources, items) before anything is actually submitted, per the user's request
+   * for a confirm step on every action, not just when there are several to choose between. */
   private resolveClick(title: string, matches: readonly LegalActionView[], svgPoint: Point): void {
     if (matches.length === 0) return;
-    if (matches.length === 1) {
-      void this.gameState.submitAction(matches[0]!.index);
-      return;
-    }
     this.gameState.openPopup(title, matches, { mode: 'anchored', ...this.toPixel(svgPoint) });
   }
 

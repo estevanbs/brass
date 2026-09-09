@@ -37,6 +37,7 @@ export function legalAction(overrides: Partial<LegalActionView> = {}): LegalActi
     label: 'Empréstimo',
     cardKeys: [],
     targets: { locationIds: [], linkSlotIds: [] },
+    costLines: [],
     ...overrides,
   };
 }

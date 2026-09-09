@@ -413,6 +413,36 @@ button:hover {
   border-color: var(--accent);
 }
 
+.popup-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.popup-option-label {
+  font-weight: 600;
+}
+
+.popup-cost-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+}
+
+.popup-cost-line {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.popup-cost-line b {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .map-popup .popup-close {
   background: #eee;
   color: var(--muted);

@@ -20,10 +20,10 @@ import type { ActionType, LegalActionView } from '@brass/domain';
         <div class="other-actions-hint">Essa carta não tem jogadas legais agora.</div>
       } @else {
         @if (single('loan'); as action) {
-          <button type="button" class="other-action-btn" (click)="submit(action.index)">Empréstimo</button>
+          <button type="button" class="other-action-btn" (click)="openInline('Empréstimo', [action])">Empréstimo</button>
         }
         @if (single('pass'); as action) {
-          <button type="button" class="other-action-btn" (click)="submit(action.index)">Passar</button>
+          <button type="button" class="other-action-btn" (click)="openInline('Passar', [action])">Passar</button>
         }
         @if (byType().get('develop'); as actions) {
           <button type="button" class="other-action-btn" (click)="openInline('Desenvolver', actions)">Desenvolver ▾</button>
@@ -59,10 +59,6 @@ export class OtherActionsComponent {
 
   single(type: ActionType): LegalActionView | undefined {
     return this.byType().get(type)?.[0];
-  }
-
-  submit(index: number): void {
-    void this.gameState.submitAction(index);
   }
 
   openInline(title: string, actions: readonly LegalActionView[]): void {

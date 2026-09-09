@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { GameGateway, GameStateService } from '@brass/application';
 import { baseGameView, FakeGameGateway, fakeGameGatewayProvider, legalAction } from '../testing/fake-game-gateway';
 import { BoardMapComponent } from './board-map.component';
@@ -57,7 +57,7 @@ describe('BoardMapComponent', () => {
     expect((fixture.nativeElement.querySelector('.map-hint') as HTMLElement | null)).toBeNull();
   });
 
-  it('clicking a node with exactly one matching action submits it directly (no popup)', async () => {
+  it('clicking a node with exactly one matching action opens a confirm popup instead of submitting immediately', async () => {
     const buildAtBirmingham = legalAction({
       index: 2,
       type: 'build',
@@ -77,14 +77,12 @@ describe('BoardMapComponent', () => {
 
     const fixture = TestBed.createComponent(BoardMapComponent);
     fixture.detectChanges();
-    const nextView = baseGameView({ gameId: 'after-build' });
-    gateway.submitAction.mockReturnValueOnce(of(nextView));
 
     const clickableCircle = fixture.nativeElement.querySelector('g.map-target-node circle:not(.pulse-ring)') as SVGCircleElement;
     clickableCircle.dispatchEvent(new Event('click', { bubbles: true }));
 
-    await vi.waitFor(() => expect(gameState.view()?.gameId).toBe('after-build'));
-    expect(gameState.popup()).toBeNull();
+    expect(gameState.popup()?.actions).toEqual([buildAtBirmingham]);
+    expect(gateway.submitAction).not.toHaveBeenCalled();
   });
 
   it('clicking a node with more than one matching action opens a popup instead of submitting', async () => {

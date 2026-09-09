@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { GameGateway, GameStateService } from '@brass/application';
 import { baseGameView, FakeGameGateway, fakeGameGatewayProvider, legalAction } from '../testing/fake-game-gateway';
 import { OtherActionsComponent } from './other-actions.component';
@@ -24,7 +24,7 @@ describe('OtherActionsComponent', () => {
     expect(fixture.nativeElement.querySelector('.other-actions-hint').textContent).toContain('Selecione uma carta');
   });
 
-  it('shows a Loan button when a loan is legal for the selected card, and submits it on click', async () => {
+  it('shows a Loan button when a loan is legal for the selected card, and opens a confirm popup on click (does not submit immediately)', async () => {
     const loan = legalAction({ index: 4, type: 'loan', cardKeys: ['industry:coal'] });
     gateway.createGame.mockReturnValueOnce(of(baseGameView({ legalActions: [loan] })));
     await gameState.newGame(2, undefined);
@@ -36,11 +36,11 @@ describe('OtherActionsComponent', () => {
     const loanBtn = buttons.find((b) => b.textContent?.includes('Empréstimo'));
     expect(loanBtn).toBeDefined();
 
-    const nextView = baseGameView({ gameId: 'g2' });
-    gateway.submitAction.mockReturnValueOnce(of(nextView));
     loanBtn!.click();
 
-    await vi.waitFor(() => expect(gameState.view()?.gameId).toBe('g2'));
+    expect(gameState.popup()?.title).toBe('Empréstimo');
+    expect(gameState.popup()?.actions).toEqual([loan]);
+    expect(gateway.submitAction).not.toHaveBeenCalled();
   });
 
   it('never renders build/network actions as buttons here (they belong on the map)', async () => {

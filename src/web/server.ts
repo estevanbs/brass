@@ -15,6 +15,7 @@ import { evaluate } from '../bots/heuristic.js';
 import type { Bot } from '../bots/random.js';
 import { mulberry32, type Rng } from '../core/rng.js';
 import { describeAction } from '../cli/render.js';
+import { actionCostLines } from './action-cost.js';
 import { FARM_BREWERIES, INDUSTRIAL_LOCATIONS, LINK_SLOTS, MARKETS } from '../rules/board-data.js';
 import { INDUSTRY_TILES } from '../rules/industry-data.js';
 
@@ -99,6 +100,7 @@ function view(gameId: string, game: Game): unknown {
       label: describeAction(action),
       cardKeys: actionCardKeys(action),
       targets: actionTargets(action),
+      costLines: actionCostLines(game.state, action),
     })),
     log: game.log,
   };

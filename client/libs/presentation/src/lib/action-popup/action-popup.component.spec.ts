@@ -42,7 +42,7 @@ describe('ActionPopupComponent', () => {
     await vi.waitFor(() => expect(gameState.view()?.gameId).toBe('after-choice'));
   });
 
-  it('closes the popup when "fechar" is clicked', async () => {
+  it('closes the popup when "cancelar" is clicked, without submitting anything', async () => {
     gateway.createGame.mockReturnValueOnce(of(baseGameView()));
     await gameState.newGame(2, undefined);
     gameState.openPopup('construir', [legalAction()], { mode: 'corner' });
@@ -52,5 +52,36 @@ describe('ActionPopupComponent', () => {
     (fixture.nativeElement.querySelector('.popup-close') as HTMLButtonElement).click();
 
     expect(gameState.popup()).toBeNull();
+    expect(gateway.submitAction).not.toHaveBeenCalled();
+  });
+
+  it('shows the cost breakdown for an option that has one, as the confirmation detail', async () => {
+    gateway.createGame.mockReturnValueOnce(of(baseGameView()));
+    await gameState.newGame(2, undefined);
+    const action = legalAction({
+      index: 3,
+      label: 'Construir mina de carvão em dudley',
+      costLines: [
+        { label: 'Dinheiro', value: '-£5' },
+        { label: 'Peça', value: 'mina de carvão nível 1' },
+      ],
+    });
+    gameState.openPopup('Confirmar', [action], { mode: 'corner' });
+
+    const fixture = TestBed.createComponent(ActionPopupComponent);
+    fixture.detectChanges();
+    const costLines = Array.from(fixture.nativeElement.querySelectorAll('.popup-cost-line')) as HTMLElement[];
+    const texts = costLines.map((el) => el.textContent?.trim());
+    expect(texts).toEqual(['Dinheiro: -£5', 'Peça: mina de carvão nível 1']);
+  });
+
+  it('renders no cost-line block for an option with an empty cost (e.g. Pass)', async () => {
+    gateway.createGame.mockReturnValueOnce(of(baseGameView()));
+    await gameState.newGame(2, undefined);
+    gameState.openPopup('Passar', [legalAction({ label: 'Passar', costLines: [] })], { mode: 'corner' });
+
+    const fixture = TestBed.createComponent(ActionPopupComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.popup-cost-lines')).toBeNull();
   });
 });

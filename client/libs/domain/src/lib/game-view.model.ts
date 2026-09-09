@@ -8,12 +8,21 @@ export interface ActionTargets {
   readonly linkSlotIds: readonly string[];
 }
 
+/** One line of "what this action will cost" — e.g. `{ label: 'Dinheiro', value: '-£5' }` or
+ * `{ label: 'Carvão', value: 'do mercado' }`. Computed server-side (src/web/action-cost.ts) by
+ * actually applying the action and diffing the result, never re-derived here. */
+export interface CostLine {
+  readonly label: string;
+  readonly value: string;
+}
+
 export interface LegalActionView {
   readonly index: number;
   readonly type: ActionType;
   readonly label: string;
   readonly cardKeys: readonly string[];
   readonly targets: ActionTargets;
+  readonly costLines: readonly CostLine[];
 }
 
 export interface BoardLocationSummary {
