@@ -168,7 +168,10 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 16px;
+  /* Right padding reserves room for `.log-dock`, which floats on top of `.app-main` (not part
+     of this flex row) at the same top-right corner — without it, player chips flow underneath
+     and the "registro" button covers whichever chip ends up last (a real bug found in review). */
+  padding: 6px 130px 6px 16px;
   background: rgba(43, 32, 19, 0.92);
   color: #f1e6c8;
   font-size: 0.78rem;
@@ -517,7 +520,10 @@ button:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  /* A selected+hovered card lifts up to 40px (see `.hand-card.selected`/`:hover` below) — this
+     gap keeps that lift from reaching the action buttons above it (a real bug: the fanned hand
+     was covering "Desenvolver"/"Vender"/etc. once a card was picked). */
+  gap: 48px;
   padding: 6px 10px 12px;
   background: linear-gradient(0deg, rgba(43, 32, 19, 0.55), transparent);
 }
@@ -527,6 +533,10 @@ button:hover {
   align-items: center;
   gap: 8px;
   min-height: 30px;
+  /* Safety net on top of the `.hand-dock` gap above: even if a lifted card's box still reaches
+     this far up, the buttons stay on top of it (own stacking context) instead of being covered. */
+  position: relative;
+  z-index: 50;
 }
 
 .other-actions-hint {
