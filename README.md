@@ -187,7 +187,7 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   que era o caso nas primeiríssimas versões deste projeto, quando não havia fonte confiável
   disponível. Os dois aspectos que exigiam mais interpretação visual (quais indústrias cada
   slot aceita, e a lista/era de cada link) hoje vêm de dois arquivos que o próprio usuário
-  escreveu à mão — `docs/BUILDINGS.md` e `docs/CONECTIONS.md` — declarados por ele como fonte
+  escreveu à mão — `docs/BUILDINGS.md` e `docs/CONNECTIONS.md` — declarados por ele como fonte
   final de verdade, e que substituem toda reconstrução anterior feita a partir de fotos do
   tabuleiro. O que **continua** sendo composição própria, não uma transcrição literal: as
   tabelas numéricas exatas de custo/VP/renda/produção impressas em cada peça de indústria (o
@@ -223,7 +223,7 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   desempenho do ISMCTS contra o heurístico repetidamente ao longo de várias sessões — para
   pior, recuperado, para pior de novo, e finalmente para muito melhor.** Cada revisão do
   tabuleiro muda o fator de ramificação que o `rootTopK` do ISMCTS foi calibrado para lidar (o
-  tabuleiro atual, transcrito de `docs/BUILDINGS.md`/`docs/CONECTIONS.md`, tem 20 localidades
+  tabuleiro atual, transcrito de `docs/BUILDINGS.md`/`docs/CONNECTIONS.md`, tem 20 localidades
   industriais e 39 links — bem diferente do "18 localidades, 43 links" original inventado sem
   fonte). Na mesma amostra fixa de 12 partidas com orçamento determinístico de 120 simulações
   que antes ficava perto de 50%: a primeira reconstrução do tabuleiro (foto) derrubou para
@@ -261,7 +261,7 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   reconstrução original tinha — não existe nenhuma linha entre Uttoxeter e Burton-on-Trent
   nesta foto nova. Ver `docs/ASSUMPTIONS.md` #23 para a lista completa das 12 mudanças de era.
 - **A topologia de links e os slots de cada localidade foram totalmente reescritos a partir de
-  `docs/BUILDINGS.md` e `docs/CONECTIONS.md`, dois arquivos que o usuário escreveu à mão e
+  `docs/BUILDINGS.md` e `docs/CONNECTIONS.md`, dois arquivos que o usuário escreveu à mão e
   declarou fonte final de verdade — substituindo de vez qualquer leitura de foto anterior para
   esses dois aspectos.** O tabuleiro passou de 30 para **39 links** (nenhum par de localidades
   repetido entre as categorias de era, então cada linha do arquivo virou um `LinkSlotDef`

@@ -3,7 +3,7 @@ import type { Era, IndustryType, LinkSlotDef, MerchantBonus } from '../core/type
 /**
  * Board topology. Per-location build slots (`INDUSTRIAL_LOCATIONS[].slots`) and link
  * connectivity/era (`RAW_LINKS` below) are transcribed directly from `docs/BUILDINGS.md` and
- * `docs/CONECTIONS.md` respectively — user-authored reference files that are this project's
+ * `docs/CONNECTIONS.md` respectively — user-authored reference files that are this project's
  * final source of truth for this data and must not be second-guessed or edited (docs/
  * ASSUMPTIONS.md #24). Earlier sessions reconstructed this same data from board photos with
  * varying confidence (docs/ASSUMPTIONS.md #1, #5, #23); those entries are kept for history but
@@ -225,13 +225,13 @@ interface RawLink {
 }
 
 /**
- * Buildable link slots, transcribed directly from `docs/CONECTIONS.md` (docs/ASSUMPTIONS.md
+ * Buildable link slots, transcribed directly from `docs/CONNECTIONS.md` (docs/ASSUMPTIONS.md
  * #24 — that file is the final source of truth, not to be second-guessed). The
  * kidderminster<->worcester slot is special: per that file's own note, building it also
  * connects both locations to farm_brewery_south (docs/RULES.md §11).
  */
 const RAW_LINKS: readonly RawLink[] = [
-  // "Ambas" (both eras) in docs/CONECTIONS.md
+  // "Ambas" (both eras) in docs/CONNECTIONS.md
   { locations: ['warrington', 'stoke_on_trent'], era: 'both' },
   { locations: ['stoke_on_trent', 'leek'], era: 'both' },
   { locations: ['stoke_on_trent', 'stone'], era: 'both' },

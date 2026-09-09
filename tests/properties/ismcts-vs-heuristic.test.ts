@@ -33,7 +33,7 @@ import { makeIsmctsBot } from '../../src/bots/ismcts.js';
  * independent 30-game check did NOT confirm a real drop (it came back at 60.0%, above the
  * baseline) — most likely just this test's 12 fixed seeds landing on the unlucky side of
  * ordinary small-sample variance, not a systematic regression. Finally, the board was rewritten
- * a third time from `docs/BUILDINGS.md`/`docs/CONECTIONS.md` — two files the user wrote by hand
+ * a third time from `docs/BUILDINGS.md`/`docs/CONNECTIONS.md` — two files the user wrote by hand
  * and declared this project's final source of truth for board slots and link connectivity/era,
  * superseding every photo-based reconstruction above (docs/ASSUMPTIONS.md #24). That rewrite
  * changed the board substantially (39 links instead of 30, very different per-location slots)

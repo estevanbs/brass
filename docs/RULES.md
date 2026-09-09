@@ -408,7 +408,7 @@ sem nome, com 1 slot de Cervejaria cada, que só podem ser construídas com cart
 Cervejaria ou indústria curinga), ligados por 39 links. A lista completa de localidades, seus
 slots (quais indústrias cada slot aceita) e a lista completa de links (arestas do grafo de
 conectividade) estão em `src/rules/board-data.ts`, que é a extensão executável desta seção —
-transcrita diretamente de `docs/BUILDINGS.md` e `docs/CONECTIONS.md`, dois arquivos
+transcrita diretamente de `docs/BUILDINGS.md` e `docs/CONNECTIONS.md`, dois arquivos
 autorais do usuário que são a fonte final de verdade para esses dois aspectos do tabuleiro e
 não devem ser alterados (`docs/ASSUMPTIONS.md` #24). Isso substitui reconstruções anteriores
 feitas a partir de fotos do tabuleiro físico (`docs/ASSUMPTIONS.md` #1, #5, #23), mantidas no
@@ -420,7 +420,7 @@ Regras estruturais fixas:
   necessário) colocar uma segunda peça de link para conectar a fazenda.
   A Fazenda Cervejeira Norte é conectada apenas a Cannock, por um link normal.
 - Cada link tem uma era associada (`LinkSlotDef.era`: `'canal'`, `'rail'`, ou `'both'`, lida de
-  `docs/CONECTIONS.md`): um link marcado `'canal'` só pode receber uma peça de canal, um
+  `docs/CONNECTIONS.md`): um link marcado `'canal'` só pode receber uma peça de canal, um
   marcado `'rail'` só uma peça de ferrovia, e `'both'` aceita qualquer uma dependendo da era
   atual. Todos os links (de qualquer era) são removidos do tabuleiro ao final de cada era
   (pontuados antes de saírem), então não há conflito entre dois tipos de peça ocupando a mesma

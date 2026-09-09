@@ -286,7 +286,7 @@ export class BoardMapComponent {
       };
 
       // A link with bonus connections (only kidderminster-worcester today) is a single buildable
-      // slot that joins 3 locations at once — per docs/CONECTIONS.md's own note, it's drawn as
+      // slot that joins 3 locations at once — per docs/CONNECTIONS.md's own note, it's drawn as
       // one T-junction (3 spokes meeting at a shared point), not as 3 separate pairwise lines
       // (a triangle), which would visually read as 3 distinct connections instead of 1.
       if (link.bonusConnections.length > 0) {

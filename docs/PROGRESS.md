@@ -618,7 +618,7 @@ distribuição de cor/traço no mapa bate exatamente com a nova tabela (12 "amba
 6 "canal" — 8 segmentos renderizados por causa da conexão bônus de Kidderminster–Worcester),
 sem erros de console.
 
-## Extra (fora do plano original) — docs/BUILDINGS.md e docs/CONECTIONS.md como fonte final de verdade
+## Extra (fora do plano original) — docs/BUILDINGS.md e docs/CONNECTIONS.md como fonte final de verdade
 
 Pedido direto do usuário: "criei dois arquivos em docs, um para as possíveis construções nos
 espaços, e outro para a listagem das conexões. Esses arquivos devem ser utilizados como fonte
@@ -637,7 +637,7 @@ de dados.
 
 Transcrevi os dois arquivos linha por linha para `src/rules/board-data.ts`:
 - `docs/BUILDINGS.md` reescreveu por completo os `slots` das 20 `INDUSTRIAL_LOCATIONS`.
-- `docs/CONECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` anteriores por **39** links
+- `docs/CONNECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` anteriores por **39** links
   (30 "ambas eras", 8 "somente ferrovia", 1 "somente canal") — o tabuleiro ficou bem mais
   conectado (Birmingham sozinho foi de 4 para 8 links). Nenhum par de localidades se repete
   entre as três categorias de era, então cada linha do arquivo virou exatamente um

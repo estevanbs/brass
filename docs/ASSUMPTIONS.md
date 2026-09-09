@@ -33,7 +33,7 @@ todo o parágrafo acima — fotos de alta resolução do tabuleiro físico (entr
 #16, #21, #23), `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
 integralmente (entradas #17-#21), uma foto da carta de referência oficial "Distribuição de
 Cartas" do próprio jogo (entrada #22, que também corrige um erro de leitura de cor nas
-entradas #6/#21), e por fim `docs/BUILDINGS.md`/`docs/CONECTIONS.md` — dois arquivos que o
+entradas #6/#21), e por fim `docs/BUILDINGS.md`/`docs/CONNECTIONS.md` — dois arquivos que o
 próprio usuário escreveu à mão como fonte final de verdade para os slots de cada localidade e
 para a lista de links (entrada #24), substituindo toda leitura visual anterior desses dois
 aspectos. Com o manual em mãos, foi possível **auditar** o motor contra ele e corrigir
@@ -499,7 +499,7 @@ leitura visual de baixa confiança, agora vem direto de `docs/BUILDINGS.md`.
 24. **Regra**: Quais indústrias cada slot de cada localidade aceita, e a lista completa de
     links do tabuleiro (substitui toda leitura de foto anterior para esses dois aspectos —
     entradas #1, #5, #23).
-    **Decisão**: o usuário criou `docs/BUILDINGS.md` e `docs/CONECTIONS.md` diretamente (não
+    **Decisão**: o usuário criou `docs/BUILDINGS.md` e `docs/CONNECTIONS.md` diretamente (não
     fotos para eu interpretar) e foi explícito: "Esses arquivos devem ser utilizados como fonte
     final de verdade e NÃO devem ser alterados." Transcrevi os dois arquivos linha por linha
     para `src/rules/board-data.ts`, sem reinterpretação:
@@ -512,7 +512,7 @@ leitura visual de baixa confiança, agora vem direto de `docs/BUILDINGS.md`.
       toda a lógica de cerveja/flip/pontuação já era genérica sobre `tile.industry ===
       'brewery'`, nunca sobre o `kind` da localidade, então a mudança não exigiu nenhum ajuste
       de motor, só de dados.
-    - `docs/CONECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` por uma lista de **39**
+    - `docs/CONNECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` por uma lista de **39**
       links (30 "ambas eras", 8 "somente ferrovia", 1 "somente canal" — nenhum par de
       localidades repetido entre as três categorias, então cada um virou exatamente um
       `LinkSlotDef`, sem necessidade de slots duplicados por era). O tabuleiro ficou
@@ -523,7 +523,7 @@ leitura visual de baixa confiança, agora vem direto de `docs/BUILDINGS.md`.
     - O arquivo também resolve uma ambiguidade da entrada #5 sobre o que "as duas cores juntas"
       significam: a instrução do usuário nesta mesma sessão ("onde está azul e escuro são as
       utilizáveis em ambas") já tinha confirmado que é um único slot `'both'`, não dois slots
-      separados — `docs/CONECTIONS.md` usa essa mesma convenção explicitamente (seção "Ambas").
+      separados — `docs/CONNECTIONS.md` usa essa mesma convenção explicitamente (seção "Ambas").
     **Confiança**: máxima para o conteúdo em si — são arquivos autorais do usuário, não uma
     leitura de foto ou inferência de nenhum tipo, e o próprio usuário os declarou fonte final de
     verdade. A única superfície de erro possível é uma transcrição minha incorreta do texto
