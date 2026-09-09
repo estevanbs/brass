@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cardIcon, cardKey, cardLabel, cardTypeLabel, isWildCard } from './card-format';
+import { cardIcon, cardKey, cardLabel, cardTypeLabel, isWildCard, merchantBonusLabel, merchantIcon } from './card-format';
 import type { Card } from './card.model';
+import type { MerchantBonus, MerchantIcon } from './game-state.model';
 
 describe('cardKey', () => {
   it('gives two location cards for the same town the same key', () => {
@@ -74,5 +75,23 @@ describe('cardIcon', () => {
     for (const card of kinds) {
       expect(cardIcon(card).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('merchantIcon', () => {
+  it('returns a distinct, non-empty glyph for every merchant icon', () => {
+    const icons: MerchantIcon[] = ['cotton', 'manufacturer', 'pottery', 'wild', 'blank'];
+    const glyphs = icons.map(merchantIcon);
+    expect(glyphs.every((g) => g.length > 0)).toBe(true);
+    expect(new Set(glyphs).size).toBe(icons.length);
+  });
+});
+
+describe('merchantBonusLabel', () => {
+  it('formats each bonus kind', () => {
+    expect(merchantBonusLabel({ kind: 'money', amount: 5 })).toBe('+£5');
+    expect(merchantBonusLabel({ kind: 'income', spaces: 2 })).toBe('+2 renda');
+    expect(merchantBonusLabel({ kind: 'victoryPoints', amount: 3 })).toBe('+3VP');
+    expect(merchantBonusLabel({ kind: 'develop' } as MerchantBonus)).toBe('desenvolver');
   });
 });

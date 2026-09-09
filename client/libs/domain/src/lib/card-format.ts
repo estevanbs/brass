@@ -1,4 +1,5 @@
 import type { Card, IndustryType } from './card.model';
+import type { MerchantBonus, MerchantIcon } from './game-state.model';
 
 const CARD_ICON: Readonly<Record<Card['kind'], string>> = {
   location: '🏙',
@@ -46,4 +47,26 @@ export function cardTypeLabel(card: Card): string {
 
 export function industryIcon(industry: IndustryType): string {
   return INDUSTRY_ICON[industry];
+}
+
+const MERCHANT_ICON_GLYPH: Readonly<Record<MerchantIcon, string>> = {
+  cotton: INDUSTRY_ICON.cotton,
+  manufacturer: INDUSTRY_ICON.manufacturer,
+  pottery: INDUSTRY_ICON.pottery,
+  wild: '★',
+  blank: '·',
+};
+
+/** What a market's merchant slot actually buys — 'wild' takes any of the three sellable
+ * goods, 'blank' takes none (it only ever supplies its own beer). */
+export function merchantIcon(icon: MerchantIcon): string {
+  return MERCHANT_ICON_GLYPH[icon];
+}
+
+/** Short label for the one-time reward a market's merchant bonus tile pays out. */
+export function merchantBonusLabel(bonus: MerchantBonus): string {
+  if (bonus.kind === 'money') return `+£${bonus.amount}`;
+  if (bonus.kind === 'income') return `+${bonus.spaces} renda`;
+  if (bonus.kind === 'victoryPoints') return `+${bonus.amount}VP`;
+  return 'desenvolver';
 }

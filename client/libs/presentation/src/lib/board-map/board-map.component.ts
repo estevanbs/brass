@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, viewChild } from '@angular/core';
 import { CardFormatService, GameStateService, MapLayoutService, PlayerColorService } from '@brass/application';
-import type { LegalActionView, Point } from '@brass/domain';
+import type { BuildSlotState, LegalActionView, LocationState, Point } from '@brass/domain';
 
 const KIND_COLOR: Readonly<Record<'industrial' | 'farm_brewery' | 'market', string>> = {
   industrial: '#d8c9a3',
@@ -35,10 +35,19 @@ interface LinkLineViewModel {
 interface TileBadgeViewModel {
   readonly cx: number;
   readonly cy: number;
-  readonly color: string;
+  readonly r: number;
+  readonly fill: string;
+  readonly stroke: string;
+  readonly strokeDasharray: string;
   readonly icon: string;
+  readonly fontSize: number;
   readonly opacity: number;
 }
+
+const BUILDABLE_BADGE_FILL = '#fbf5e6';
+const BUILDABLE_BADGE_STROKE = '#8a7550';
+const MERCHANT_BADGE_FILL = '#d4a537';
+const MERCHANT_BADGE_FILL_SPENT = '#e2d6ac';
 
 interface LocationNodeViewModel {
   readonly id: string;
@@ -54,6 +63,9 @@ interface LocationNodeViewModel {
   readonly labelBold: boolean;
   readonly labelFill: string;
   readonly badges: readonly TileBadgeViewModel[];
+  /** Market only: the one-time reward its merchant bonus tile pays out (e.g. "+£5"), shown
+   * under the merchant-slot badges so it reads together with what those slots buy. */
+  readonly subLabel: string | null;
 }
 
 /**
@@ -114,8 +126,32 @@ interface LocationNodeViewModel {
               <text text-anchor="middle" font-size="13" y="5">⚑</text>
             }
             @for (badge of node.badges; track $index) {
-              <circle [attr.cx]="badge.cx" [attr.cy]="badge.cy" r="7" [attr.fill]="badge.color" [attr.opacity]="badge.opacity" stroke="#f1e6c8" stroke-width="1" />
-              <text [attr.x]="badge.cx" [attr.y]="badge.cy + 3.5" text-anchor="middle" font-size="8">{{ badge.icon }}</text>
+              <circle
+                [attr.cx]="badge.cx"
+                [attr.cy]="badge.cy"
+                [attr.r]="badge.r"
+                [attr.fill]="badge.fill"
+                [attr.opacity]="badge.opacity"
+                [attr.stroke]="badge.stroke"
+                [attr.stroke-dasharray]="badge.strokeDasharray"
+                stroke-width="1"
+              />
+              <text [attr.x]="badge.cx" [attr.y]="badge.cy + 3.5" text-anchor="middle" [attr.font-size]="badge.fontSize" [attr.opacity]="badge.opacity">{{ badge.icon }}</text>
+            }
+            @if (node.subLabel !== null) {
+              <text
+                [attr.y]="node.r + 30"
+                text-anchor="middle"
+                font-size="9"
+                font-weight="700"
+                fill="#8a4e0f"
+                paint-order="stroke"
+                stroke="#f1e6c8"
+                stroke-width="3"
+                stroke-linejoin="round"
+              >
+                {{ node.subLabel }}
+              </text>
             }
             <text
               [attr.y]="-(node.r + 6)"
@@ -142,6 +178,8 @@ interface LocationNodeViewModel {
         <span><i class="dot" style="background:#c98a2c"></i> jogável agora</span>
         <span><i class="line built" [style.background]="eraColor.canal"></i> canal</span>
         <span><i class="line built" [style.background]="eraColor.rail"></i> ferrovia</span>
+        <span><i class="dot outline"></i> pode construir (indústria aceita)</span>
+        <span><i class="dot" style="background:#d4a537"></i> mercador compra este bem</span>
       </div>
 
       @if (hintText(); as hint) {
@@ -218,6 +256,68 @@ export class BoardMapComponent {
     });
   });
 
+  /** Row of badges under an industrial/farm-brewery node: one per build slot, in board order —
+   * a filled, owner-colored badge for a built tile, or a hollow dashed one showing which
+   * industry type(s) an empty slot still accepts, so "what can I build here" reads directly off
+   * the map instead of requiring a click. */
+  private buildSlotBadges(slots: readonly BuildSlotState[], humanId: string): TileBadgeViewModel[] {
+    // Slots with 2 accepted industries render a wider (r=8) badge than a single-industry or
+    // built one (r=7) — space badge centers by the widest pair actually present so neighboring
+    // badges never touch (a real bug found by measuring rendered circle bounding boxes).
+    const anyWide = slots.some((s) => s.tile === null && s.allowedIndustries.length > 1);
+    const spacing = anyWide ? 17 : 15;
+    return slots.map((slot, i) => {
+      const cx = (i - (slots.length - 1) / 2) * spacing;
+      const cy = 0; // filled in by the caller once `r` is known
+      if (slot.tile !== null) {
+        return {
+          cx,
+          cy,
+          r: 7,
+          fill: this.playerColor.colorFor(slot.tile.owner, humanId),
+          stroke: '#f1e6c8',
+          strokeDasharray: 'none',
+          icon: this.cardFormat.industryIcon(slot.tile.industry),
+          fontSize: 8,
+          opacity: slot.tile.flipped ? 0.55 : 1,
+        };
+      }
+      const icon = slot.allowedIndustries.map((i2) => this.cardFormat.industryIcon(i2)).join('');
+      const wide = slot.allowedIndustries.length > 1;
+      return {
+        cx,
+        cy,
+        r: wide ? 8 : 7,
+        fill: BUILDABLE_BADGE_FILL,
+        stroke: BUILDABLE_BADGE_STROKE,
+        strokeDasharray: '2,1.5',
+        icon,
+        fontSize: wide ? 6 : 8,
+        opacity: 0.9,
+      };
+    });
+  }
+
+  /** Row of badges under a market node: one per merchant slot, showing which good it buys
+   * ("what can be sold/bought here") — dimmed once its beer has already been spent. */
+  private merchantBadges(location: LocationState): TileBadgeViewModel[] {
+    const slots = location.merchantSlots ?? [];
+    return slots.map((slot, i) => {
+      const cx = (i - (slots.length - 1) / 2) * 17;
+      return {
+        cx,
+        cy: 0,
+        r: 8,
+        fill: slot.hasBeer ? MERCHANT_BADGE_FILL : MERCHANT_BADGE_FILL_SPENT,
+        stroke: '#f1e6c8',
+        strokeDasharray: 'none',
+        icon: this.cardFormat.merchantIcon(slot.icon ?? 'blank'),
+        fontSize: 8,
+        opacity: slot.hasBeer ? 1 : 0.5,
+      };
+    });
+  }
+
   protected readonly nodes = computed<readonly LocationNodeViewModel[]>(() => {
     const view = this.gameState.view();
     if (view === null) return [];
@@ -228,18 +328,18 @@ export class BoardMapComponent {
       const pos = layout.get(location.id);
       if (pos === undefined) return [];
       const isActive = activeIds.has(location.id);
-      const slots = view.state.locations[location.id]?.slots ?? [];
-      const builtSlots = slots.flatMap((s) => (s.tile !== null ? [s.tile] : []));
-      const hasHumanTile = builtSlots.some((t) => t.owner === view.humanId);
+      const locState = view.state.locations[location.id];
+      const slots = locState?.slots ?? [];
+      const hasHumanTile = slots.some((s) => s.tile?.owner === view.humanId);
       const r = location.kind === 'market' ? 15 : 11;
+      const cy = r + 12;
 
-      const badges: TileBadgeViewModel[] = builtSlots.map((tile, i) => ({
-        cx: (i - (builtSlots.length - 1) / 2) * 15,
-        cy: r + 12,
-        color: this.playerColor.colorFor(tile.owner, view.humanId),
-        icon: this.cardFormat.industryIcon(tile.industry),
-        opacity: tile.flipped ? 0.55 : 1,
-      }));
+      const isMarket = location.kind === 'market';
+      const rawBadges = isMarket && locState !== undefined ? this.merchantBadges(locState) : this.buildSlotBadges(slots, view.humanId);
+      const badges = rawBadges.map((b) => ({ ...b, cy }));
+
+      const marketInPlay = !isMarket || (locState?.merchantSlots ?? []).some((s) => s.icon !== null);
+      const subLabel = isMarket && locState?.bonus !== undefined ? this.cardFormat.merchantBonusLabel(locState.bonus) : null;
 
       return [
         {
@@ -247,15 +347,16 @@ export class BoardMapComponent {
           x: pos.x,
           y: pos.y,
           r,
-          isMarket: location.kind === 'market',
+          isMarket,
           clickable: isActive,
-          fill: KIND_COLOR[location.kind],
+          fill: marketInPlay ? KIND_COLOR[location.kind] : '#c9bfa0',
           stroke: hasHumanTile ? '#a8432f' : isActive ? '#c98a2c' : '#5a4d38',
           strokeWidth: hasHumanTile || isActive ? 3 : 1.4,
           label: location.id.replace(/_/g, ' '),
-          labelBold: location.kind === 'market' || isActive,
+          labelBold: isMarket || isActive,
           labelFill: isActive ? '#8a4e0f' : '#2b2620',
           badges,
+          subLabel,
         },
       ];
     });

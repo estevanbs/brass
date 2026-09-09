@@ -6,8 +6,10 @@ import {
   cardTypeLabel as cardTypeLabelOf,
   industryIcon as industryIconOf,
   isWildCard,
+  merchantBonusLabel as merchantBonusLabelOf,
+  merchantIcon as merchantIconOf,
 } from '@brass/domain';
-import type { Card, IndustryType } from '@brass/domain';
+import type { Card, IndustryType, MerchantBonus, MerchantIcon } from '@brass/domain';
 
 /**
  * Thin injectable wrapper around `domain`'s pure card-formatting functions — every component
@@ -39,5 +41,13 @@ export class CardFormatService {
 
   industryIcon(industry: IndustryType): string {
     return industryIconOf(industry);
+  }
+
+  merchantIcon(icon: MerchantIcon): string {
+    return merchantIconOf(icon);
+  }
+
+  merchantBonusLabel(bonus: MerchantBonus): string {
+    return merchantBonusLabelOf(bonus);
   }
 }

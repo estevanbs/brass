@@ -13,5 +13,7 @@ describe('CardFormatService', () => {
     expect(service.isWild(card)).toBe(false);
     expect(service.icon(card).length).toBeGreaterThan(0);
     expect(service.industryIcon('coal').length).toBeGreaterThan(0);
+    expect(service.merchantIcon('wild').length).toBeGreaterThan(0);
+    expect(service.merchantBonusLabel({ kind: 'money', amount: 5 })).toBe('+£5');
   });
 });
