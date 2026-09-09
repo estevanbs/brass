@@ -255,34 +255,71 @@ export class BoardMapComponent {
     return view.board.links.flatMap((link) => {
       const built = builtByLinkId.get(link.id);
       const isActive = activeIds.has(link.id);
-      const pairs = [link.locations, ...link.bonusConnections];
-      return pairs.flatMap(([a, b], i): LinkLineViewModel[] => {
-        const na = layout.get(a);
-        const nb = layout.get(b);
-        if (na === undefined || nb === undefined) return [];
-        const mid: Point = { x: (na.x + nb.x) / 2, y: (na.y + nb.y) / 2 };
-        const isBuilt = built !== undefined;
-        return [
-          {
-            key: `${link.id}:${i}`,
-            linkId: link.id,
-            x1: na.x,
-            y1: na.y,
-            x2: nb.x,
-            y2: nb.y,
-            stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : UNBUILT_ERA_COLOR[link.era],
-            strokeWidth: isBuilt || isActive ? 4 : 1.6,
-            dasharray: isBuilt || isActive ? 'none' : UNBUILT_ERA_DASH[link.era],
-            opacity: isBuilt || isActive ? 0.95 : 0.8,
-            clickable: isActive && !isBuilt,
-            highlighted: isActive,
-            midX: mid.x,
-            midY: mid.y,
-            builtOwnerColor: built !== undefined ? this.playerColor.colorFor(built.owner, view.humanId) : null,
-            title: built !== undefined ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'})` : ERA_TITLE[link.era],
-          },
+      const isBuilt = built !== undefined;
+      const style = {
+        stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : UNBUILT_ERA_COLOR[link.era],
+        strokeWidth: isBuilt || isActive ? 4 : 1.6,
+        dasharray: isBuilt || isActive ? 'none' : UNBUILT_ERA_DASH[link.era],
+        opacity: isBuilt || isActive ? 0.95 : 0.8,
+        clickable: isActive && !isBuilt,
+        highlighted: isActive,
+        builtOwnerColor: built !== undefined ? this.playerColor.colorFor(built.owner, view.humanId) : null,
+        title:
+          built !== undefined
+            ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'})`
+            : ERA_TITLE[link.era],
+      };
+
+      // A link with bonus connections (only kidderminster-worcester today) is a single buildable
+      // slot that joins 3 locations at once — per docs/CONECTIONS.md's own note, it's drawn as
+      // one T-junction (3 spokes meeting at a shared point), not as 3 separate pairwise lines
+      // (a triangle), which would visually read as 3 distinct connections instead of 1.
+      if (link.bonusConnections.length > 0) {
+        const [locA, locB] = link.locations;
+        const third = link.bonusConnections[0]?.find((id) => id !== locA && id !== locB);
+        const nA = layout.get(locA);
+        const nB = layout.get(locB);
+        const nThird = third === undefined ? undefined : layout.get(third);
+        if (nA === undefined || nB === undefined || nThird === undefined) return [];
+        const junction: Point = { x: (nA.x + nB.x) / 2, y: (nA.y + nB.y) / 2 };
+        const spokes: readonly [Point, number][] = [
+          [nA, 0],
+          [nB, 1],
+          [nThird, 2],
         ];
-      });
+        return spokes.map(([node, i]): LinkLineViewModel => ({
+          key: `${link.id}:${i}`,
+          linkId: link.id,
+          x1: junction.x,
+          y1: junction.y,
+          x2: node.x,
+          y2: node.y,
+          ...style,
+          midX: junction.x,
+          midY: junction.y,
+          // Only one spoke carries the built-owner marker so it renders once, at the junction.
+          builtOwnerColor: i === 0 ? style.builtOwnerColor : null,
+        }));
+      }
+
+      const [a, b] = link.locations;
+      const na = layout.get(a);
+      const nb = layout.get(b);
+      if (na === undefined || nb === undefined) return [];
+      const mid: Point = { x: (na.x + nb.x) / 2, y: (na.y + nb.y) / 2 };
+      return [
+        {
+          key: `${link.id}:0`,
+          linkId: link.id,
+          x1: na.x,
+          y1: na.y,
+          x2: nb.x,
+          y2: nb.y,
+          ...style,
+          midX: mid.x,
+          midY: mid.y,
+        },
+      ];
     });
   });
 
