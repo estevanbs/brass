@@ -19,6 +19,13 @@
   box-sizing: border-box;
 }
 
+/* The `hidden` attribute must win over any element/class display rule below (e.g. `main {
+   display: grid }` or `.overlay { display: flex }`), otherwise a hidden element still renders
+   and — worse, for a fixed-position overlay — still intercepts clicks. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
