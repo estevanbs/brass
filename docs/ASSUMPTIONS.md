@@ -89,3 +89,36 @@ criação própria, não uma transcrição do produto da Roxley.
    RNG semeado da partida. Ver `RULES.md` §7.3.
    **Confiança**: média. **Impacto se errado**: nenhum na corretude — é só o conteúdo
    aleatório do setup.
+
+8. **Regra** (M3): "Escolha do carvão mais próximo" e "qualquer siderúrgica" (RULES.md §6.1,
+   §6.2) descrevem de onde o recurso *deve* vir, não uma preferência do jogador.
+   **Decisão**: `applyAction` valida que a fonte de carvão informada é de fato a mina
+   conectada não virada mais próxima (ou o mercado, só se nenhuma existir e houver conexão a
+   um mercador); para ferro, valida que é uma siderúrgica não virada existente (ou o mercado,
+   só se nenhuma existir). Uma ação com fonte errada é rejeitada com erro, não corrigida
+   silenciosamente.
+   **Confiança**: alta (é a leitura literal do texto oficial). **Impacto se errado**: bots que
+   não souberem calcular a fonte correta teriam ações rejeitadas com mais frequência do que
+   deveriam — mitigado pois `legalActions` (M4) vai gerar a ação já com a fonte certa.
+
+9. **Regra** (M3): a peça de indústria tem um único valor de VP impresso, usado tanto na
+   pontuação de fim de era (para o dono) quanto na pontuação de links (para quem é dono do
+   *link*, que pode ser outro jogador) — ver `RULES.md` §5.2.
+   **Decisão**: modelo com um campo `victoryPoints` só, reaproveitado nos dois contextos, em
+   vez de dois campos separados (valor de posse vs. valor de link) como algumas
+   implementações de fãs fazem por precaução.
+   **Confiança**: média. **Impacto se errado**: mudaria o equilíbrio da pontuação de rotas
+   (`src/engine/scoring.ts`), não a estrutura do código — trivial de separar em dois campos
+   depois, caso `RULES.md` §5.2 seja revisado.
+
+10. **Regra** (M3): política determinística de "vender peças para cobrir déficit de renda"
+    (RULES.md §3b) quando o jogador não tem dinheiro suficiente — a regra oficial deixa a
+    escolha de qual peça remover a critério do jogador.
+    **Decisão**: `engine/cycle.ts` remove peças na ordem crescente de custo de construção
+    (mais baratas primeiro) até cobrir o déficit, em vez de expor essa escolha como uma
+    decisão externa. Isso é adequado para os bots (M5+), que precisam de uma política
+    determinística de qualquer forma; um modo "humano" no CLI (M8) pode reabrir essa escolha
+    mais tarde se necessário.
+    **Confiança**: média. **Impacto se errado**: um jogador humano perderia a escolha de
+    *qual* peça sacrificar durante o jogo interativo — não afeta a corretude do motor nem os
+    bots, que precisam de uma regra fixa de qualquer forma.
