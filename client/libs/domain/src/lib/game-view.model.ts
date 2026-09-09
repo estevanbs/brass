@@ -1,5 +1,5 @@
 import type { Card, IndustryType } from './card.model';
-import type { GameState } from './game-state.model';
+import type { Era, GameState } from './game-state.model';
 
 export type ActionType = 'build' | 'network' | 'develop' | 'sell' | 'loan' | 'scout' | 'pass';
 
@@ -25,6 +25,9 @@ export interface BoardLinkSummary {
   readonly id: string;
   readonly locations: readonly [string, string];
   readonly bonusConnections: readonly (readonly [string, string])[];
+  /** Which era's Network action can build this link — 'both' if either era can. Does not
+   * change once built (see `LinkSlotDef.era` on the backend for why). */
+  readonly era: Era | 'both';
 }
 
 export interface BoardSummary {

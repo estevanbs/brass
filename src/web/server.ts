@@ -81,6 +81,7 @@ const BOARD_SUMMARY = {
     id: l.id,
     locations: l.locations,
     bonusConnections: l.bonusConnections,
+    era: l.era,
   })),
 };
 

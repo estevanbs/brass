@@ -14,6 +14,29 @@ const ERA_COLOR: Readonly<Record<'canal' | 'rail', string>> = { canal: '#2f6ba8'
 const INACTIVE_LINE = '#8a7550';
 const ACTIVE_LINE = '#c98a2c';
 
+type LinkEra = 'canal' | 'rail' | 'both';
+
+/** Unbuilt links are tinted toward their built-era color (a paler version of `ERA_COLOR`) so
+ * "which links am I even allowed to build right now" reads off the map without opening a
+ * popup — canal-only links lean blue, rail-only lean the dark rail tone, 'both' stays neutral. */
+const UNBUILT_ERA_COLOR: Readonly<Record<LinkEra, string>> = {
+  canal: '#5f85ad',
+  rail: '#6b5f4a',
+  both: INACTIVE_LINE,
+};
+// Distinct dash rhythms per era so the distinction survives even without color (colorblind-safe,
+// and still legible once several unbuilt links overlap near a dense cluster).
+const UNBUILT_ERA_DASH: Readonly<Record<LinkEra, string>> = {
+  canal: '7,3',
+  rail: '2,3',
+  both: '5,4',
+};
+const ERA_TITLE: Readonly<Record<LinkEra, string>> = {
+  canal: 'só pode ser construído na era do Canal',
+  rail: 'só pode ser construído na era da Ferrovia',
+  both: 'pode ser construído em qualquer era',
+};
+
 interface LinkLineViewModel {
   readonly key: string;
   readonly linkId: string;
@@ -30,6 +53,7 @@ interface LinkLineViewModel {
   readonly midX: number;
   readonly midY: number;
   readonly builtOwnerColor: string | null;
+  readonly title: string;
 }
 
 interface TileBadgeViewModel {
@@ -103,7 +127,7 @@ interface LocationNodeViewModel {
             [class.map-target-line]="line.highlighted"
             [style.cursor]="line.clickable ? 'pointer' : null"
             (click)="line.clickable && onLinkClick(line)"
-          />
+          ><title>{{ line.title }}</title></line>
           @if (line.builtOwnerColor !== null) {
             <circle [attr.cx]="line.midX" [attr.cy]="line.midY" r="6" [attr.fill]="line.builtOwnerColor" stroke="#f1e6c8" stroke-width="1.5" />
           }
@@ -176,8 +200,11 @@ interface LocationNodeViewModel {
         <span><i class="dot" [style.background]="kindColor.farm_brewery"></i> fazenda</span>
         <span><i class="dot" [style.background]="kindColor.market"></i> ⚑ mercador</span>
         <span><i class="dot" style="background:#c98a2c"></i> jogável agora</span>
-        <span><i class="line built" [style.background]="eraColor.canal"></i> canal</span>
-        <span><i class="line built" [style.background]="eraColor.rail"></i> ferrovia</span>
+        <span><i class="line built" [style.background]="eraColor.canal"></i> canal construído</span>
+        <span><i class="line built" [style.background]="eraColor.rail"></i> ferrovia construída</span>
+        <span><i class="line dashed" [style.border-top-color]="unbuiltEraColor.canal"></i> só constrói no Canal</span>
+        <span><i class="line dashed" [style.border-top-color]="unbuiltEraColor.rail"></i> só constrói na Ferrovia</span>
+        <span><i class="line dashed" [style.border-top-color]="unbuiltEraColor.both"></i> constrói em qualquer era</span>
         <span><i class="dot outline"></i> pode construir (indústria aceita)</span>
         <span><i class="dot" style="background:#d4a537"></i> mercador compra este bem</span>
       </div>
@@ -198,6 +225,7 @@ export class BoardMapComponent {
 
   protected readonly kindColor = KIND_COLOR;
   protected readonly eraColor = ERA_COLOR;
+  protected readonly unbuiltEraColor = UNBUILT_ERA_COLOR;
 
   private readonly svgRoot = viewChild.required<ElementRef<SVGSVGElement>>('svgRoot');
 
@@ -233,6 +261,7 @@ export class BoardMapComponent {
         const nb = layout.get(b);
         if (na === undefined || nb === undefined) return [];
         const mid: Point = { x: (na.x + nb.x) / 2, y: (na.y + nb.y) / 2 };
+        const isBuilt = built !== undefined;
         return [
           {
             key: `${link.id}:${i}`,
@@ -241,15 +270,16 @@ export class BoardMapComponent {
             y1: na.y,
             x2: nb.x,
             y2: nb.y,
-            stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : INACTIVE_LINE,
-            strokeWidth: built !== undefined || isActive ? 4 : 1.6,
-            dasharray: built !== undefined || isActive ? 'none' : '5,4',
-            opacity: built !== undefined || isActive ? 0.95 : 0.8,
-            clickable: isActive && built === undefined,
+            stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : UNBUILT_ERA_COLOR[link.era],
+            strokeWidth: isBuilt || isActive ? 4 : 1.6,
+            dasharray: isBuilt || isActive ? 'none' : UNBUILT_ERA_DASH[link.era],
+            opacity: isBuilt || isActive ? 0.95 : 0.8,
+            clickable: isActive && !isBuilt,
             highlighted: isActive,
             midX: mid.x,
             midY: mid.y,
             builtOwnerColor: built !== undefined ? this.playerColor.colorFor(built.owner, view.humanId) : null,
+            title: built !== undefined ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'})` : ERA_TITLE[link.era],
           },
         ];
       });
