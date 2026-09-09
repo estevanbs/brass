@@ -29,21 +29,25 @@ import { makeIsmctsBot } from '../../src/bots/ismcts.js';
  * check at 60.0%), and the threshold was raised to 0.4 accordingly. Then, re-tracing every
  * link's era against a much higher-resolution board photo corrected about a third of them —
  * including one outright wrong connection, Uttoxeter–Derby instead of Uttoxeter–Burton-on-Trent
- * (docs/ASSUMPTIONS.md #23) — dropped the 12-seed rate to 41.7% (5/12) again. **This time the
- * independent 30-game check did NOT confirm a real drop — it came back at 60.0% (18/30), above
- * the baseline, not below it.** That means this specific dip is most likely this test's 12
- * fixed seeds landing on the unlucky side of ordinary small-sample variance (for a true ~50-60%
- * rate, P(X≤5 of 12) ≈ 39% under a binomial — unremarkable), not a systematic regression from
- * the topology fix. **Threshold lowered back to 0.3 anyway** — the 12 seeds are fixed and
- * deterministic, so this test will keep producing 41.7% regardless of the cause, and the
- * threshold has to accommodate that number either way. `rootTopK` and the rest of the ISMCTS
- * tuning in `src/bots/ismcts.ts` have never been re-validated against any of these board
- * revisions — that revalidation is real, un-done follow-up work, not something to fold into a
- * board data fix.
+ * (docs/ASSUMPTIONS.md #23) — dropped the 12-seed rate to 41.7% (5/12) again, but this time an
+ * independent 30-game check did NOT confirm a real drop (it came back at 60.0%, above the
+ * baseline) — most likely just this test's 12 fixed seeds landing on the unlucky side of
+ * ordinary small-sample variance, not a systematic regression. Finally, the board was rewritten
+ * a third time from `docs/BUILDINGS.md`/`docs/CONECTIONS.md` — two files the user wrote by hand
+ * and declared this project's final source of truth for board slots and link connectivity/era,
+ * superseding every photo-based reconstruction above (docs/ASSUMPTIONS.md #24). That rewrite
+ * changed the board substantially (39 links instead of 30, very different per-location slots)
+ * and pushed the 12-seed rate up to **75.0% (9/12)** — comfortably the highest of any topology
+ * tried so far, confirmed by an independent 30-game check at 63.3% (19/30), the same high
+ * range. **Threshold raised to 0.5**, back to its original value and with a large safety
+ * margin under the new baseline. `rootTopK` and the rest of the ISMCTS tuning in
+ * `src/bots/ismcts.ts` have never been re-validated against any of these board revisions —
+ * that revalidation is real, un-done follow-up work, not something to fold into a board data
+ * fix.
  */
 describe('ismctsBot vs heuristicBot (reduced, deterministic-budget regression guard)', () => {
   it(
-    'wins at least 30% of a small sample of games at a fixed, deterministic simulation budget',
+    'wins at least 50% of a small sample of games at a fixed, deterministic simulation budget',
     () => {
       const GAMES = 12;
       const ismcts = makeIsmctsBot({ maxTotalSimulations: 120, timeBudgetMs: 30_000 });
@@ -59,7 +63,7 @@ describe('ismctsBot vs heuristicBot (reduced, deterministic-budget regression gu
 
       const winRate = wins / GAMES;
       console.log(`[ismcts vs heuristic, 120 sims/move] ${wins}/${GAMES} wins (${(winRate * 100).toFixed(1)}%)`);
-      expect(winRate).toBeGreaterThanOrEqual(0.3);
+      expect(winRate).toBeGreaterThanOrEqual(0.5);
     },
     180_000,
   );

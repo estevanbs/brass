@@ -617,3 +617,52 @@ semântica de `'both'`. Verificado visualmente contra o servidor reiniciado via 
 distribuição de cor/traço no mapa bate exatamente com a nova tabela (12 "ambas", 12 "ferrovia",
 6 "canal" — 8 segmentos renderizados por causa da conexão bônus de Kidderminster–Worcester),
 sem erros de console.
+
+## Extra (fora do plano original) — docs/BUILDINGS.md e docs/CONECTIONS.md como fonte final de verdade
+
+Pedido direto do usuário: "criei dois arquivos em docs, um para as possíveis construções nos
+espaços, e outro para a listagem das conexões. Esses arquivos devem ser utilizados como fonte
+final de verdade e NÃO devem ser alterados." Diferente de todas as sessões anteriores de
+reconstrução do tabuleiro (que liam fotos e documentavam grau de confiança), esses dois
+arquivos são autorais do próprio usuário e declarados fonte final — nenhuma interpretação
+própria envolvida, só transcrição.
+
+Antes de aplicar, investiguei se `docs/BUILDINGS.md` introduzia um problema: vários dos seus
+slots de localidades industriais comuns agora aceitam Cervejaria — algo que nenhuma versão
+anterior do tabuleiro tinha (Cervejaria só existia nas duas fazendas cervejeiras dedicadas).
+Um agente de pesquisa confirmou que nenhum código do motor assume "Cervejaria só existe onde
+`kind === 'farm_brewery'`" — toda a lógica de produção/flip/pontuação de cerveja já era
+genérica sobre `tile.industry === 'brewery'`. A mudança não exigiu nenhum ajuste de motor, só
+de dados.
+
+Transcrevi os dois arquivos linha por linha para `src/rules/board-data.ts`:
+- `docs/BUILDINGS.md` reescreveu por completo os `slots` das 20 `INDUSTRIAL_LOCATIONS`.
+- `docs/CONECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` anteriores por **39** links
+  (30 "ambas eras", 8 "somente ferrovia", 1 "somente canal") — o tabuleiro ficou bem mais
+  conectado (Birmingham sozinho foi de 4 para 8 links). Nenhum par de localidades se repete
+  entre as três categorias de era, então cada linha do arquivo virou exatamente um
+  `LinkSlotDef`, sem necessidade de dois slots para o mesmo par. A nota do arquivo sobre o link
+  especial Kidderminster↔Worcester (uma peça conecta as duas localidades e a Fazenda Cervejeira
+  Sul) confirma o mecanismo de `bonusConnections` já implementado, sem mudança de código.
+
+Essa reescrita quebrou 27 testes em 5 arquivos (`board-data.test.ts`, `build.test.ts`,
+`sell.test.ts`, `network-action.test.ts`, `legal-actions.test.ts`) — quase todos porque fixtures
+antigas assumiam qual indústria cada slot específico aceitava (ex.: "wolverhampton slot 0 é
+carvão" deixou de ser verdade — carvão virou slot 1, compartilhado com manufatura) ou porque
+usavam o link `coventry__oxford`, que não existe mais na lista nova (Coventry não tem mais
+ligação direta com nenhum mercador). Cada teste foi corrigido reexaminando seu propósito real
+(não só trocando IDs cegamente) e escolhendo a localidade/slot/link mais próximo que ainda
+serve esse propósito — por exemplo, os testes de "slot de indústria única vs. compartilhado"
+migraram de Dudley (que deixou de ter um slot compartilhado) para Cannock, e os testes de venda
+de algodão migraram de Coventry para Worcester (que ainda liga direto a um mercador, Gloucester).
+
+**Efeito colateral honesto, desta vez uma alta considerável**: a amostra fixa de 12 partidas
+ISMCTS×heurístico, que estava em 41,7% depois da correção de era dos links, subiu para 75,0%
+(9/12) com o tabuleiro muito mais conectado desta reescrita completa — confirmado por uma
+amostra independente de 30 partidas em 63,3% (19/30), a mesma faixa alta.
+
+Verificação: `npm run typecheck && npm run lint && npx vitest run` passa limpo (184 testes).
+Checagem visual real contra o servidor reiniciado via Playwright — o mapa renderiza as 39
+ligações e os novos slots de Cervejaria em localidades comuns sem nenhum erro de console, mesmo
+com quase 40% mais links que a versão anterior. `docs/RULES.md` §11 e `docs/ASSUMPTIONS.md`
+(entrada #24, mais atualização no parágrafo de abertura) documentam a mudança.

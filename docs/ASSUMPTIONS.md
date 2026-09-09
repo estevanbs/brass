@@ -28,18 +28,21 @@ alguma indústria). Isso mantém o motor jogável, testável e balanceado, mas o
 numéricos específicos de `board-data.ts` / `industry-data.ts` / `deck-data.ts` são uma
 criação própria, não uma transcrição do produto da Roxley.
 
-**Atualização**: em sessões posteriores, o usuário forneceu três fontes reais que substituem
-boa parte do parágrafo acima — uma foto de alta resolução do tabuleiro físico (entradas #1,
-#5, #15, #16, #21), `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
-integralmente (entradas #17-#21), e uma foto da carta de referência oficial "Distribuição de
+**Atualização**: em sessões posteriores, o usuário forneceu fontes reais que substituem quase
+todo o parágrafo acima — fotos de alta resolução do tabuleiro físico (entradas #1, #5, #15,
+#16, #21, #23), `docs/HANDBOOK_RULES.md`, uma cópia fiel do manual oficial reescrita
+integralmente (entradas #17-#21), uma foto da carta de referência oficial "Distribuição de
 Cartas" do próprio jogo (entrada #22, que também corrige um erro de leitura de cor nas
-entradas #6/#21). Com o manual em mãos, foi possível **auditar** o motor contra ele e corrigir
+entradas #6/#21), e por fim `docs/BUILDINGS.md`/`docs/CONECTIONS.md` — dois arquivos que o
+próprio usuário escreveu à mão como fonte final de verdade para os slots de cada localidade e
+para a lista de links (entrada #24), substituindo toda leitura visual anterior desses dois
+aspectos. Com o manual em mãos, foi possível **auditar** o motor contra ele e corrigir
 divergências reais encontradas (não só preencher lacunas) — ver as entradas #17-#20 para os
 casos onde o comportamento anterior estava genuinamente errado, não apenas "inventado sem
-fonte". O que ainda continua sendo composição própria, mesmo com essas fontes: o tipo exato de
-indústria aceito por cada slot individual do tabuleiro (ícones pequenos demais numa foto de
-celular) e a distribuição exata de cópias por nível dentro de cada indústria (o manual dá só o
-total por indústria, não o detalhamento por nível).
+fonte". O que ainda continua sendo composição própria, mesmo com todas essas fontes: só a
+distribuição exata de cópias por nível dentro de cada indústria (o manual dá só o total por
+indústria, não o detalhamento por nível) — o tipo de indústria aceito por cada slot, antes uma
+leitura visual de baixa confiança, agora vem direto de `docs/BUILDINGS.md`.
 
 ## Entradas
 
@@ -492,3 +495,48 @@ total por indústria, não o detalhamento por nível).
     41,7% independente da causa — então o limiar precisa acomodar esse número de qualquer
     forma. Reduzido de volta para 30% (de 40%); histórico completo no comentário do próprio
     arquivo de teste.
+
+24. **Regra**: Quais indústrias cada slot de cada localidade aceita, e a lista completa de
+    links do tabuleiro (substitui toda leitura de foto anterior para esses dois aspectos —
+    entradas #1, #5, #23).
+    **Decisão**: o usuário criou `docs/BUILDINGS.md` e `docs/CONECTIONS.md` diretamente (não
+    fotos para eu interpretar) e foi explícito: "Esses arquivos devem ser utilizados como fonte
+    final de verdade e NÃO devem ser alterados." Transcrevi os dois arquivos linha por linha
+    para `src/rules/board-data.ts`, sem reinterpretação:
+    - `docs/BUILDINGS.md` reescreveu os `slots` das 20 `INDUSTRIAL_LOCATIONS` por completo.
+      Diferença mais notável: **Cervejaria deixou de ser exclusiva das duas fazendas
+      cervejeiras** — vários slots de localidades industriais comuns agora aceitam Cervejaria
+      como uma das opções do slot (Walsall, Coventry, Stone, Uttoxeter, Stafford,
+      Burton-on-Trent, Coalbrookdale, Nuneaton, Derby). Investiguei antes de aplicar se algum
+      código assumia "Cervejaria só existe em localidade `kind: 'farm_brewery'`" — não assume;
+      toda a lógica de cerveja/flip/pontuação já era genérica sobre `tile.industry ===
+      'brewery'`, nunca sobre o `kind` da localidade, então a mudança não exigiu nenhum ajuste
+      de motor, só de dados.
+    - `docs/CONECTIONS.md` substituiu inteiramente os 30 `RAW_LINKS` por uma lista de **39**
+      links (30 "ambas eras", 8 "somente ferrovia", 1 "somente canal" — nenhum par de
+      localidades repetido entre as três categorias, então cada um virou exatamente um
+      `LinkSlotDef`, sem necessidade de slots duplicados por era). O tabuleiro ficou
+      significativamente mais conectado que a reconstrução anterior — Birmingham sozinho passou
+      a ter 8 links (era 4). A nota do arquivo sobre o link especial Kidderminster↔Worcester
+      (uma peça conecta as duas localidades e a Fazenda Cervejeira Sul) confirma o mecanismo de
+      `bonusConnections` já implementado, sem mudança de código.
+    - O arquivo também resolve uma ambiguidade da entrada #5 sobre o que "as duas cores juntas"
+      significam: a instrução do usuário nesta mesma sessão ("onde está azul e escuro são as
+      utilizáveis em ambas") já tinha confirmado que é um único slot `'both'`, não dois slots
+      separados — `docs/CONECTIONS.md` usa essa mesma convenção explicitamente (seção "Ambas").
+    **Confiança**: máxima para o conteúdo em si — são arquivos autorais do usuário, não uma
+    leitura de foto ou inferência de nenhum tipo, e o próprio usuário os declarou fonte final de
+    verdade. A única superfície de erro possível é uma transcrição minha incorreta do texto
+    desses arquivos para `board-data.ts`; os testes atualizados (`board-data.test.ts` — 39
+    links, conectividade total; `build.test.ts`, `sell.test.ts`, `network-action.test.ts`,
+    `legal-actions.test.ts` — reescritos para os novos slots/links) cobrem consistência interna,
+    mas não substituem uma checagem manual linha a linha contra os dois arquivos originais.
+    **Impacto se errado**: um erro de transcrição mudaria a topologia real do tabuleiro
+    jogável, não só uma restrição de era como nas entradas anteriores — mas o teste "todo local
+    é alcançável de todo local" pegaria qualquer erro que desconectasse o grafo.
+    **Efeito colateral honesto**: a amostra fixa de 12 partidas ISMCTS×heurístico subiu bastante
+    com o tabuleiro muito mais conectado (39 links vs. 30) — de 41,7% (5/12) para 75,0% (9/12),
+    confirmado por uma amostra independente de 30 partidas em 63,3% (19/30).
+    O limiar do teste de regressão (`tests/properties/ismcts-vs-heuristic.test.ts`) foi
+    reajustado para refletir essa recuperação — ver o comentário do próprio arquivo de teste
+    para o valor final e o raciocínio.

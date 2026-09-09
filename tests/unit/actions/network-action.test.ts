@@ -34,16 +34,16 @@ describe('applyNetworkAction', () => {
   });
 
   it('requires adjacency to the network unless the player has nothing on the board', () => {
-    // coventry__oxford is a 'both'-era slot so this stays on the default (canal) era, keeping
-    // the test focused on adjacency rather than rail-era coal-sourcing machinery.
-    const action = networkAction({ linkSlotIds: ['coventry__oxford'] });
+    // worcester__gloucester is a 'both'-era slot, unconnected to birmingham, so this stays on
+    // the default (canal) era while keeping the test focused on adjacency.
+    const action = networkAction({ linkSlotIds: ['worcester__gloucester'] });
     let state = stateWithHand('p1', [action.card]);
     state = { ...state, locations: withTile(state.locations, 'birmingham', 0, tile('p1', 'iron', 1, 2)) };
     expect(() => applyNetworkAction(state, action)).toThrow(/not adjacent/);
   });
 
   it('allows any link when the player has no tiles or links on the board', () => {
-    const action = networkAction({ linkSlotIds: ['coventry__oxford'] });
+    const action = networkAction({ linkSlotIds: ['worcester__gloucester'] });
     const state = stateWithHand('p1', [action.card]);
     expect(() => applyNetworkAction(state, action)).not.toThrow();
   });

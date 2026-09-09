@@ -1,14 +1,15 @@
 import type { Era, IndustryType, LinkSlotDef, MerchantBonus } from '../core/types.js';
 
 /**
- * Board topology. Reconstructed from photos of the physical board the user plays with
- * (docs/ASSUMPTIONS.md #1, #23) — location list, per-location slot counts, market min-player
- * gates, and link connectivity are all read off that board, not invented. Link eras (`RAW_LINKS`
- * below) were re-verified against a second, much higher-resolution photo (#23), which corrected
- * about a third of them, including one outright wrong connection (Uttoxeter links to Derby, not
- * Burton-on-Trent). The one thing that remains genuine reconstruction rather than direct
- * transcription: the exact industry type accepted by each slot (the board's tile icons are too
- * small even in the higher-resolution photo to read with full confidence for every slot).
+ * Board topology. Per-location build slots (`INDUSTRIAL_LOCATIONS[].slots`) and link
+ * connectivity/era (`RAW_LINKS` below) are transcribed directly from `docs/BUILDINGS.md` and
+ * `docs/CONECTIONS.md` respectively — user-authored reference files that are this project's
+ * final source of truth for this data and must not be second-guessed or edited (docs/
+ * ASSUMPTIONS.md #24). Earlier sessions reconstructed this same data from board photos with
+ * varying confidence (docs/ASSUMPTIONS.md #1, #5, #23); those entries are kept for history but
+ * are now superseded wherever they conflict with the two reference files. Market min-player
+ * gates and deck copy counts are unaffected by this change and still come from board/reference-
+ * card photos (docs/ASSUMPTIONS.md #15, #22).
  */
 export interface IndustrialLocationDef {
   readonly id: string;
@@ -44,73 +45,73 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
   {
     id: 'birmingham',
     kind: 'industrial',
-    slots: [['iron'], ['cotton', 'manufacturer'], ['manufacturer', 'pottery'], ['coal', 'manufacturer']],
+    slots: [['cotton', 'manufacturer'], ['manufacturer'], ['iron'], ['manufacturer']],
     deckCopies: [3, 3, 3],
   },
   {
     id: 'wolverhampton',
     kind: 'industrial',
-    slots: [['coal'], ['iron', 'manufacturer']],
+    slots: [['manufacturer'], ['manufacturer', 'coal']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'dudley',
     kind: 'industrial',
-    slots: [['coal'], ['coal', 'iron']],
+    slots: [['coal'], ['iron']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'walsall',
     kind: 'industrial',
-    slots: [['manufacturer', 'cotton'], ['iron']],
+    slots: [['iron', 'manufacturer'], ['manufacturer', 'brewery']],
     deckCopies: [1, 1, 1],
   },
   {
     id: 'coventry',
     kind: 'industrial',
-    slots: [['cotton'], ['cotton', 'manufacturer'], ['manufacturer']],
+    slots: [['pottery'], ['manufacturer', 'coal'], ['iron', 'manufacturer']],
     deckCopies: [3, 3, 3],
   },
   {
     id: 'tamworth',
     kind: 'industrial',
-    slots: [['cotton'], ['coal', 'cotton']],
+    slots: [['cotton', 'coal'], ['cotton', 'coal']],
     deckCopies: [1, 1, 1],
   },
   {
     id: 'nuneaton',
     kind: 'industrial',
-    slots: [['cotton', 'manufacturer'], ['manufacturer']],
+    slots: [['manufacturer', 'brewery'], ['cotton', 'coal']],
     deckCopies: [1, 1, 1],
   },
   {
     id: 'redditch',
     kind: 'industrial',
-    slots: [['manufacturer'], ['iron', 'manufacturer']],
+    slots: [['manufacturer', 'coal'], ['iron']],
     deckCopies: [1, 1, 1],
   },
   {
     id: 'kidderminster',
     kind: 'industrial',
-    slots: [['cotton'], ['coal', 'cotton']],
+    slots: [['cotton', 'coal'], ['cotton']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'worcester',
     kind: 'industrial',
-    slots: [['cotton', 'manufacturer'], ['pottery']],
+    slots: [['cotton'], ['cotton']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'cannock',
     kind: 'industrial',
-    slots: [['coal'], ['coal', 'manufacturer']],
+    slots: [['manufacturer', 'coal'], ['coal']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'coalbrookdale',
     kind: 'industrial',
-    slots: [['iron'], ['coal', 'iron']],
+    slots: [['iron', 'brewery'], ['iron'], ['coal']],
     deckCopies: [3, 3, 3],
   },
   // The next four are gated by the deck reference card's per-player-count copy schedule —
@@ -119,50 +120,50 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
   {
     id: 'stoke_on_trent',
     kind: 'industrial',
-    slots: [['pottery'], ['pottery', 'coal']],
+    slots: [['cotton', 'manufacturer'], ['pottery', 'iron'], ['manufacturer']],
     deckCopies: [0, 3, 3],
   },
   {
     id: 'stone',
     kind: 'industrial',
-    slots: [['pottery'], ['manufacturer', 'pottery']],
+    slots: [['cotton', 'brewery'], ['manufacturer', 'coal']],
     deckCopies: [0, 2, 2],
   },
   {
     id: 'leek',
     kind: 'industrial',
-    slots: [['cotton'], ['pottery', 'cotton']],
+    slots: [['cotton', 'manufacturer'], ['cotton', 'coal']],
     deckCopies: [0, 2, 2],
   },
   {
     id: 'stafford',
     kind: 'industrial',
-    slots: [['manufacturer', 'pottery'], ['iron']],
+    slots: [['manufacturer', 'brewery'], ['pottery']],
     deckCopies: [2, 2, 2],
   },
   {
     id: 'uttoxeter',
     kind: 'industrial',
-    slots: [['cotton'], ['manufacturer', 'cotton']],
+    slots: [['manufacturer', 'brewery'], ['cotton', 'brewery']],
     deckCopies: [0, 1, 2],
   },
   {
     id: 'burton_on_trent',
     kind: 'industrial',
-    slots: [['manufacturer'], ['coal', 'manufacturer']],
+    slots: [['manufacturer', 'coal'], ['brewery']],
     deckCopies: [2, 2, 2],
   },
   // 4-player only: absent from both the 2p and 3p decks.
   {
     id: 'belper',
     kind: 'industrial',
-    slots: [['cotton'], ['coal', 'cotton'], ['pottery']],
+    slots: [['cotton', 'manufacturer'], ['coal'], ['pottery']],
     deckCopies: [0, 0, 2],
   },
   {
     id: 'derby',
     kind: 'industrial',
-    slots: [['coal', 'manufacturer'], ['iron']],
+    slots: [['cotton', 'brewery'], ['cotton', 'manufacturer'], ['iron']],
     deckCopies: [0, 0, 3],
   },
 ];
@@ -224,47 +225,56 @@ interface RawLink {
 }
 
 /**
- * Buildable link slots, reconstructed from the board's two line styles (see `LinkSlotDef`'s
- * doc comment and ASSUMPTIONS.md for the full confidence breakdown per link). The
- * kidderminster<->worcester slot is special: building it also connects both locations to
- * farm_brewery_south (docs/RULES.md §11).
+ * Buildable link slots, transcribed directly from `docs/CONECTIONS.md` (docs/ASSUMPTIONS.md
+ * #24 — that file is the final source of truth, not to be second-guessed). The
+ * kidderminster<->worcester slot is special: per that file's own note, building it also
+ * connects both locations to farm_brewery_south (docs/RULES.md §11).
  */
 const RAW_LINKS: readonly RawLink[] = [
-  // North (Warrington / Potteries / Peak District towns)
+  // "Ambas" (both eras) in docs/CONECTIONS.md
   { locations: ['warrington', 'stoke_on_trent'], era: 'both' },
+  { locations: ['stoke_on_trent', 'leek'], era: 'both' },
   { locations: ['stoke_on_trent', 'stone'], era: 'both' },
-  { locations: ['stoke_on_trent', 'leek'], era: 'rail' },
-  { locations: ['stone', 'stafford'], era: 'rail' },
-  { locations: ['stone', 'uttoxeter'], era: 'rail' },
-  { locations: ['stafford', 'cannock'], era: 'rail' },
-  { locations: ['leek', 'belper'], era: 'rail' },
-  { locations: ['belper', 'derby'], era: 'rail' },
-  { locations: ['belper', 'burton_on_trent'], era: 'canal' },
-  { locations: ['derby', 'nottingham'], era: 'rail' },
-  { locations: ['uttoxeter', 'derby'], era: 'rail' },
+  { locations: ['belper', 'derby'], era: 'both' },
+  { locations: ['derby', 'burton_on_trent'], era: 'both' },
+  { locations: ['derby', 'nottingham'], era: 'both' },
+  { locations: ['burton_on_trent', 'stone'], era: 'both' },
+  { locations: ['stone', 'stafford'], era: 'both' },
+  { locations: ['stafford', 'cannock'], era: 'both' },
   { locations: ['burton_on_trent', 'tamworth'], era: 'both' },
-
-  // Black Country core
-  { locations: ['shrewsbury', 'coalbrookdale'], era: 'canal' },
-  { locations: ['coalbrookdale', 'wolverhampton'], era: 'canal' },
-  { locations: ['coalbrookdale', 'dudley'], era: 'both' },
-  { locations: ['cannock', 'wolverhampton'], era: 'canal' },
-  { locations: ['cannock', 'walsall'], era: 'canal' },
   { locations: ['cannock', 'farm_brewery_north'], era: 'both' },
-  { locations: ['wolverhampton', 'dudley'], era: 'rail' },
+  { locations: ['cannock', 'wolverhampton'], era: 'both' },
+  { locations: ['cannock', 'walsall'], era: 'both' },
+  { locations: ['wolverhampton', 'coalbrookdale'], era: 'both' },
+  { locations: ['coalbrookdale', 'shrewsbury'], era: 'both' },
+  { locations: ['wolverhampton', 'walsall'], era: 'both' },
+  { locations: ['tamworth', 'nuneaton'], era: 'both' },
+  { locations: ['tamworth', 'birmingham'], era: 'both' },
+  { locations: ['birmingham', 'coventry'], era: 'both' },
+  { locations: ['oxford', 'birmingham'], era: 'both' },
+  { locations: ['oxford', 'redditch'], era: 'both' },
   { locations: ['walsall', 'birmingham'], era: 'both' },
   { locations: ['dudley', 'birmingham'], era: 'both' },
-  { locations: ['dudley', 'kidderminster'], era: 'both' },
-  { locations: ['birmingham', 'redditch'], era: 'rail' },
-  { locations: ['birmingham', 'tamworth'], era: 'rail' },
-
-  // South / East
-  { locations: ['tamworth', 'nuneaton'], era: 'both' },
-  { locations: ['nuneaton', 'coventry'], era: 'rail' },
-  { locations: ['coventry', 'oxford'], era: 'both' },
-  { locations: ['redditch', 'oxford'], era: 'both' },
-  { locations: ['kidderminster', 'worcester'], era: 'canal' },
+  { locations: ['worcester', 'birmingham'], era: 'both' },
   { locations: ['worcester', 'gloucester'], era: 'both' },
+  { locations: ['redditch', 'gloucester'], era: 'both' },
+  { locations: ['wolverhampton', 'dudley'], era: 'both' },
+  { locations: ['coalbrookdale', 'kidderminster'], era: 'both' },
+  { locations: ['dudley', 'kidderminster'], era: 'both' },
+  { locations: ['kidderminster', 'worcester'], era: 'both' },
+
+  // "Somente Ferrovia" (rail only)
+  { locations: ['leek', 'belper'], era: 'rail' },
+  { locations: ['uttoxeter', 'stone'], era: 'rail' },
+  { locations: ['uttoxeter', 'derby'], era: 'rail' },
+  { locations: ['burton_on_trent', 'cannock'], era: 'rail' },
+  { locations: ['tamworth', 'walsall'], era: 'rail' },
+  { locations: ['nuneaton', 'coventry'], era: 'rail' },
+  { locations: ['birmingham', 'nuneaton'], era: 'rail' },
+  { locations: ['birmingham', 'redditch'], era: 'rail' },
+
+  // "Somente Canal" (canal only)
+  { locations: ['burton_on_trent', 'walsall'], era: 'canal' },
 ];
 
 export const LINK_SLOTS: readonly LinkSlotDef[] = RAW_LINKS.map(({ locations: [a, b], era }) => ({

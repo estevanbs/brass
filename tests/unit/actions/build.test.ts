@@ -4,12 +4,16 @@ import type { BuildAction } from '../../../src/engine/action-types.js';
 import type { Card, GameState } from '../../../src/core/types.js';
 import { makePlayer, makeState, tile, withMerchant, withTile } from '../../helpers/fixtures.js';
 
+// dudley's slots are [['coal'], ['iron']] — both single-industry, so this default targets a
+// plain, unshared coal slot (unlike most locations post-docs/BUILDINGS.md, which mix
+// industries within a slot far more than the board did before that file became the source of
+// truth).
 function buildAction(overrides: Partial<BuildAction> = {}): BuildAction {
   return {
     type: 'build',
     player: 'p1',
-    card: { kind: 'location', locationId: 'wolverhampton' },
-    locationId: 'wolverhampton',
+    card: { kind: 'location', locationId: 'dudley' },
+    locationId: 'dudley',
     slotIndex: 0,
     industry: 'coal',
     coalSource: null,
@@ -35,9 +39,9 @@ describe('applyBuild', () => {
     const state = stateFor(action.card);
     const result = applyBuild(state, action);
     expect(result.players['p1']?.money).toBe(30 - 5);
-    const wolverhampton = result.locations['wolverhampton'];
-    if (wolverhampton?.kind === 'market') throw new Error('unreachable');
-    expect(wolverhampton?.slots[0]?.tile).toMatchObject({
+    const dudley = result.locations['dudley'];
+    if (dudley?.kind === 'market') throw new Error('unreachable');
+    expect(dudley?.slots[0]?.tile).toMatchObject({
       owner: 'p1',
       industry: 'coal',
       level: 1,
@@ -61,7 +65,7 @@ describe('applyBuild', () => {
     const action = buildAction({
       card: { kind: 'location', locationId: 'birmingham' },
       locationId: 'birmingham',
-      slotIndex: 0,
+      slotIndex: 2, // docs/BUILDINGS.md: Birmingham's 3rd slot is the single-industry iron one
       industry: 'iron',
     });
     const state = stateFor(action.card);
@@ -71,7 +75,7 @@ describe('applyBuild', () => {
     expect(result.market.ironCubes).toBe(10);
     const birmingham = result.locations['birmingham'];
     if (birmingham?.kind === 'market') throw new Error('unreachable');
-    expect(birmingham?.slots[0]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
+    expect(birmingham?.slots[2]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
     expect(result.players['p1']?.incomeTrackPosition).toBe(11); // level 1 iron income +1
   });
 
@@ -79,10 +83,10 @@ describe('applyBuild', () => {
     const action = buildAction({
       card: { kind: 'location', locationId: 'coalbrookdale' },
       locationId: 'coalbrookdale',
-      slotIndex: 1,
+      slotIndex: 2, // docs/BUILDINGS.md: Coalbrookdale's 3rd slot is the single-industry coal one
     });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'shrewsbury__coalbrookdale', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coalbrookdale__shrewsbury', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     // Market starts at 13/14 cubes: only 1 of the 2 produced coal units can be sold.
@@ -90,24 +94,24 @@ describe('applyBuild', () => {
     expect(result.players['p1']?.money).toBe(30 - 5 + 1);
     const coalbrookdale = result.locations['coalbrookdale'];
     if (coalbrookdale?.kind === 'market') throw new Error('unreachable');
-    expect(coalbrookdale?.slots[1]?.tile).toMatchObject({ flipped: false, resourceRemaining: 1 });
+    expect(coalbrookdale?.slots[2]?.tile).toMatchObject({ flipped: false, resourceRemaining: 1 });
   });
 
   it('fully sells and flips a coal mine when the market has room for all its production', () => {
     const action = buildAction({
       card: { kind: 'location', locationId: 'coalbrookdale' },
       locationId: 'coalbrookdale',
-      slotIndex: 1,
+      slotIndex: 2,
     });
     const state = stateFor(action.card, {
       market: { coalCubes: 8, ironCubes: 8 },
-      links: [{ slotId: 'shrewsbury__coalbrookdale', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coalbrookdale__shrewsbury', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     expect(result.market.coalCubes).toBe(10);
     const coalbrookdale = result.locations['coalbrookdale'];
     if (coalbrookdale?.kind === 'market') throw new Error('unreachable');
-    expect(coalbrookdale?.slots[1]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
+    expect(coalbrookdale?.slots[2]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
     expect(result.players['p1']?.incomeTrackPosition).toBe(11); // level 1 coal income +1
   });
 
@@ -132,10 +136,10 @@ describe('applyBuild', () => {
     const action = buildAction({
       card: { kind: 'industry', industry: 'coal' },
       locationId: 'wolverhampton',
-      slotIndex: 0,
+      slotIndex: 1, // wolverhampton's shared ['manufacturer', 'coal'] slot — slot 0 is manufacturer-only
     });
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'dudley', 0, tile('p1', 'coal', 1, 2)) };
+    state = { ...state, locations: withTile(state.locations, 'redditch', 0, tile('p1', 'coal', 1, 2)) };
     expect(() => applyBuild(state, action)).toThrow(/network/);
   });
 
@@ -151,22 +155,24 @@ describe('applyBuild', () => {
     // player's own tiles, not a global "1 tile total" cap on the location.
     const action = buildAction();
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 1, tile('p1', 'manufacturer', 1)) };
+    state = { ...state, locations: withTile(state.locations, 'dudley', 1, tile('p1', 'iron', 1)) };
     expect(() => applyBuild(state, action)).toThrow(/canal era/);
   });
 
   it('allows building at a location where only an opponent already has a tile, in the canal era', () => {
     const action = buildAction();
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 1, tile('p2', 'manufacturer', 1)) };
+    state = { ...state, locations: withTile(state.locations, 'dudley', 1, tile('p2', 'iron', 1)) };
     expect(() => applyBuild(state, action)).not.toThrow();
   });
 
   it('requires using a single-industry slot over a shared slot when one is free', () => {
+    // cannock's slots are [['manufacturer', 'coal'], ['coal']] — slot 0 is shared, slot 1 is
+    // coal-only, so building coal must use slot 1 while it's free.
     const action = buildAction({
-      card: { kind: 'location', locationId: 'dudley' },
-      locationId: 'dudley',
-      slotIndex: 1, // shared ['coal', 'iron'] slot; slot 0 (['coal'] only) is free
+      card: { kind: 'location', locationId: 'cannock' },
+      locationId: 'cannock',
+      slotIndex: 0,
       industry: 'coal',
     });
     const state = stateFor(action.card);
@@ -181,9 +187,9 @@ describe('applyBuild', () => {
 
   it('allows building the locked pottery level-1 tile — Build is the only way to clear it (docs/HANDBOOK_RULES.md §10)', () => {
     const action = buildAction({
-      card: { kind: 'location', locationId: 'worcester' },
-      locationId: 'worcester',
-      slotIndex: 1,
+      card: { kind: 'location', locationId: 'coventry' },
+      locationId: 'coventry',
+      slotIndex: 0,
       industry: 'pottery',
     });
     const state = stateFor(action.card);
@@ -223,17 +229,17 @@ describe('applyBuild', () => {
         p2: makePlayer('p2'),
       },
     });
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 0, tile('p1', 'coal', 1, 0, true)) };
+    state = { ...state, locations: withTile(state.locations, 'dudley', 0, tile('p1', 'coal', 1, 0, true)) };
     const result = applyBuild(state, action);
-    const wolverhampton = result.locations['wolverhampton'];
-    if (wolverhampton?.kind === 'market') throw new Error('unreachable');
-    expect(wolverhampton?.slots[0]?.tile).toMatchObject({ level: 2, flipped: false });
+    const dudley = result.locations['dudley'];
+    if (dudley?.kind === 'market') throw new Error('unreachable');
+    expect(dudley?.slots[0]?.tile).toMatchObject({ level: 2, flipped: false });
   });
 
   it("rejects overbuilding an opponent's coal mine while coal cubes remain on the board", () => {
     const action = buildAction();
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 0, tile('p2', 'coal', 1, 2)) };
+    state = { ...state, locations: withTile(state.locations, 'dudley', 0, tile('p2', 'coal', 1, 2)) };
     expect(() => applyBuild(state, action)).toThrow(/cubes of that resource remain/);
   });
 
@@ -242,47 +248,47 @@ describe('applyBuild', () => {
     let state = stateFor(action.card, { market: { coalCubes: 0, ironCubes: 8 } });
     state = {
       ...state,
-      locations: withTile(state.locations, 'wolverhampton', 0, tile('p2', 'coal', 1, 0, true)),
+      locations: withTile(state.locations, 'dudley', 0, tile('p2', 'coal', 1, 0, true)),
     };
     const result = applyBuild(state, action);
-    const wolverhampton = result.locations['wolverhampton'];
-    if (wolverhampton?.kind === 'market') throw new Error('unreachable');
-    expect(wolverhampton?.slots[0]?.tile?.owner).toBe('p1');
+    const dudley = result.locations['dudley'];
+    if (dudley?.kind === 'market') throw new Error('unreachable');
+    expect(dudley?.slots[0]?.tile?.owner).toBe('p1');
   });
 
   it('rejects an opponent overbuild of a non coal/iron industry', () => {
     const action = buildAction({
-      card: { kind: 'location', locationId: 'coventry' },
-      locationId: 'coventry',
+      card: { kind: 'location', locationId: 'worcester' },
+      locationId: 'worcester',
       slotIndex: 0,
       industry: 'cotton',
     });
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'coventry', 0, tile('p2', 'cotton', 1, 0, true)) };
+    state = { ...state, locations: withTile(state.locations, 'worcester', 0, tile('p2', 'cotton', 1, 0, true)) };
     expect(() => applyBuild(state, action)).toThrow(/coal mine or iron works/);
   });
 
   it('building a tile with no resource requirement never triggers an auto-sell', () => {
     const action = buildAction({
-      card: { kind: 'location', locationId: 'coventry' },
-      locationId: 'coventry',
+      card: { kind: 'location', locationId: 'worcester' },
+      locationId: 'worcester',
       slotIndex: 0,
       industry: 'cotton',
       coalSource: { kind: 'market' },
     });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'worcester__gloucester', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
-    const coventry = result.locations['coventry'];
-    if (coventry?.kind === 'market') throw new Error('unreachable');
-    expect(coventry?.slots[0]?.tile).toMatchObject({ flipped: false, resourceRemaining: 0 });
+    const worcester = result.locations['worcester'];
+    if (worcester?.kind === 'market') throw new Error('unreachable');
+    expect(worcester?.slots[0]?.tile).toMatchObject({ flipped: false, resourceRemaining: 0 });
   });
 
   it('requires a coal source when the tile needs coal', () => {
     const action = buildAction({
-      card: { kind: 'location', locationId: 'coventry' },
-      locationId: 'coventry',
+      card: { kind: 'location', locationId: 'worcester' },
+      locationId: 'worcester',
       slotIndex: 0,
       industry: 'cotton',
       coalSource: null,
@@ -293,14 +299,14 @@ describe('applyBuild', () => {
 
   it('buys coal from the market and pays the price when no mine is connected', () => {
     const action = buildAction({
-      card: { kind: 'location', locationId: 'coventry' },
-      locationId: 'coventry',
+      card: { kind: 'location', locationId: 'worcester' },
+      locationId: 'worcester',
       slotIndex: 0,
       industry: 'cotton',
       coalSource: { kind: 'market' },
     });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'worcester__gloucester', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     // cost £12 (cotton L1) + £1 (coal market at 13/14 cubes) = £13.

@@ -108,14 +108,14 @@ describe('legalActions', () => {
       card: { kind: 'industry' as const, industry: 'coal' as const },
       sales: [
         {
-          locationId: 'coventry',
+          locationId: 'worcester',
           slotIndex: 0,
           beerSources: [{ kind: 'brewery' as const, locationId: 'nuneaton', slotIndex: 0 }],
         },
       ],
     };
     let state = makeState({
-      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'worcester__gloucester', owner: 'p1', kind: 'canal' }],
       players: {
         p1: makePlayer('p1', { hand: [action.card] }),
         p2: makePlayer('p2'),
@@ -125,12 +125,12 @@ describe('legalActions', () => {
       ...state,
       locations: withMerchant(
         withTile(
-          withTile(state.locations, 'coventry', 0, tile('p1', 'cotton', 1, 0)),
+          withTile(state.locations, 'worcester', 0, tile('p1', 'cotton', 1, 0)),
           'nuneaton',
           0,
           tile('p1', 'brewery', 1, 1),
         ),
-        'oxford',
+        'gloucester',
         0,
         'cotton',
       ),
@@ -144,8 +144,8 @@ describe('legalActions', () => {
     const action = {
       type: 'build' as const,
       player: 'p1',
-      card: { kind: 'location' as const, locationId: 'wolverhampton' },
-      locationId: 'wolverhampton',
+      card: { kind: 'location' as const, locationId: 'dudley' },
+      locationId: 'dudley',
       slotIndex: 0,
       industry: 'coal' as const,
       coalSource: null,

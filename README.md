@@ -182,19 +182,20 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
 ## Limitações conhecidas
 
 - **A topologia do tabuleiro (quais das 27 localidades se conectam a quais, quantos slots
-  cada uma tem, quais mercadores exigem quantos jogadores, e a era de cada link) foi
-  reconstruída a partir de uma foto de alta resolução do tabuleiro físico real**, fornecida
-  pelo usuário — não é mais uma invenção sem referência (era o caso nas primeiras versões
-  deste projeto, quando não havia uma fonte confiável disponível). A distinção de era por
-  link (canal/ferrovia/ambas) foi confirmada diretamente pelo usuário a partir dos dois
-  estilos de linha visíveis no tabuleiro (`docs/ASSUMPTIONS.md` #5). O que **continua** sendo
-  uma composição própria, não uma leitura literal: o tipo exato de indústria aceito por cada
-  slot individual (ícones pequenos demais para ler com certeza numa foto de celular) e as
-  tabelas numéricas exatas de custo/VP/renda/produção impressas em cada peça de indústria (não
-  visíveis o suficiente na foto para transcrever com confiança). O fluxo de turno, as 7 ações,
-  as fórmulas de mercado e a trilha de renda, por outro lado, foram verificados contra o
-  resumo de regras oficial da Roxley e batem exatamente. Ver `docs/ASSUMPTIONS.md` (entradas
-  #1, #5, #15, #16) para cada decisão, com grau de confiança e impacto.
+  cada uma tem e quais indústrias cada slot aceita, quais mercadores exigem quantos jogadores,
+  e a era de cada link) vem de fontes reais fornecidas pelo usuário, não de invenção** — o
+  que era o caso nas primeiríssimas versões deste projeto, quando não havia fonte confiável
+  disponível. Os dois aspectos que exigiam mais interpretação visual (quais indústrias cada
+  slot aceita, e a lista/era de cada link) hoje vêm de dois arquivos que o próprio usuário
+  escreveu à mão — `docs/BUILDINGS.md` e `docs/CONECTIONS.md` — declarados por ele como fonte
+  final de verdade, e que substituem toda reconstrução anterior feita a partir de fotos do
+  tabuleiro. O que **continua** sendo composição própria, não uma transcrição literal: as
+  tabelas numéricas exatas de custo/VP/renda/produção impressas em cada peça de indústria (o
+  manual oficial dá só o total de peças por indústria, não a tabela nível a nível). O fluxo de
+  turno, as 7 ações, as fórmulas de mercado e a trilha de renda, por outro lado, foram
+  verificados contra o resumo de regras oficial da Roxley e batem exatamente. Ver
+  `docs/ASSUMPTIONS.md` (entradas #1, #5, #15, #16, #23, #24) para o histórico completo de cada
+  decisão, com grau de confiança e impacto.
 - **A auditoria contra `docs/HANDBOOK_RULES.md` (o manual oficial, fornecido pelo usuário)
   achou e corrigiu 4 bugs reais de regras**, não só lacunas de design: (1) o limite de
   indústrias na era do canal era contado somando todos os jogadores no local, quando a regra
@@ -218,28 +219,26 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   `rootTopK` maior, etc.) — nenhum foi implementado por tempo. O teste embutido na suíte usa
   um orçamento de simulações fixo (não tempo real) numa amostra menor, para continuar
   determinístico independente da velocidade da máquina.
-- **A reconstrução do tabuleiro a partir de fotos reais (acima) mudou o desempenho do ISMCTS
-  contra o heurístico repetidas vezes ao longo de várias sessões — para pior, recuperado,
-  e para pior de novo.** O tabuleiro real tem 20 localidades industriais (vs. 18 antes) com um
-  layout e conectividade diferentes (30 links vs. 43), o que muda o fator de ramificação que o
-  `rootTopK` do ISMCTS foi calibrado para lidar. Na mesma amostra fixa de 12 partidas com
-  orçamento determinístico de 120 simulações que antes ficava perto de 50%: a reconstrução do
-  tabuleiro derrubou para 41,7% (5/12); a correção dos totais de peças de indústria (bug #4 da
-  auditoria de regras acima) derrubou ainda mais, para 33,3% (4/12); a correção da distribuição
-  exata de cartas por número de jogadores (bullet abaixo) recuperou a taxa para 50,0% (6/12); e
-  a re-verificação da era de cada link contra uma foto de melhor qualidade (bullet seguinte)
-  derrubou de novo para 41,7% (5/12). As duas primeiras quedas foram confirmadas reais (não
-  ruído de amostra pequena) por checagens independentes de 30 partidas na época, batendo na
-  mesma faixa. **A última queda, não** — a checagem independente de 30 partidas desta vez deu
-  60,0% (18/30), mais alta que a linha de base, sugerindo que os 12 seeds fixos do teste
-  embutido só calharam de cair do lado ruim da variância normal, não uma regressão sistemática
-  da correção de topologia. Como esses seeds são fixos e determinísticos, o teste sempre vai
-  produzir 41,7% de qualquer forma, então o limiar precisa acomodar esse número mesmo sendo
-  ruído. O limiar embutido (`tests/properties/ismcts-vs-heuristic.test.ts`) acompanhou essas
-  idas e voltas (50%→30%→40%→30%) — ver o comentário do próprio arquivo de teste para o
-  histórico completo. `rootTopK` e o resto da calibração do ISMCTS nunca foram re-validados
-  formalmente contra nenhuma dessas revisões de tabuleiro — essa validação continua sendo
-  trabalho real e não feito, do mesmo porte da própria validação do M7.
+- **As sucessivas reconstruções do tabuleiro a partir de fontes reais (acima) mudaram o
+  desempenho do ISMCTS contra o heurístico repetidamente ao longo de várias sessões — para
+  pior, recuperado, para pior de novo, e finalmente para muito melhor.** Cada revisão do
+  tabuleiro muda o fator de ramificação que o `rootTopK` do ISMCTS foi calibrado para lidar (o
+  tabuleiro atual, transcrito de `docs/BUILDINGS.md`/`docs/CONECTIONS.md`, tem 20 localidades
+  industriais e 39 links — bem diferente do "18 localidades, 43 links" original inventado sem
+  fonte). Na mesma amostra fixa de 12 partidas com orçamento determinístico de 120 simulações
+  que antes ficava perto de 50%: a primeira reconstrução do tabuleiro (foto) derrubou para
+  41,7% (5/12); a correção dos totais de peças de indústria derrubou ainda mais, para 33,3%
+  (4/12); a correção da distribuição exata de cartas recuperou para 50,0% (6/12); a
+  re-verificação da era de cada link (foto de melhor qualidade) derrubou de novo para 41,7%
+  (5/12), mas dessa vez sem confirmação de uma amostra maior (provavelmente ruído, não
+  regressão real); e a reescrita final da topologia a partir dos dois arquivos de fonte final
+  de verdade (bullet anterior) subiu para **75,0% (9/12)**, confirmado por uma amostra
+  independente de 30 partidas em 63,3% (19/30). O limiar embutido
+  (`tests/properties/ismcts-vs-heuristic.test.ts`) acompanhou essas idas e voltas — ver o
+  comentário do próprio arquivo de teste para o histórico completo com todos os números e a
+  justificativa de cada mudança de limiar. `rootTopK` e o resto da calibração do ISMCTS nunca
+  foram re-validados formalmente contra nenhuma dessas revisões de tabuleiro — essa validação
+  continua sendo trabalho real e não feito, do mesmo porte da própria validação do M7.
 - **A distribuição de cartas do baralho de compra era uma fórmula uniforme inventada, não a
   contagem real do jogo.** O usuário forneceu uma foto da carta de referência oficial
   "Distribuição de Cartas" impressa junto com o tabuleiro físico, com o número exato de cópias
@@ -261,6 +260,21 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   **Uttoxeter na verdade se conecta a Derby por ferrovia, não a Burton-on-Trent** como a
   reconstrução original tinha — não existe nenhuma linha entre Uttoxeter e Burton-on-Trent
   nesta foto nova. Ver `docs/ASSUMPTIONS.md` #23 para a lista completa das 12 mudanças de era.
+- **A topologia de links e os slots de cada localidade foram totalmente reescritos a partir de
+  `docs/BUILDINGS.md` e `docs/CONECTIONS.md`, dois arquivos que o usuário escreveu à mão e
+  declarou fonte final de verdade — substituindo de vez qualquer leitura de foto anterior para
+  esses dois aspectos.** O tabuleiro passou de 30 para **39 links** (nenhum par de localidades
+  repetido entre as categorias de era, então cada linha do arquivo virou um `LinkSlotDef`
+  direto). Mudança mais notável no lado dos slots: **Cervejaria deixou de ser exclusiva das
+  duas fazendas cervejeiras** — vários slots de localidades industriais comuns (Walsall,
+  Coventry, Stone, Uttoxeter, Stafford, Burton-on-Trent, Coalbrookdale, Nuneaton, Derby) também
+  a aceitam. Nenhum código do motor assumia que cerveja só existe em localidades `kind:
+  'farm_brewery'` (verificado antes de aplicar a mudança), então não foi preciso tocar em
+  lógica de jogo — só nos dados de `board-data.ts` e nos testes que tinham fixtures presas a
+  slots/links específicos que deixaram de existir daquela forma (27 testes em 5 arquivos).
+  **Efeito colateral honesto**: com o tabuleiro bem mais conectado, a amostra fixa de 12
+  partidas ISMCTS×heurístico subiu de 41,7% para **75,0% (9/12)** — confirmado por uma amostra
+  independente de 30 partidas em 63,3% (19/30).
 - **O ISMCTS implementado é uma simplificação do algoritmo "de livro".** Em vez de manter uma
   única árvore de conjunto de informação compartilhada entre as determinizações (com checagem
   de compatibilidade de ações por nó), cada "mundo" sorteado ganha sua própria árvore

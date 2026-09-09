@@ -20,7 +20,7 @@ describe('board-data', () => {
   });
 
   it('has the expected number of link slots', () => {
-    expect(LINK_SLOTS).toHaveLength(30);
+    expect(LINK_SLOTS).toHaveLength(39);
   });
 
   it('has unique link slot ids', () => {
