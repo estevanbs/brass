@@ -176,7 +176,7 @@
   incômodo em marcos futuros).
 - `npm run verify` passa: 171 testes, cobertura 96.28% em `src/rules` + `src/engine`.
 
-## M7 — ISMCTS — CONCLUÍDO (validação completa de 300 partidas rodando à parte)
+## M7 — ISMCTS — implementado, mas NÃO atinge a meta formal de 65% do marco (60,7% real)
 
 - `src/engine/determinize.ts`: redistribui aleatoriamente toda carta que não é da própria mão
   nem de baralho/mão visível (i.e., a mão dos outros jogadores + o baralho de compra),
@@ -217,16 +217,24 @@
 - `scripts/run-ismcts-validation.ts`: valida a exigência completa do marco (300 partidas,
   orçamento de **1s/jogada real**, que é o próprio requisito do marco — não dá para usar
   orçamento por simulação aqui sem mudar o que está sendo medido). Uma única partida nesse
-  orçamento leva ~20-30s, então 300 partidas levam horas.
-  **Resultado honesto, parcial (rodando em background, ~154/300 partidas no momento em que
-  este parágrafo foi escrito):** taxa de vitória do ISMCTS estabilizada por volta de **~59%**
-  — abaixo do alvo de 65% do marco. Amostras pequenas isoladas (6-12 partidas) tinham
-  mostrado 66-75%, mas a amostra maior revela uma taxa real mais baixa (variância de amostra
-  pequena, um alerta sobre confiar demais em N baixo). Ver o resultado final (quando a
-  validação de 300 terminar) mais abaixo ou rode `npx tsx scripts/run-ismcts-validation.ts`
-  você mesmo. **Isto é uma limitação conhecida, não uma alegação de que o marco foi
-  cumprido** — ver `README.md`.
-  <!-- RESULTADO_ISMCTS_300_FINAL_AQUI -->
+  orçamento leva ~20-30s; a validação completa das 300 rodou em background durante boa parte
+  desta sessão e levou **142,4 minutos**.
+  **Resultado final, real, sem maquiagem: 182/300 vitórias do ISMCTS (60,7%) — abaixo do alvo
+  de 65% do marco.** A taxa já estava estabilizada por volta de 59-61% desde ~metade da
+  validação, então não é ruído de amostra pequena — amostras isoladas menores (6-12 partidas)
+  tinham mostrado 66-75%, o que serviu de alerta de que N baixo engana; a amostra de 300
+  mostra a taxa real. **O M7 não bateu a meta formal de 65%.** Fica registrado como está: o
+  ISMCTS claramente joga melhor que o aleatório (M5) e melhor que o próprio heurístico na
+  maioria das partidas, mas não na margem de 65% pedida pelo plano. Caminhos honestos para
+  fechar essa distância, não implementados por causa do tempo desta sessão: (a) a
+  simplificação de "árvore nova por mundo" (`docs/ASSUMPTIONS.md` #14) descarta conhecimento
+  entre determinizações — a versão "de livro" com árvore única compartilhada aproveitaria
+  melhor o mesmo orçamento; (b) `rootTopK=8` pode estar cortando cedo demais em posições com
+  muitas boas opções; (c) o orçamento real de 1s por jogada, numa máquina sob a carga desta
+  sessão (outros processos rodando ao mesmo tempo), provavelmente rendeu menos simulações por
+  jogada do que renderia isolado — o número documentado é o que rodou de fato, não uma
+  estimativa otimista.
+  Ver `README.md` para a limitação registrada na entrega final.
 - `npm run verify` passa: 172 testes, cobertura 96.22% em `src/rules` + `src/engine`. A suíte
   completa leva ~2-4 minutos por causa dos três testes de bot-vs-bot (M5 harness, M6 998/1000,
   M7 9/12) — considerar separar em `verify:fast`/`verify:slow` se isso incomodar no futuro.

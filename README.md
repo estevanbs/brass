@@ -128,12 +128,15 @@ a GUI web só formatam o mesmo estado e despacham para o mesmo `applyAction`.
   projeto. O fluxo de turno, as 7 ações, as fórmulas de mercado e a trilha de renda, por
   outro lado, foram verificados contra o resumo de regras oficial da Roxley e batem
   exatamente. Ver `docs/ASSUMPTIONS.md` para cada decisão, com grau de confiança e impacto.
-- **A validação completa do M7 (300 partidas ISMCTS × heurístico a 1s/jogada) não coube no
-  tempo desta sessão** — uma única partida nesse orçamento leva 20-30s, então 300 partidas
-  levam horas. `scripts/run-ismcts-validation.ts` roda essa validação; o resultado, quando
-  disponível, está registrado em `docs/PROGRESS.md`. O teste embutido na suíte usa um
-  orçamento de simulações fixo (não tempo real) numa amostra menor, especificamente para
-  continuar determinístico.
+- **O ISMCTS (M7) não atinge a meta formal do marco.** A validação completa (300 partidas
+  ISMCTS × heurístico, orçamento real de 1s/jogada, `scripts/run-ismcts-validation.ts`, ~142
+  minutos) terminou em **182/300 vitórias (60,7%)**, abaixo do alvo de 65%. O ISMCTS joga
+  visivelmente melhor que o bot aleatório e vence o heurístico na maioria das partidas, só não
+  na margem pedida. Ver `docs/PROGRESS.md` (seção M7) para os caminhos identificados para
+  fechar essa distância (árvore compartilhada entre mundos em vez de uma nova por mundo,
+  `rootTopK` maior, etc.) — nenhum foi implementado por tempo. O teste embutido na suíte usa
+  um orçamento de simulações fixo (não tempo real) numa amostra menor, para continuar
+  determinístico independente da velocidade da máquina.
 - **O ISMCTS implementado é uma simplificação do algoritmo "de livro".** Em vez de manter uma
   única árvore de conjunto de informação compartilhada entre as determinizações (com checagem
   de compatibilidade de ações por nó), cada "mundo" sorteado ganha sua própria árvore
