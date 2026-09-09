@@ -1,9 +1,13 @@
-import type { IndustryType, LinkSlotDef, MerchantBonus } from '../core/types.js';
+import type { Era, IndustryType, LinkSlotDef, MerchantBonus } from '../core/types.js';
 
 /**
- * Board topology. See docs/RULES.md §11 and docs/ASSUMPTIONS.md entry 1: this is an
- * original design (real West Midlands place names, invented connectivity), not a
- * transcription of the physical board.
+ * Board topology. Reconstructed from a photo of the physical board the user plays with
+ * (docs/ASSUMPTIONS.md #1) — location list, per-location slot counts, market min-player
+ * gates, and link connectivity are all read off that board, not invented. Two things remain
+ * genuine reconstruction rather than direct transcription: the exact industry type accepted
+ * by each slot (the board's tile icons are too small in a phone photo to read with full
+ * confidence for every slot) and a handful of links whose era (see `LinkSlotDef.era`) couldn't
+ * be read with confidence — both documented in ASSUMPTIONS.md with what's certain vs inferred.
  */
 export interface IndustrialLocationDef {
   readonly id: string;
@@ -34,22 +38,17 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
   {
     id: 'wolverhampton',
     kind: 'industrial',
-    slots: [['coal'], ['iron', 'manufacturer'], ['cotton', 'pottery']],
+    slots: [['coal'], ['iron', 'manufacturer']],
   },
   {
     id: 'dudley',
     kind: 'industrial',
-    slots: [['coal'], ['coal', 'iron'], ['manufacturer']],
+    slots: [['coal'], ['coal', 'iron']],
   },
   {
     id: 'walsall',
     kind: 'industrial',
-    slots: [['manufacturer', 'cotton'], ['iron'], ['pottery', 'manufacturer']],
-  },
-  {
-    id: 'west_bromwich',
-    kind: 'industrial',
-    slots: [['manufacturer'], ['coal', 'manufacturer']],
+    slots: [['manufacturer', 'cotton'], ['iron']],
   },
   {
     id: 'coventry',
@@ -72,14 +71,9 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
     slots: [['manufacturer'], ['iron', 'manufacturer']],
   },
   {
-    id: 'bromsgrove',
-    kind: 'industrial',
-    slots: [['cotton'], ['manufacturer', 'cotton']],
-  },
-  {
     id: 'kidderminster',
     kind: 'industrial',
-    slots: [['cotton'], ['coal', 'cotton'], ['manufacturer']],
+    slots: [['cotton'], ['coal', 'cotton']],
   },
   {
     id: 'worcester',
@@ -99,7 +93,7 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
   {
     id: 'stoke_on_trent',
     kind: 'industrial',
-    slots: [['pottery'], ['pottery', 'coal'], ['manufacturer']],
+    slots: [['pottery'], ['pottery', 'coal']],
   },
   {
     id: 'stone',
@@ -112,9 +106,29 @@ export const INDUSTRIAL_LOCATIONS: readonly IndustrialLocationDef[] = [
     slots: [['cotton'], ['pottery', 'cotton']],
   },
   {
-    id: 'stourbridge',
+    id: 'stafford',
     kind: 'industrial',
     slots: [['manufacturer', 'pottery'], ['iron']],
+  },
+  {
+    id: 'uttoxeter',
+    kind: 'industrial',
+    slots: [['cotton'], ['manufacturer', 'cotton']],
+  },
+  {
+    id: 'burton_on_trent',
+    kind: 'industrial',
+    slots: [['manufacturer'], ['coal', 'manufacturer']],
+  },
+  {
+    id: 'belper',
+    kind: 'industrial',
+    slots: [['cotton'], ['coal', 'cotton'], ['pottery']],
+  },
+  {
+    id: 'derby',
+    kind: 'industrial',
+    slots: [['coal', 'manufacturer'], ['iron']],
   },
 ];
 
@@ -123,26 +137,34 @@ export const FARM_BREWERIES: readonly FarmBreweryDef[] = [
   { id: 'farm_brewery_south', kind: 'farm_brewery', slots: [['brewery']] },
 ];
 
+/**
+ * `minPlayers`: each external market's own badge on the board (a circled number next to its
+ * trading-post tiles) reads as the minimum player count needed for that market to be in play —
+ * Warrington=5, Nottingham=3, Shrewsbury=4, Oxford=2, and Gloucester carries no badge at all
+ * (always in play). Warrington's gate (5) exceeds this engine's supported 2-4 player range
+ * (src/core/state.ts), so it is faithfully recorded but never actually reachable until/unless
+ * 5-player support is added as separate work — see ASSUMPTIONS.md.
+ */
 export const MARKETS: readonly MarketDef[] = [
   {
     id: 'warrington',
     kind: 'market',
     merchantSlotCount: 2,
-    minPlayers: 3,
+    minPlayers: 5,
     bonus: { kind: 'money', amount: 5 },
   },
   {
     id: 'shrewsbury',
     kind: 'market',
     merchantSlotCount: 1,
-    minPlayers: 2,
+    minPlayers: 4,
     bonus: { kind: 'victoryPoints', amount: 3 },
   },
   {
     id: 'nottingham',
     kind: 'market',
     merchantSlotCount: 2,
-    minPlayers: 4,
+    minPlayers: 3,
     bonus: { kind: 'victoryPoints', amount: 2 },
   },
   {
@@ -161,60 +183,59 @@ export const MARKETS: readonly MarketDef[] = [
   },
 ];
 
+interface RawLink {
+  readonly locations: readonly [string, string];
+  readonly era: Era | 'both';
+}
+
 /**
- * Buildable link slots. The kidderminster<->worcester slot is special: building it also
- * connects both locations to farm_brewery_south (docs/RULES.md §11). Same slot set is used
- * for both the canal and rail eras (docs/ASSUMPTIONS.md entry 5).
+ * Buildable link slots, reconstructed from the board's two line styles (see `LinkSlotDef`'s
+ * doc comment and ASSUMPTIONS.md for the full confidence breakdown per link). The
+ * kidderminster<->worcester slot is special: building it also connects both locations to
+ * farm_brewery_south (docs/RULES.md §11).
  */
-export const LINK_SLOTS: readonly LinkSlotDef[] = (
-  [
-    ['birmingham', 'wolverhampton'],
-    ['birmingham', 'dudley'],
-    ['birmingham', 'walsall'],
-    ['birmingham', 'west_bromwich'],
-    ['birmingham', 'coventry'],
-    ['birmingham', 'redditch'],
-    ['birmingham', 'bromsgrove'],
-    ['wolverhampton', 'dudley'],
-    ['wolverhampton', 'walsall'],
-    ['wolverhampton', 'cannock'],
-    ['wolverhampton', 'stourbridge'],
-    ['dudley', 'west_bromwich'],
-    ['dudley', 'stourbridge'],
-    ['dudley', 'kidderminster'],
-    ['walsall', 'west_bromwich'],
-    ['walsall', 'tamworth'],
-    ['walsall', 'cannock'],
-    ['cannock', 'tamworth'],
-    ['cannock', 'stoke_on_trent'],
-    ['cannock', 'farm_brewery_north'],
-    ['cannock', 'stone'],
-    ['tamworth', 'nuneaton'],
-    ['nuneaton', 'coventry'],
-    ['coventry', 'redditch'],
-    ['redditch', 'bromsgrove'],
-    ['bromsgrove', 'worcester'],
-    ['kidderminster', 'worcester'],
-    ['kidderminster', 'stourbridge'],
-    ['stoke_on_trent', 'stone'],
-    ['stoke_on_trent', 'leek'],
-    ['coalbrookdale', 'kidderminster'],
-    ['coalbrookdale', 'stourbridge'],
-    ['coalbrookdale', 'worcester'],
-    ['warrington', 'wolverhampton'],
-    ['warrington', 'stoke_on_trent'],
-    ['shrewsbury', 'coalbrookdale'],
-    ['shrewsbury', 'stourbridge'],
-    ['nottingham', 'tamworth'],
-    ['nottingham', 'nuneaton'],
-    ['gloucester', 'worcester'],
-    ['gloucester', 'bromsgrove'],
-    ['oxford', 'coventry'],
-    ['oxford', 'redditch'],
-  ] as const
-).map(([a, b]) => ({
+const RAW_LINKS: readonly RawLink[] = [
+  // North (Warrington / Potteries / Peak District towns)
+  { locations: ['warrington', 'stoke_on_trent'], era: 'both' },
+  { locations: ['stoke_on_trent', 'stone'], era: 'canal' },
+  { locations: ['stoke_on_trent', 'leek'], era: 'rail' },
+  { locations: ['stone', 'stafford'], era: 'canal' },
+  { locations: ['stone', 'uttoxeter'], era: 'rail' },
+  { locations: ['stafford', 'cannock'], era: 'rail' },
+  { locations: ['leek', 'belper'], era: 'rail' },
+  { locations: ['belper', 'derby'], era: 'both' },
+  { locations: ['belper', 'burton_on_trent'], era: 'canal' },
+  { locations: ['derby', 'nottingham'], era: 'rail' },
+  { locations: ['uttoxeter', 'burton_on_trent'], era: 'rail' },
+  { locations: ['burton_on_trent', 'tamworth'], era: 'both' },
+
+  // Black Country core
+  { locations: ['shrewsbury', 'coalbrookdale'], era: 'canal' },
+  { locations: ['coalbrookdale', 'wolverhampton'], era: 'canal' },
+  { locations: ['coalbrookdale', 'dudley'], era: 'canal' },
+  { locations: ['cannock', 'wolverhampton'], era: 'canal' },
+  { locations: ['cannock', 'walsall'], era: 'canal' },
+  { locations: ['cannock', 'farm_brewery_north'], era: 'both' },
+  { locations: ['wolverhampton', 'dudley'], era: 'rail' },
+  { locations: ['walsall', 'birmingham'], era: 'both' },
+  { locations: ['dudley', 'birmingham'], era: 'rail' },
+  { locations: ['dudley', 'kidderminster'], era: 'both' },
+  { locations: ['birmingham', 'redditch'], era: 'both' },
+  { locations: ['birmingham', 'tamworth'], era: 'rail' },
+
+  // South / East
+  { locations: ['tamworth', 'nuneaton'], era: 'canal' },
+  { locations: ['nuneaton', 'coventry'], era: 'both' },
+  { locations: ['coventry', 'oxford'], era: 'canal' },
+  { locations: ['redditch', 'oxford'], era: 'canal' },
+  { locations: ['kidderminster', 'worcester'], era: 'canal' },
+  { locations: ['worcester', 'gloucester'], era: 'canal' },
+];
+
+export const LINK_SLOTS: readonly LinkSlotDef[] = RAW_LINKS.map(({ locations: [a, b], era }) => ({
   id: `${a}__${b}`,
   locations: [a, b] as const,
+  era,
   bonusConnections:
     a === 'kidderminster' && b === 'worcester'
       ? ([

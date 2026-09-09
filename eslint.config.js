@@ -4,7 +4,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'public/**'],
+    // client/ is a separate Nx workspace with its own eslint.config.mjs and tsconfig graph
+    // (client/eslint.config.mjs); this root config's `projectService` can't resolve files
+    // outside its own tsconfig, so it must not scan them at all.
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'public/**', 'client/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

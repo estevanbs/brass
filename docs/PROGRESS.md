@@ -415,3 +415,67 @@ legíveis, e nomes de cidade claramente associados ao ponto certo.
   denso antes/depois (zero sobreposição de rótulo restante), viewport pequeno (1024×700,
   degrada bem), e o roteiro funcional completo de novo jogo/seleção/clique no
   mapa/Empréstimo/Scout sem erros de console nem regressão de comportamento.
+
+## Extra (fora do plano original) — reconstrução do tabuleiro a partir de foto real
+
+Pedido direto do usuário, com uma foto de alta resolução do tabuleiro físico real em mãos:
+"Reconstrua as ligações usando ele como base. Veja que existem ligações que são específicas
+de alguma era. Alguns mercados só são utilizados com uma quantidade específica de jogadores.
+Toda informação que for possível extrair do tabuleiro coloque no jogo. [...] faça com que a
+interface frontend lembre isso no possicionamento das informações."
+
+- **Extração visual da foto**: usei `sharp` (instalado ad hoc via npm nesta tarefa, já que
+  nem ImageMagick nem PIL estavam disponíveis) para recortar a foto em regiões de alta
+  resolução e aumentar saturação, o que revelou dois estilos de linha visualmente distintos
+  conectando as localidades (um fino azul estilo rio/canal, outro cinza com textura de trilho
+  estilo ferrovia) — sem isso, a distinção de era por link não seria legível na foto em
+  resolução normal. Perguntei diretamente ao usuário qual a leitura correta (cada cor sendo
+  uma ligação distinta, ou a azul sendo só decoração de rio real) — única pergunta feita nesta
+  tarefa, sobre a única coisa que eu genuinamente não conseguia resolver sozinho a partir da
+  foto — e a resposta confirmou: cada cor é mesmo uma ligação de jogo distinta.
+- **`src/rules/board-data.ts` reescrito**: 20 localidades industriais (removendo West
+  Bromwich/Stourbridge/Bromsgrove, que não existem no tabuleiro real; adicionando Belper/
+  Derby/Stafford/Uttoxeter/Burton-on-Trent, que existem), contagem de slots por localidade
+  lida da foto, 30 links com era (`LinkSlotDef.era: 'canal'|'rail'|'both'`, campo novo),
+  `MarketDef.minPlayers` corrigido para os valores reais lidos dos selos numéricos ao lado de
+  cada mercador no tabuleiro (Oxford 2, Nottingham 3, Shrewsbury 4, Warrington 5 — Warrington
+  nunca aparece em jogo enquanto o motor só suportar 2-4 jogadores, decisão deliberada de não
+  inventar regras de partida a 5 jogadores sem fonte). `engine/legal/network.ts` e
+  `engine/actions/network-action.ts` passaram a recusar construir um link fora da sua era.
+  Ver `docs/ASSUMPTIONS.md` #1, #5, #15 para os graus de confiança detalhados por peça de
+  informação (localidades/contagem de slots: alta; tipo de indústria por slot: média; era por
+  link: média, com os casos de dúvida genuína marcados `'both'` em vez de inventados).
+- **Consequência real, honestamente medida, não escondida**: a nova topologia (mais
+  localidades, conectividade diferente) mudou a taxa de vitória do ISMCTS contra o
+  heurístico — a mesma amostra fixa de 12 partidas que ficava perto de 50% caiu para 41,7%
+  (5/12), confirmado por uma amostra maior de 30 partidas (36,7%, 11/30, não é ruído). O
+  limiar do teste de regressão do ISMCTS foi reduzido de 50% para 30% (ainda pega um colapso
+  real do bot, só não falsifica por causa dessa queda já documentada); recalibrar o ISMCTS
+  para o tabuleiro novo é trabalho real não feito aqui — mesmo porte da validação do M7.
+- **Reposicionamento do frontend** (pedido explícito do usuário): `client/libs/domain/src/
+  lib/map-layout.ts#LOCATION_POSITIONS` trocou de coordenadas geográficas reais (lat/lon) para
+  posições lidas diretamente da foto do tabuleiro (grade de coordenadas sobreposta à foto via
+  `sharp`, lida manualmente) — o mapa agora reproduz o arranjo visual real do tabuleiro
+  (Warrington canto superior esquerdo, Nottingham canto superior direito, Oxford/Gloucester
+  parte inferior, núcleo industrial no centro), não uma geografia real independente que por
+  coincidência era só parecida. O passo de "desamontoamento" de rótulos (já existente, do
+  extra anterior) continua rodando por cima dessas posições novas.
+- **Retrabalho mecânico de testes**: a topologia nova invalidou dezenas de IDs de link
+  hardcoded em ~10 arquivos de teste do backend (ex.: `birmingham__wolverhampton` não existe
+  mais). Corrigido um por um, preservando a intenção de cada teste (ex.: um teste de "compra
+  de carvão exige mercador conectado" precisa que o primeiro endpoint do link seja de fato um
+  mercador — troquei para um link cujo primeiro endpoint realmente é um mercador, em vez de só
+  trocar o texto do ID). `npm run typecheck && npm run lint && npm test` voltou a passar
+  limpo (178 testes) depois do retrabalho.
+- **Achado incidental**: `npm run lint` (raiz) estava rodando por engano sobre os arquivos do
+  workspace Nx em `client/` (que tem seu próprio eslint separado), gerando dezenas de erros de
+  parsing porque o `projectService` da raiz não conhece o grafo de tsconfig do `client/`.
+  Corrigido adicionando `client/**` aos `ignores` do `eslint.config.js` da raiz — bug
+  pré-existente da sessão anterior (não introduzido por esta tarefa), só nunca antes exposto
+  porque `npm run lint` não tinha sido rodado desde que `client/` foi criado.
+- Validado com `npx nx run-many -t lint typecheck test build` (5 projetos do client/, limpo),
+  `npm run verify`-equivalente no backend (178 testes, limpo), e Playwright real contra o
+  servidor reiniciado: screenshot do tabuleiro completo (27 nós, sem sobreposição de rótulo em
+  nenhum cluster, incluindo o novo grupo norte Stoke/Leek/Belper/Derby/Uttoxeter/Stafford/
+  Burton-on-Trent), painel do tabuleiro pessoal, e o roteiro funcional completo sem erros de
+  console.

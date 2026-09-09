@@ -11,78 +11,84 @@ const MAP_PADDING = 70;
 
 /** Minimum center-to-center clearance (px) two nodes are allowed to end up at — an *ellipse*,
  * not a circle: each town's label sits centered above its node and town names run 60-100px
- * wide (two- and three-word names like "west bromwich" or "stoke on trent") but only ~13px
+ * wide (two- and three-word names like "stoke on trent" or "burton on trent") but only ~13px
  * tall, so two nodes need much more *horizontal* clearance than vertical before their labels
- * stop colliding. Found by trial against the real West Midlands cluster (Wolverhampton /
- * Dudley / West Bromwich / Walsall / Birmingham / Stourbridge / Cannock all sit within a few
- * real-world km of each other, so their raw lat/lon projection overlaps badly; see
- * `declutter`). */
+ * stop colliding. Found by trial against the board's own densest cluster (Wolverhampton /
+ * Dudley / Walsall / Birmingham / Cannock all sit close together on the physical board too;
+ * see `declutter`). */
 const MIN_SEPARATION_X = 108;
 const MIN_SEPARATION_Y = 48;
 const DECLUTTER_ITERATIONS = 200;
-/** How strongly a node is pulled back toward its true geographic position each iteration —
- * small and constant so the final layout stays recognizably "the real map", just with the
+/** How strongly a node is pulled back toward its true board-space position each iteration —
+ * small and constant so the final layout stays recognizably "the real board", just with the
  * worst overlaps pried apart, rather than drifting into an unrelated arrangement. */
 const ANCHOR_SPRING = 0.02;
 
-/** Real-world [lat, lon] of each town the board is named after (docs/ASSUMPTIONS.md #1: the
- * board's topology is an original design, but the town names are real West Midlands / England
- * places — using their actual relative positions makes the map read like a real map instead
- * of an abstract graph, without reproducing any of the physical game's own artwork). Farm
- * breweries aren't real places; each is plotted near the town(s) it connects to. */
-const LOCATION_COORDS: Readonly<Record<string, readonly [number, number]>> = {
-  birmingham: [52.4862, -1.8904],
-  wolverhampton: [52.5862, -2.1281],
-  dudley: [52.5083, -2.0807],
-  walsall: [52.586, -1.9822],
-  west_bromwich: [52.5186, -1.9945],
-  coventry: [52.4068, -1.5197],
-  tamworth: [52.6335, -1.6947],
-  nuneaton: [52.5231, -1.4677],
-  redditch: [52.3057, -1.9428],
-  bromsgrove: [52.3357, -2.0611],
-  kidderminster: [52.3891, -2.2494],
-  worcester: [52.1936, -2.2216],
-  cannock: [52.6883, -2.0311],
-  coalbrookdale: [52.6267, -2.4839],
-  stoke_on_trent: [53.0027, -2.1794],
-  stone: [52.9022, -2.1522],
-  leek: [53.1039, -2.0233],
-  stourbridge: [52.4573, -2.1483],
-  warrington: [53.39, -2.5972],
-  shrewsbury: [52.7069, -2.7527],
-  nottingham: [52.9548, -1.1581],
-  gloucester: [51.8642, -2.2382],
-  oxford: [51.752, -1.2577],
-  farm_brewery_north: [52.735, -2.09],
-  farm_brewery_south: [52.27, -2.29],
+/**
+ * Each town's approximate position **on the physical board itself** (docs/ASSUMPTIONS.md #1),
+ * read off a photo of it and expressed as (x, y) in an arbitrary but consistent 1000×800
+ * board-space — not real-world geography. Earlier revisions of this map projected real-world
+ * lat/lon instead (a defensible stand-in when no board reference existed yet), but now that an
+ * actual board photo does exist, the frontend should visually echo *that* board's layout, per
+ * the user's explicit request, not an independently-plausible geography that happens to
+ * disagree with it in the details (e.g. the real board runs Warrington top-left to Nottingham
+ * top-right to Oxford/Gloucester bottom-right, which those towns' true lat/lon does not
+ * reproduce). Farm breweries aren't labeled on the board; each is plotted at the unlabeled
+ * single-slot tile nearest the location it links to. */
+const LOCATION_POSITIONS: Readonly<Record<string, readonly [number, number]>> = {
+  warrington: [285, 15],
+  stoke_on_trent: [560, 65],
+  leek: [695, 15],
+  belper: [835, 15],
+  nottingham: [935, 90],
+  stone: [310, 105],
+  uttoxeter: [565, 105],
+  derby: [760, 105],
+  stafford: [400, 190],
+  burton_on_trent: [675, 220],
+  cannock: [450, 280],
+  tamworth: [685, 325],
+  shrewsbury: [75, 350],
+  coalbrookdale: [225, 395],
+  wolverhampton: [370, 385],
+  walsall: [535, 385],
+  nuneaton: [785, 415],
+  dudley: [420, 495],
+  birmingham: [630, 500],
+  coventry: [805, 540],
+  kidderminster: [360, 595],
+  redditch: [590, 645],
+  oxford: [735, 650],
+  worcester: [360, 725],
+  gloucester: [505, 770],
+  farm_brewery_north: [300, 280],
+  farm_brewery_south: [260, 660],
 };
-const FALLBACK_COORD: readonly [number, number] = [52.3, -2.0];
+const FALLBACK_POSITION: readonly [number, number] = [500, 400];
 
-/** Projects every location's real-world lat/lon onto a fixed-size viewport (simple linear
- * scaling, not a great-circle projection — accurate enough at this scale and keeps a
- * landscape aspect ratio that fits the layout better than a geographically exact one), then
- * runs `declutter` to pry apart nodes that land too close together for their labels to stay
+/** Fits every location's board-space position (see `LOCATION_POSITIONS`) into a fixed-size
+ * viewport (simple independent min-max scaling per axis, not a projection — there's no
+ * geography to project here, just one coordinate space fit into another), then runs
+ * `declutter` to pry apart nodes that land too close together for their labels to stay
  * readable. Deterministic — same board in, same layout out, no randomness — so it's safe to
  * recompute on every render without the map "jittering". */
 export function computeMapLayout(board: BoardSummary): Map<string, Point> {
   const ids = board.locations.map((l) => l.id);
-  const coords = ids.map((id) => LOCATION_COORDS[id] ?? FALLBACK_COORD);
-  const lats = coords.map((c) => c[0]);
-  const lons = coords.map((c) => c[1]);
-  const latMin = Math.min(...lats);
-  const latMax = Math.max(...lats);
-  const lonMin = Math.min(...lons);
-  const lonMax = Math.max(...lons);
-  const latSpan = latMax - latMin || 1;
-  const lonSpan = lonMax - lonMin || 1;
+  const positions = ids.map((id) => LOCATION_POSITIONS[id] ?? FALLBACK_POSITION);
+  const xs = positions.map((p) => p[0]);
+  const ys = positions.map((p) => p[1]);
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const yMin = Math.min(...ys);
+  const yMax = Math.max(...ys);
+  const xSpan = xMax - xMin || 1;
+  const ySpan = yMax - yMin || 1;
 
   const anchors = new Map<string, Point>();
   for (const id of ids) {
-    const [lat, lon] = LOCATION_COORDS[id] ?? FALLBACK_COORD;
-    const x = MAP_PADDING + ((lon - lonMin) / lonSpan) * (MAP_WIDTH - 2 * MAP_PADDING);
-    // Latitude grows northward; SVG y grows downward, so invert.
-    const y = MAP_PADDING + ((latMax - lat) / latSpan) * (MAP_HEIGHT - 2 * MAP_PADDING);
+    const [px, py] = LOCATION_POSITIONS[id] ?? FALLBACK_POSITION;
+    const x = MAP_PADDING + ((px - xMin) / xSpan) * (MAP_WIDTH - 2 * MAP_PADDING);
+    const y = MAP_PADDING + ((py - yMin) / ySpan) * (MAP_HEIGHT - 2 * MAP_PADDING);
     anchors.set(id, { x, y });
   }
 
@@ -92,16 +98,15 @@ export function computeMapLayout(board: BoardSummary): Map<string, Point> {
 }
 
 /**
- * Real-world town spacing is wildly uneven (several West Midlands towns sit only a few km
- * apart, while others the board also names — Nottingham, Oxford, Warrington — are 50-100km
- * out), so the raw geographic projection above packs a cluster of ~8 towns close enough that
- * their circles and labels overlap and it stops being clear which name belongs to which point
- * — the exact complaint this fixes. This mutates `nodes` in place, in two alternating steps
- * per iteration: push any pair inside each other's `MIN_SEPARATION_X`/`_Y` ellipse apart by
- * half their overlap each, then pull every node a small, constant amount back toward its true
- * geographic anchor. The spring keeps the result anchored to "the real map" instead of
- * drifting into an unrelated layout; running enough iterations lets the pushes and springs
- * settle into a layout with no remaining overlaps that's still recognizably the geographic one.
+ * Even the board's own layout packs its densest cluster (Wolverhampton / Dudley / Walsall /
+ * Birmingham / Cannock) tightly enough that a naive fit of `LOCATION_POSITIONS` into the
+ * viewport still overlaps circles and labels there — the exact complaint this fixes. This
+ * mutates `nodes` in place, in two alternating steps per iteration: push any pair inside each
+ * other's `MIN_SEPARATION_X`/`_Y` ellipse apart by half their overlap each, then pull every
+ * node a small, constant amount back toward its true board-space anchor. The spring keeps the
+ * result anchored to "the real board layout" instead of drifting into an unrelated
+ * arrangement; running enough iterations lets the pushes and springs settle into a layout with
+ * no remaining overlaps that's still recognizably the board's own.
  */
 function declutter(nodes: Map<string, Point>, anchors: ReadonlyMap<string, Point>): void {
   const ids = [...nodes.keys()];

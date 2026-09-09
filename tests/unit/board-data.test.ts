@@ -9,10 +9,10 @@ import {
 
 describe('board-data', () => {
   it('has the expected number of locations of each kind', () => {
-    expect(INDUSTRIAL_LOCATIONS).toHaveLength(18);
+    expect(INDUSTRIAL_LOCATIONS).toHaveLength(20);
     expect(MARKETS).toHaveLength(5);
     expect(FARM_BREWERIES).toHaveLength(2);
-    expect(ALL_LOCATION_IDS).toHaveLength(25);
+    expect(ALL_LOCATION_IDS).toHaveLength(27);
   });
 
   it('has unique location ids across all kinds', () => {
@@ -20,7 +20,7 @@ describe('board-data', () => {
   });
 
   it('has the expected number of link slots', () => {
-    expect(LINK_SLOTS).toHaveLength(43);
+    expect(LINK_SLOTS).toHaveLength(30);
   });
 
   it('has unique link slot ids', () => {
@@ -102,10 +102,16 @@ describe('board-data', () => {
 
   it('markets have the min-player thresholds documented in RULES.md', () => {
     const byId = new Map(MARKETS.map((m) => [m.id, m]));
-    expect(byId.get('warrington')?.minPlayers).toBe(3);
-    expect(byId.get('nottingham')?.minPlayers).toBe(4);
-    expect(byId.get('shrewsbury')?.minPlayers).toBe(2);
+    expect(byId.get('warrington')?.minPlayers).toBe(5);
+    expect(byId.get('nottingham')?.minPlayers).toBe(3);
+    expect(byId.get('shrewsbury')?.minPlayers).toBe(4);
     expect(byId.get('gloucester')?.minPlayers).toBe(2);
     expect(byId.get('oxford')?.minPlayers).toBe(2);
+  });
+
+  it('every link slot has an era of canal, rail, or both', () => {
+    for (const link of LINK_SLOTS) {
+      expect(['canal', 'rail', 'both']).toContain(link.era);
+    }
   });
 });

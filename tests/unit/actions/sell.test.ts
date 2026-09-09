@@ -17,7 +17,7 @@ describe('applySell', () => {
       },
     ]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
@@ -44,7 +44,7 @@ describe('applySell', () => {
   it('rejects selling a tile the player does not own', () => {
     const action = sellAction([{ locationId: 'coventry', slotIndex: 0, beerSources: [] }]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
@@ -82,7 +82,7 @@ describe('applySell', () => {
   it('rejects selling an already-flipped tile', () => {
     const action = sellAction([{ locationId: 'coventry', slotIndex: 0, beerSources: [] }]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
@@ -99,7 +99,7 @@ describe('applySell', () => {
   it('rejects the wrong number of beer sources for the tile', () => {
     const action = sellAction([{ locationId: 'coventry', slotIndex: 0, beerSources: [] }]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
@@ -116,20 +116,20 @@ describe('applySell', () => {
   it('consumes merchant beer and applies the money bonus at Warrington', () => {
     const action = sellAction([
       {
-        locationId: 'wolverhampton',
-        slotIndex: 2,
+        locationId: 'stoke_on_trent',
+        slotIndex: 0,
         beerSources: [
           { kind: 'merchant', marketId: 'warrington', merchantSlotIndex: 0, developChoice: null },
         ],
       },
     ]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'warrington__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'warrington__stoke_on_trent', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
       locations: withMerchant(
-        withTile(state.locations, 'wolverhampton', 2, tile('p1', 'cotton', 1, 0)),
+        withTile(state.locations, 'stoke_on_trent', 0, tile('p1', 'cotton', 1, 0)),
         'warrington',
         0,
         'wild',
@@ -158,7 +158,7 @@ describe('applySell', () => {
       },
     ]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'gloucester__worcester', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'worcester__gloucester', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
@@ -188,7 +188,7 @@ describe('applySell', () => {
       },
     ]);
     let state = stateWithHand('p1', [action.card], {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,

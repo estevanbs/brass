@@ -46,6 +46,6 @@ describe('deck-data', () => {
 
   it('total deck size matches location + industry card totals', () => {
     const deck = buildDrawDeck(4);
-    expect(deck).toHaveLength(18 * 3 + 6 * 4);
+    expect(deck).toHaveLength(20 * 3 + 6 * 4);
   });
 });

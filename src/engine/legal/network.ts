@@ -8,7 +8,7 @@ import { distinctCards } from '../cards.js';
 
 function undevelopedSlotIds(state: GameState): string[] {
   const built = new Set(state.links.map((l) => l.slotId));
-  return LINK_SLOTS.filter((s) => !built.has(s.id)).map((s) => s.id);
+  return LINK_SLOTS.filter((s) => !built.has(s.id) && (s.era === 'both' || s.era === state.era)).map((s) => s.id);
 }
 
 function slotEndpoints(slotId: string): readonly [string, string] {

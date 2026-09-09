@@ -76,30 +76,38 @@ describe('applyBuild', () => {
   });
 
   it('sells as much coal as market capacity allows only when connected to a merchant, leaving the rest on the tile', () => {
-    const action = buildAction();
+    const action = buildAction({
+      card: { kind: 'location', locationId: 'coalbrookdale' },
+      locationId: 'coalbrookdale',
+      slotIndex: 1,
+    });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'warrington__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'shrewsbury__coalbrookdale', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     // Market starts at 13/14 cubes: only 1 of the 2 produced coal units can be sold.
     expect(result.market.coalCubes).toBe(14);
     expect(result.players['p1']?.money).toBe(30 - 5 + 1);
-    const wolverhampton = result.locations['wolverhampton'];
-    if (wolverhampton?.kind === 'market') throw new Error('unreachable');
-    expect(wolverhampton?.slots[0]?.tile).toMatchObject({ flipped: false, resourceRemaining: 1 });
+    const coalbrookdale = result.locations['coalbrookdale'];
+    if (coalbrookdale?.kind === 'market') throw new Error('unreachable');
+    expect(coalbrookdale?.slots[1]?.tile).toMatchObject({ flipped: false, resourceRemaining: 1 });
   });
 
   it('fully sells and flips a coal mine when the market has room for all its production', () => {
-    const action = buildAction();
+    const action = buildAction({
+      card: { kind: 'location', locationId: 'coalbrookdale' },
+      locationId: 'coalbrookdale',
+      slotIndex: 1,
+    });
     const state = stateFor(action.card, {
       market: { coalCubes: 8, ironCubes: 8 },
-      links: [{ slotId: 'warrington__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'shrewsbury__coalbrookdale', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     expect(result.market.coalCubes).toBe(10);
-    const wolverhampton = result.locations['wolverhampton'];
-    if (wolverhampton?.kind === 'market') throw new Error('unreachable');
-    expect(wolverhampton?.slots[0]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
+    const coalbrookdale = result.locations['coalbrookdale'];
+    if (coalbrookdale?.kind === 'market') throw new Error('unreachable');
+    expect(coalbrookdale?.slots[1]?.tile).toMatchObject({ flipped: true, resourceRemaining: 0 });
     expect(result.players['p1']?.incomeTrackPosition).toBe(11); // level 1 coal income +1
   });
 
@@ -140,7 +148,7 @@ describe('applyBuild', () => {
   it('enforces the canal-era 1-tile-per-location limit', () => {
     const action = buildAction();
     let state = stateFor(action.card);
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 2, tile('p2', 'pottery', 1)) };
+    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 1, tile('p2', 'manufacturer', 1)) };
     expect(() => applyBuild(state, action)).toThrow(/canal era/);
   });
 
@@ -231,7 +239,7 @@ describe('applyBuild', () => {
       coalSource: { kind: 'market' },
     });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     const coventry = result.locations['coventry'];
@@ -260,7 +268,7 @@ describe('applyBuild', () => {
       coalSource: { kind: 'market' },
     });
     const state = stateFor(action.card, {
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
     });
     const result = applyBuild(state, action);
     // cost £12 (cotton L1) + £1 (coal market at 13/14 cubes) = £13.

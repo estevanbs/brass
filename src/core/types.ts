@@ -69,11 +69,21 @@ export interface MarketLocationState {
 export type LocationState = BuildableLocationState | MarketLocationState;
 
 /** A buildable line on the board. Most connect exactly 2 locations; the
- * Kidderminster-Worcester slot also silently connects Farm Brewery South. */
+ * Kidderminster-Worcester slot also silently connects Farm Brewery South.
+ *
+ * `era` restricts which era's link tile can be built here — reconstructed from the physical
+ * board (docs/ASSUMPTIONS.md #1), which draws two visually distinct line styles: a thin blue
+ * canal/river line and a grey rail-tie track. `'both'` is the default for a slot drawn with
+ * only one style where the two towns are also connected in the other era via a different pair
+ * (or where the distinction couldn't be read with confidence — see ASSUMPTIONS.md for exactly
+ * which slots that applies to). This does not change once built: a built link is scored and
+ * removed at every era's end regardless of its `era` tag (src/engine/scoring.ts), so the tag
+ * only ever gates *new* Network actions (src/engine/legal/network.ts). */
 export interface LinkSlotDef {
   readonly id: string;
   readonly locations: readonly [string, string];
   readonly bonusConnections: readonly (readonly [string, string])[];
+  readonly era: Era | 'both';
 }
 
 export interface LinkState {

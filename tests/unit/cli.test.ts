@@ -73,7 +73,7 @@ describe('cli/render', () => {
     const card = { kind: 'wildLocation' as const };
     const actions: Action[] = [
       { type: 'build', player: 'p1', card, locationId: 'birmingham', slotIndex: 0, industry: 'iron', coalSource: null, ironSource: null },
-      { type: 'network', player: 'p1', card, linkSlotIds: ['birmingham__wolverhampton'], coalSources: [], beerSource: null },
+      { type: 'network', player: 'p1', card, linkSlotIds: ['walsall__birmingham'], coalSources: [], beerSource: null },
       { type: 'develop', player: 'p1', card, industries: ['coal'], ironSources: [{ kind: 'market' }] },
       { type: 'sell', player: 'p1', card, sales: [{ locationId: 'coventry', slotIndex: 0, beerSources: [] }] },
       { type: 'loan', player: 'p1', card },

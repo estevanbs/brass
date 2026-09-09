@@ -31,15 +31,27 @@ criação própria, não uma transcrição do produto da Roxley.
 ## Entradas
 
 1. **Regra**: Topologia exata do tabuleiro (quais localidades reais se conectam a quais).
-   **Decisão**: Desenhei um grafo próprio com 18 localidades industriais (nomes reais de
-   cidades da região de Birmingham/Black Country, que são fatos geográficos, não
-   propriedade intelectual do jogo) + 5 mercadores (nomes citados textualmente nas regras
-   oficiais: Warrington, Shrewsbury, Nottingham, Gloucester, Oxford) + 2 fazendas
-   cervejeiras, com 43 links, mantendo grau de conectividade e ciclos suficientes para
-   decisões de rota interessantes. Ver `RULES.md` §11.
-   **Confiança**: média (a estrutura qualitativa segue o jogo real; a topologia exata não).
-   **Impacto se errado**: nenhum na correção do motor (o grafo é internamente consistente);
-   afeta apenas o quão "fiel" a experiência de jogo é ao produto original.
+   **Decisão original (M2, sem referência física disponível)**: grafo próprio com 18
+   localidades industriais + 5 mercadores + 2 fazendas cervejeiras, 43 links, seguindo a
+   estrutura geral do jogo sem reproduzir o tabuleiro físico.
+   **Revisão (pedido direto do usuário, com foto do tabuleiro físico em mãos)**: o usuário
+   enviou uma foto de alta resolução do tabuleiro real e pediu a reconstrução das ligações a
+   partir dela. `src/rules/board-data.ts` foi reescrito com as **20 localidades industriais +
+   5 mercadores + 2 fazendas** efetivamente impressas no tabuleiro (removendo West Bromwich,
+   Stourbridge e Bromsgrove, que não aparecem nele; adicionando Belper, Derby, Stafford,
+   Uttoxeter e Burton-on-Trent, que aparecem), com **30 links** lidos diretamente das linhas
+   de conexão da foto (ver entrada #15 para como a era de cada link foi determinada). A
+   contagem de slots por localidade também vem da foto (contagem de peças ilustradas); o
+   *tipo* exato de indústria aceito por cada slot individual não é sempre legível com
+   confiança nos ícones em miniatura de uma foto de celular, então essa parte específica
+   continua uma composição plausível própria, não uma leitura literal.
+   **Confiança**: alta para a lista de localidades, contagem de slots, e a existência/pontos-
+   finais de cada link (lidos diretamente da foto, não inventados); média para o tipo exato de
+   indústria de cada slot individual (ver acima); ver entrada #15 para a confiança específica
+   de qual *era* cada link pertence. **Impacto se errado**: nenhum na correção do motor (o
+   grafo é gerado e validado internamente, incluindo o teste de conectividade completa em
+   `tests/unit/board-data.test.ts`); afeta o quão fiel a topologia é ao tabuleiro físico real
+   caso a leitura de algum link específico da foto esteja errada.
 
 2. **Regra**: Custo, VP, renda e produção de cada peça de indústria em cada nível.
    **Decisão**: Tabela própria em `RULES.md` §5.3, com custo crescente por nível e retorno
@@ -65,14 +77,30 @@ criação própria, não uma transcrição do produto da Roxley.
    original — não quebra nenhuma invariante, só simplifica a árvore de decisão.
 
 5. **Regra**: Se as linhas de canal e de ferrovia usam a mesma topologia de grafo ou
-   conjuntos de arestas diferentes (no jogo físico, os dois lados do tabuleiro mostram
-   layouts de linha diferentes).
-   **Decisão**: Uso o mesmo grafo para as duas eras. Como todos os links são removidos e
-   pontuados ao final de cada era antes da próxima começar, não há conflito de peças
-   ocupando a mesma aresta simultaneamente entre eras.
-   **Confiança**: média. **Impacto se errado**: simplifica a diferença estratégica entre
-   Canal e Ferrovia (no jogo real, a expansão ferroviária abre novas rotas geográficas); não
-   afeta corretude.
+   conjuntos de arestas diferentes.
+   **Decisão original (M2, sem referência física)**: mesmo grafo para as duas eras.
+   **Revisão**: a foto do tabuleiro físico mostra dois estilos de linha visualmente distintos
+   conectando as localidades — uma linha azul fina e lisa (estilo rio/canal) e uma linha
+   cinza com textura de trilho (dois trilhos + dormentes, estilo ferrovia), correndo em
+   paralelo em vários trechos. Perguntei diretamente ao usuário (que tem o tabuleiro físico
+   em mãos) qual a leitura correta, e a resposta foi: **cada cor é uma ligação distinta** —
+   quando as duas aparecem entre o mesmo par de cidades, são dois slots de link separados
+   (um só-canal, um só-ferrovia); quando só uma aparece, aquele link só existe naquela era.
+   `LinkSlotDef` ganhou o campo `era: 'canal' | 'rail' | 'both'`
+   (`'both'` para os poucos casos em que as duas cores claramente conectam o mesmo par, ou em
+   que a distinção não pôde ser lida com confiança — ver abaixo); `engine/legal/network.ts` e
+   `engine/actions/network-action.ts` agora recusam construir um link fora da era certa.
+   **Confiança**: média — a distinção entre "existe uma ligação ali" e "essa ligação é
+   azul/cinza especificamente" foi lida par a par de uma foto de celular (não um arquivo
+   vetorial), então alguns trechos densos (o cluster Wolverhampton/Dudley/Walsall/Birmingham/
+   Cannock, onde várias linhas se cruzam) têm confiança menor que os trechos mais isolados
+   (ex.: Warrington–Stoke-on-Trent, Kidderminster–Worcester). Nos casos de dúvida genuína, a
+   decisão foi marcar `'both'` (equivalente ao comportamento M2 original) em vez de arriscar
+   uma restrição de era inventada. **Impacto se errado**: um link marcado com a era errada
+   fica indisponível numa era em que deveria estar disponível (ou vice-versa) — não quebra
+   nenhuma invariante do motor (a validação de era só nega a ação, nunca produz estado
+   inconsistente), só torna aquela rota específica mais ou menos restritiva do que no
+   tabuleiro real.
 
 6. **Regra**: Composição exata do baralho de compra (quantas cópias de cada carta de local e
    de indústria, por número de jogadores).
@@ -213,3 +241,38 @@ criação própria, não uma transcrição do produto da Roxley.
     pode não bater o heurístico em 65% na validação completa de 300 partidas — não afeta a
     corretude do motor (todas as ações que o ISMCTS escolhe já passam pela mesma validação
     real de `applyAction` que qualquer outra), só a força do bot.
+
+15. **Regra**: Quantos jogadores cada mercador externo exige para entrar em jogo — o
+    tabuleiro físico mostra um selo numerado ao lado de cada mercador (Warrington, Nottingham,
+    Shrewsbury, Oxford), e Gloucester não tem selo nenhum.
+    **Decisão**: li os selos como "número mínimo de jogadores" (interpretação confirmada
+    diretamente pelo usuário, que tem o tabuleiro físico: "alguns mercados só são utilizados
+    com uma quantidade específica de jogadores") e atualizei `MarketDef.minPlayers` em
+    `src/rules/board-data.ts`: Oxford=2, Nottingham=3, Shrewsbury=4, Warrington=5, Gloucester
+    sem selo = sempre em jogo (2). O motor só suporta 2-4 jogadores hoje (`src/core/state.ts`,
+    `src/rules/deck-data.ts`) — dar suporte a 5 exigiria decidir tamanho de baralho, dinheiro
+    inicial, e outros números de partida a 5 jogadores que não aparecem em lugar nenhum
+    fotografado, então **não foi feito**: Warrington fica corretamente registrado com
+    `minPlayers: 5`, mas nunca aparecerá em jogo enquanto o motor não passar a suportar 5
+    jogadores (trabalho futuro separado).
+    **Confiança**: alta para os números lidos diretamente dos selos. **Impacto se errado**: um
+    mercador ficaria disponível numa contagem de jogadores errada — não afeta corretude, só
+    fidelidade ao tabuleiro real; Warrington especificamente não tem nenhum impacto observável
+    até que 5 jogadores sejam suportados.
+
+16. **Regra**: Reposicionamento do mapa no frontend (pedido direto do usuário: "faça com que a
+    interface frontend lembre isso no possicionamento das informações").
+    **Decisão**: `client/libs/domain/src/lib/map-layout.ts#LOCATION_POSITIONS` foi reescrito
+    de coordenadas geográficas reais (lat/lon) para posições lidas diretamente da foto do
+    tabuleiro físico (um sistema de coordenadas arbitrário 1000×800 fiel ao arranjo visual do
+    tabuleiro — Warrington canto superior esquerdo, Nottingham canto superior direito, Oxford/
+    Gloucester parte inferior direita/central, Shrewsbury meio-esquerda, núcleo industrial no
+    centro — em vez de uma geografia real que, embora plausível, discordava do tabuleiro real
+    em detalhes). O passo de "desamontoamento" de rótulos (`declutter`, entrada específica
+    desta mudança documentada no commit) continua rodando por cima dessas posições.
+    **Confiança**: média — as posições foram lidas visualmente de uma foto com grade
+    sobreposta (não um arquivo vetorial com coordenadas exatas), então são aproximações
+    razoáveis do arranjo real, não uma digitalização pixel-perfeita. **Impacto se errado**: só
+    estético — o mapa ainda é internamente consistente (toda localidade aparece, todo link
+    conecta os pontos certos), só a posição relativa de algum ponto específico pode não
+    bater exatamente com o tabuleiro físico.

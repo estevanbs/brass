@@ -327,7 +327,7 @@ se persistir, por mais dinheiro em caixa; se persistir ainda, é declarado empat
 ## 10. Baralho
 
 Duas categorias de cartas no baralho de compra:
-- **Cartas de local**: uma por cada uma das 18 localidades industriais do tabuleiro (ver
+- **Cartas de local**: uma por cada uma das 20 localidades industriais do tabuleiro (ver
   `board-data.ts`). Quantidade de cópias por número de jogadores: **1 (2 jogadores), 2 (3
   jogadores), 3 (4 jogadores)**.
 - **Cartas de indústria**: uma por cada um dos 6 tipos de indústria. Cópias por número de
@@ -343,22 +343,30 @@ era Ferrovia, as pilhas de descarte de todos combinadas) e cada jogador compra 8
 
 ## 11. Tabuleiro
 
-O tabuleiro tem 18 localidades industriais, 5 mercadores e 2 "fazendas cervejeiras" (locais
+O tabuleiro tem 20 localidades industriais, 5 mercadores e 2 "fazendas cervejeiras" (locais
 sem nome, com 1 slot de Cervejaria cada, que só podem ser construídas com carta de indústria
 Cervejaria ou indústria curinga). A lista completa de localidades, seus slots (quais
 indústrias cada slot aceita) e a lista completa de links (arestas do grafo de conectividade)
-estão em `src/rules/board-data.ts`, que é a extensão executável desta seção.
+estão em `src/rules/board-data.ts`, que é a extensão executável desta seção — reconstruída a
+partir de uma foto do tabuleiro físico real (`docs/ASSUMPTIONS.md` #1, #5, #15).
 
 Regras estruturais fixas:
 - O link entre Kidderminster e Worcester é especial: uma única peça de link ali conecta
   simultaneamente Kidderminster, Worcester e a Fazenda Cervejeira Sul — não é possível (nem
   necessário) colocar uma segunda peça de link para conectar a fazenda.
   A Fazenda Cervejeira Norte é conectada apenas a Cannock, por um link normal.
-- Mesmo grafo de links serve para as eras Canal e Ferrovia (linhas de canal e de ferrovia
-  compartilham a topologia; o que muda é o tipo de peça de link construível — ver
-  `docs/ASSUMPTIONS.md`). Todos os links são removidos do tabuleiro ao final de cada era
-  (pontuados antes de saírem), então não há conflito entre os dois tipos de peça ocupando a
-  mesma aresta ao mesmo tempo.
+- Cada link tem uma era associada (`LinkSlotDef.era`: `'canal'`, `'rail'`, ou `'both'`, lida
+  do estilo de linha do tabuleiro físico — ver `docs/ASSUMPTIONS.md` #5): um link marcado
+  `'canal'` só pode receber uma peça de canal, um marcado `'rail'` só uma peça de ferrovia, e
+  `'both'` aceita qualquer uma dependendo da era atual. Todos os links (de qualquer era) são
+  removidos do tabuleiro ao final de cada era (pontuados antes de saírem), então não há
+  conflito entre dois tipos de peça ocupando a mesma aresta ao mesmo tempo — a era de um slot
+  só importa no momento de construir ali, nunca depois.
+- Cada mercador externo tem um número mínimo de jogadores para entrar em jogo
+  (`MarketDef.minPlayers`, lido do selo numérico ao lado de cada um no tabuleiro físico — ver
+  `docs/ASSUMPTIONS.md` #15): Oxford 2, Nottingham 3, Shrewsbury 4, Warrington 5, Gloucester
+  sempre (sem selo). O motor só suporta partidas de 2-4 jogadores, então Warrington nunca
+  aparece em jogo com o suporte atual.
 
 ## 12. Vitória
 

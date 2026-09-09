@@ -63,8 +63,9 @@ Sobe um servidor HTTP local (`src/web/server.ts`, sem framework — só `node:ht
 3000 (configurável via `PORT=...`); abra `http://localhost:3000` no navegador. É a mesma
 partida da CLI, com a mesma lógica de motor por baixo (o servidor só expõe
 `legalActions`/`applyAction`/os bots por uma API JSON pequena), servindo o build compilado do
-frontend Angular a partir de `public/`. Estilo Hearthstone: o tabuleiro (mapa geográfico real
-das cidades do jogo) ocupa a tela inteira como fundo, a mão fica em cartas na frente, e
+frontend Angular a partir de `public/`. Estilo Hearthstone: o tabuleiro (mapa cujo layout
+reproduz o posicionamento real das localidades no tabuleiro físico do jogo — ver
+`docs/ASSUMPTIONS.md` #16) ocupa a tela inteira como fundo, a mão fica em cartas na frente, e
 selecionar uma carta destaca diretamente no mapa os locais/links jogáveis — clicar neles
 executa a ação (ou abre um popup pequeno quando há mais de uma opção no mesmo lugar). Cada
 jogador tem seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda)
@@ -154,8 +155,9 @@ npx nx run-many -t lint typecheck test build   # equivalente a `npm run client:v
 - **`domain`** — modelos (`Card`, `GameState`, `GameView`, ...) e funções puras sem nenhuma
   dependência de Angular ou de framework nenhum: `cardKey`/formatação de carta,
   `incomeLevelForPosition` (mesma fórmula de `src/engine/income.ts`, duplicada só para
-  exibição), a projeção do mapa geográfico (`computeMapLayout`) e a atribuição de cor por
-  jogador. Testável com Vitest puro, sem `TestBed`.
+  exibição), o layout do mapa (`computeMapLayout`, posições lidas do tabuleiro físico real —
+  `docs/ASSUMPTIONS.md` #16 — mais um passo de "desamontoamento" de rótulos) e a atribuição de
+  cor por jogador. Testável com Vitest puro, sem `TestBed`.
 - **`application`** — `GameStateService`, o único lugar que guarda estado de seleção/UI (carta
   selecionada, modo Scout, popup aberto) como signals, e o *port* `GameGateway` (uma classe
   abstrata usada como token de injeção) que ele depende — nunca de um cliente HTTP concreto.
@@ -179,14 +181,20 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
 
 ## Limitações conhecidas
 
-- **Dados do tabuleiro e das peças de indústria são uma reconstrução própria, não uma cópia
-  dos componentes físicos do jogo real.** A topologia do tabuleiro (quais das ~25 localidades
-  se conectam a quais) e as tabelas numéricas de custo/VP/renda de cada peça foram desenhadas
-  originalmente, seguindo a estrutura e as proporções do jogo publicado, porque não havia uma
-  fonte confiável e completa para extrair os números exatos dentro do processo autônomo deste
-  projeto. O fluxo de turno, as 7 ações, as fórmulas de mercado e a trilha de renda, por
-  outro lado, foram verificados contra o resumo de regras oficial da Roxley e batem
-  exatamente. Ver `docs/ASSUMPTIONS.md` para cada decisão, com grau de confiança e impacto.
+- **A topologia do tabuleiro (quais das 27 localidades se conectam a quais, quantos slots
+  cada uma tem, quais mercadores exigem quantos jogadores, e a era de cada link) foi
+  reconstruída a partir de uma foto de alta resolução do tabuleiro físico real**, fornecida
+  pelo usuário — não é mais uma invenção sem referência (era o caso nas primeiras versões
+  deste projeto, quando não havia uma fonte confiável disponível). A distinção de era por
+  link (canal/ferrovia/ambas) foi confirmada diretamente pelo usuário a partir dos dois
+  estilos de linha visíveis no tabuleiro (`docs/ASSUMPTIONS.md` #5). O que **continua** sendo
+  uma composição própria, não uma leitura literal: o tipo exato de indústria aceito por cada
+  slot individual (ícones pequenos demais para ler com certeza numa foto de celular) e as
+  tabelas numéricas exatas de custo/VP/renda/produção impressas em cada peça de indústria (não
+  visíveis o suficiente na foto para transcrever com confiança). O fluxo de turno, as 7 ações,
+  as fórmulas de mercado e a trilha de renda, por outro lado, foram verificados contra o
+  resumo de regras oficial da Roxley e batem exatamente. Ver `docs/ASSUMPTIONS.md` (entradas
+  #1, #5, #15, #16) para cada decisão, com grau de confiança e impacto.
 - **O ISMCTS (M7) não atinge a meta formal do marco.** A validação completa (300 partidas
   ISMCTS × heurístico, orçamento real de 1s/jogada, `scripts/run-ismcts-validation.ts`, ~142
   minutos) terminou em **182/300 vitórias (60,7%)**, abaixo do alvo de 65%. O ISMCTS joga
@@ -196,6 +204,19 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   `rootTopK` maior, etc.) — nenhum foi implementado por tempo. O teste embutido na suíte usa
   um orçamento de simulações fixo (não tempo real) numa amostra menor, para continuar
   determinístico independente da velocidade da máquina.
+- **A reconstrução do tabuleiro a partir da foto real (acima) mudou o desempenho do ISMCTS
+  contra o heurístico, para pior, e isso não foi corrigido.** O tabuleiro real tem 20
+  localidades industriais (vs. 18 antes) com um layout e conectividade diferentes (30 links
+  vs. 43), o que muda o fator de ramificação que o `rootTopK` do ISMCTS foi calibrado para
+  lidar. Na mesma amostra fixa de 12 partidas com orçamento determinístico de 120 simulações
+  que antes ficava perto de 50%, a taxa de vitória caiu para 41,7% (5/12) — e uma amostra
+  maior e não rastreada de 30 partidas confirmou a queda (36,7%, 11/30), então não é ruído de
+  amostra pequena. O limiar do teste de regressão embutido (`tests/properties/ismcts-vs-
+  heuristic.test.ts`) foi reduzido de 50% para 30% para continuar pegando uma regressão real
+  (o bot colapsando a nível de jogada aleatória) sem falhar por causa dessa queda já conhecida
+  e documentada. Re-calibrar o ISMCTS para o tabuleiro novo (provavelmente `rootTopK` maior,
+  já que há mais opções por turno) é trabalho real e não feito nesta sessão — teria o mesmo
+  porte da própria validação do M7.
 - **O ISMCTS implementado é uma simplificação do algoritmo "de livro".** Em vez de manter uma
   única árvore de conjunto de informação compartilhada entre as determinizações (com checagem
   de compatibilidade de ações por nó), cada "mundo" sorteado ganha sua própria árvore

@@ -27,8 +27,9 @@ describe('computeMapLayout', () => {
     }
   });
 
-  it('places the northernmost town above the southernmost one', () => {
-    // Stoke-on-Trent (lat ~53.0) is north of Oxford (lat ~51.75); SVG y grows downward.
+  it('places a town from the top of the board above one from the bottom', () => {
+    // On the physical board, Stoke-on-Trent sits near the top edge and Oxford near the
+    // bottom (LOCATION_POSITIONS); SVG y grows downward.
     const layout = computeMapLayout(board(['stoke_on_trent', 'oxford']));
     const stoke = layout.get('stoke_on_trent')!;
     const oxford = layout.get('oxford')!;

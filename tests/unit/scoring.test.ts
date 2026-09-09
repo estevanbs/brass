@@ -5,7 +5,7 @@ import { makeState, tile, withTile } from '../helpers/fixtures.js';
 describe('scoreLinks', () => {
   it('scores 2 VP for each end of a link that touches a market', () => {
     const state = makeState({
-      links: [{ slotId: 'warrington__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'warrington__stoke_on_trent', owner: 'p1', kind: 'canal' }],
     });
     const result = scoreLinks(state);
     expect(result.players['p1']?.victoryPoints).toBe(2);
@@ -14,13 +14,13 @@ describe('scoreLinks', () => {
 
   it('scores the VP of every flipped industry tile at each non-market end, any owner', () => {
     let state = makeState({
-      links: [{ slotId: 'birmingham__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' }],
     });
     state = {
       ...state,
       locations: withTile(
         withTile(state.locations, 'birmingham', 0, tile('p2', 'iron', 2, 0, true)),
-        'wolverhampton',
+        'walsall',
         0,
         tile('p1', 'coal', 3, 0, true),
       ),
@@ -33,7 +33,7 @@ describe('scoreLinks', () => {
 
   it('does not score unflipped tiles', () => {
     let state = makeState({
-      links: [{ slotId: 'birmingham__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' }],
     });
     state = { ...state, locations: withTile(state.locations, 'birmingham', 0, tile('p1', 'iron', 2, 3, false)) };
     const result = scoreLinks(state);
@@ -74,7 +74,7 @@ describe('scoreIndustries', () => {
 describe('scoreEra', () => {
   it('scores links first (removing them) and then industries, in one call', () => {
     let state = makeState({
-      links: [{ slotId: 'birmingham__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' }],
     });
     state = { ...state, locations: withTile(state.locations, 'birmingham', 0, tile('p1', 'iron', 1, 0, true)) };
     const result = scoreEra(state);

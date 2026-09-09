@@ -115,7 +115,7 @@ describe('legalActions', () => {
       ],
     };
     let state = makeState({
-      links: [{ slotId: 'oxford__coventry', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'coventry__oxford', owner: 'p1', kind: 'canal' }],
       players: {
         p1: makePlayer('p1', { hand: [action.card] }),
         p2: makePlayer('p2'),

@@ -20,6 +20,9 @@ function validateLinkPlaceable(state: GameState, player: string, slotId: string)
     throw new Error(`link slot ${slotId} is already built`);
   }
   const def = getLinkSlotOrThrow(slotId);
+  if (def.era !== 'both' && def.era !== state.era) {
+    throw new Error(`link slot ${slotId} cannot be built in the ${state.era} era`);
+  }
   const [a, b] = def.locations;
   const adjacentToNetwork = isInNetwork(state, player, a) || isInNetwork(state, player, b);
   if (!adjacentToNetwork && hasAnyTilesOnBoard(state, player)) {

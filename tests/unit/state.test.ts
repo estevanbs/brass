@@ -60,9 +60,9 @@ describe('createInitialState', () => {
   it('deals hands without overlap and leaves the rest in the draw deck', () => {
     const state = createInitialState(PLAYERS_4, 99);
     const allDealt = Object.values(state.players).flatMap((p) => [...p.hand, ...p.discardPile]);
-    // 4 players * 9 cards dealt = 36; deck started at 18*3 + 6*4 = 78.
+    // 4 players * 9 cards dealt = 36; deck started at 20*3 + 6*4 = 84.
     expect(allDealt).toHaveLength(36);
-    expect(state.drawDeck).toHaveLength(78 - 36);
+    expect(state.drawDeck).toHaveLength(84 - 36);
   });
 
   it('only creates merchant tiles at markets whose minPlayers threshold is met', () => {
@@ -78,12 +78,20 @@ describe('createInitialState', () => {
     expect(warrington.merchantSlots.every((s) => s.icon === null)).toBe(true);
     expect(nottingham.merchantSlots.every((s) => s.icon === null)).toBe(true);
 
+    // Warrington needs 5 players (never met by this engine's supported 2-4 range, so it stays
+    // empty at every currently-playable size — see docs/ASSUMPTIONS.md #1); Nottingham needs
+    // only 3, so it's populated once the game reaches 4 players.
     const fourPlayer = createInitialState(PLAYERS_4, 5);
     const warrington4 = fourPlayer.locations['warrington'];
     if (warrington4 === undefined || warrington4.kind !== 'market') {
       throw new Error('expected a market location');
     }
-    expect(warrington4.merchantSlots.some((s) => s.icon !== null)).toBe(true);
+    const nottingham4 = fourPlayer.locations['nottingham'];
+    if (nottingham4 === undefined || nottingham4.kind !== 'market') {
+      throw new Error('expected a market location');
+    }
+    expect(warrington4.merchantSlots.every((s) => s.icon === null)).toBe(true);
+    expect(nottingham4.merchantSlots.some((s) => s.icon !== null)).toBe(true);
   });
 });
 

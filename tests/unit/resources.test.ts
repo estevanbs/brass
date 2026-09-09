@@ -11,25 +11,25 @@ describe('validateCoalSource', () => {
   it('requires the closest connected unflipped mine when one exists', () => {
     let state = makeState({
       links: [
-        { slotId: 'birmingham__wolverhampton', owner: 'p1', kind: 'canal' },
-        { slotId: 'wolverhampton__dudley', owner: 'p1', kind: 'canal' },
+        { slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' },
+        { slotId: 'cannock__walsall', owner: 'p1', kind: 'canal' },
       ],
     });
     state = {
       ...state,
       locations: withTile(
-        withTile(state.locations, 'wolverhampton', 0, tile('p1', 'coal', 1, 2)),
-        'dudley',
+        withTile(state.locations, 'walsall', 0, tile('p1', 'coal', 1, 2)),
+        'cannock',
         0,
         tile('p2', 'coal', 2, 3),
       ),
     };
-    // From birmingham, wolverhampton (distance 1) is closer than dudley (distance 2).
+    // From birmingham, walsall (distance 1) is closer than cannock (distance 2).
     expect(() =>
-      validateCoalSource(state, 'birmingham', { kind: 'mine', locationId: 'dudley', slotIndex: 0 }),
+      validateCoalSource(state, 'birmingham', { kind: 'mine', locationId: 'cannock', slotIndex: 0 }),
     ).toThrow(/closest/);
     expect(() =>
-      validateCoalSource(state, 'birmingham', { kind: 'mine', locationId: 'wolverhampton', slotIndex: 0 }),
+      validateCoalSource(state, 'birmingham', { kind: 'mine', locationId: 'walsall', slotIndex: 0 }),
     ).not.toThrow();
   });
 
@@ -50,9 +50,9 @@ describe('validateCoalSource', () => {
 
   it('findConnectedCoalMines ignores flipped or empty mines', () => {
     let state = makeState({
-      links: [{ slotId: 'birmingham__wolverhampton', owner: 'p1', kind: 'canal' }],
+      links: [{ slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' }],
     });
-    state = { ...state, locations: withTile(state.locations, 'wolverhampton', 0, tile('p1', 'coal', 1, 0, true)) };
+    state = { ...state, locations: withTile(state.locations, 'walsall', 0, tile('p1', 'coal', 1, 0, true)) };
     expect(findConnectedCoalMines(state, 'birmingham')).toEqual([]);
   });
 });
@@ -60,12 +60,12 @@ describe('validateCoalSource', () => {
 describe('validateIronSource', () => {
   it('requires an iron works when one exists anywhere on the board (no connectivity needed)', () => {
     let state = makeState();
-    state = { ...state, locations: withTile(state.locations, 'stourbridge', 1, tile('p2', 'iron', 1, 2)) };
+    state = { ...state, locations: withTile(state.locations, 'dudley', 1, tile('p2', 'iron', 1, 2)) };
     expect(() => validateIronSource(state, { kind: 'market' })).toThrow(
       /iron cannot be bought from the market/,
     );
     expect(() =>
-      validateIronSource(state, { kind: 'works', locationId: 'stourbridge', slotIndex: 1 }),
+      validateIronSource(state, { kind: 'works', locationId: 'dudley', slotIndex: 1 }),
     ).not.toThrow();
   });
 
