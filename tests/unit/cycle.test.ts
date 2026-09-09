@@ -51,6 +51,23 @@ describe('advanceAfterAction', () => {
     expect(result.players['p1']?.money).toBe(30);
   });
 
+  it('docs/HANDBOOK_RULES.md §3: players who spent the same amount keep their relative order', () => {
+    const state = makeState({
+      activePlayerIndex: 2,
+      actionsTakenThisTurn: 2,
+      turnOrder: ['p1', 'p2', 'p3'],
+      players: {
+        p1: makePlayer('p1', { spentThisRound: 10, incomeTrackPosition: 10, hand: [{ kind: 'wildLocation' }] }),
+        p2: makePlayer('p2', { spentThisRound: 10, incomeTrackPosition: 10, hand: [{ kind: 'wildLocation' }] }),
+        p3: makePlayer('p3', { spentThisRound: 5, incomeTrackPosition: 10, hand: [{ kind: 'wildLocation' }] }),
+      },
+    });
+    const result = advanceAfterAction(state);
+    // p3 spent least, goes first; p1 and p2 tied at 10, so they keep their original p1-before-p2
+    // relative order instead of, say, sorting by id or reversing.
+    expect(result.turnOrder).toEqual(['p3', 'p1', 'p2']);
+  });
+
   it('pays positive income at the end of a round', () => {
     const state = makeState({
       activePlayerIndex: 1,
