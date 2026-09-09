@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Brass: Birmingham</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Brass: Birmingham</h1>
+      <div id="setup" class="setup">
+        <label>Jogadores <select id="playerCount">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select></label>
+        <label>Seed <input id="seed" type="number" placeholder="aleatória" /></label>
+        <button id="newGameBtn">Novo jogo</button>
+        <span id="statusMsg" class="status"></span>
+      </div>
+    </header>
+
+    <main id="app" hidden>
+      <section id="board" class="board"></section>
+
+      <aside class="sidebar">
+        <div id="players" class="players"></div>
+
+        <div id="handPanel" class="panel">
+          <h2>Sua mão</h2>
+          <div id="hand" class="hand"></div>
+        </div>
+
+        <div id="actionsPanel" class="panel">
+          <h2>Ações</h2>
+          <div id="actionTypes" class="action-types"></div>
+          <div id="actionList" class="action-list"></div>
+        </div>
+
+        <div id="logPanel" class="panel">
+          <h2>O que aconteceu</h2>
+          <div id="log" class="log"></div>
+        </div>
+      </aside>
+    </main>
+
+    <div id="gameOverOverlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <h2>Fim de jogo</h2>
+        <div id="scoreboard"></div>
+        <button id="playAgainBtn">Jogar de novo</button>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -53,6 +53,21 @@ O formato salvo é só `{ seed, playerIds, actions }` — o motor é determinís
 para que reaplicar a mesma sequência de ações a partir da mesma seed sempre chegue exatamente
 no mesmo estado final (ver `tests/unit/cli.test.ts`).
 
+### GUI web (opcional, mais amigável que a CLI)
+
+```sh
+npm run web
+```
+
+Sobe um servidor HTTP local (`src/web/server.ts`, sem framework — só `node:http`) na porta
+3000 (configurável via `PORT=...`); abra `http://localhost:3000` no navegador. É a mesma
+partida da CLI, com a mesma lógica de motor por baixo (o servidor só expõe
+`legalActions`/`applyAction`/os bots por HTTP), mas com o tabuleiro desenhado como grade de
+localidades, mão como cartões, ações agrupadas por tipo como botões clicáveis, e um log das
+jogadas dos bots com o VP estimado de cada uma. Não salva/carrega partida nem faz replay (só
+a CLI faz isso, por enquanto) — o estado de cada partida fica em memória no processo do
+servidor e se perde ao reiniciá-lo.
+
 ## Arquitetura
 
 O código segue quatro camadas com dependência em uma única direção. `src/core` define o
@@ -96,7 +111,12 @@ A CLI (`src/cli`) é deliberadamente fina: `render.ts` só formata texto a parti
 `GameState`, e `game-log.ts` trata "salvar uma partida" como "salvar a seed + a lista de
 ações tomadas", nunca o estado completo — o replay é literalmente `createInitialState(seed)`
 seguido de reaplicar cada ação do log, o que dobra como uma prova de determinismo do motor
-inteiro toda vez que roda.
+inteiro toda vez que roda. `src/web` é um terceiro consumidor do mesmo tipo: um servidor HTTP
+minúsculo (`node:http`, sem framework) que mantém partidas em memória e expõe
+`legalActions`/`applyAction`/os bots por uma API JSON pequena (`POST /api/games`,
+`GET|POST /api/games/:id[/actions]`); o frontend em `public/` é JavaScript puro sem build
+step, consumindo essa API por `fetch`. Nenhuma regra de jogo é duplicada — tanto a CLI quanto
+a GUI web só formatam o mesmo estado e despacham para o mesmo `applyAction`.
 
 ## Limitações conhecidas
 
@@ -131,3 +151,6 @@ inteiro toda vez que roda.
 - **Ao pagar uma renda negativa sem dinheiro suficiente, o motor vende peças automaticamente**
   pela política fixa "mais baratas primeiro" (`docs/ASSUMPTIONS.md` #10) — mesmo no modo
   interativo, um jogador humano não escolhe qual peça sacrificar.
+- **A GUI web (`npm run web`) guarda as partidas só em memória do processo** — sem
+  save/load/replay em disco (isso continua sendo só da CLI), sem autenticação, e pensada para
+  uso local de um único jogador por vez, não para expor na rede.

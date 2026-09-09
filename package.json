@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "play": "tsx src/cli/index.ts",
+    "web": "tsx src/web/server.ts",
     "verify": "npm run typecheck && npm run lint && npm run test:coverage"
   },
   "devDependencies": {
