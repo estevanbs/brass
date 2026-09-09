@@ -262,7 +262,32 @@
   `describeAction`/`renderBoard`/`renderPlayer`/`renderScoreboard` sem exceções.
 - `npm run verify` passa: 177 testes.
 
+## Extra (fora do plano original) — GUI web
+
+Pedido direto do usuário durante a sessão, depois do M8: "implemente uma gui para utilizar no
+navegador de maneira mais amigável". M0 dizia explicitamente "sem UI gráfica, terminal
+apenas" para o *processo autônomo*; isso é uma adição posterior, pedida por quem está usando
+o projeto, não uma mudança de escopo do plano original.
+
+- `src/web/server.ts`: servidor HTTP sem framework (`node:http`) mantendo partidas em memória
+  e expondo `POST /api/games`, `GET /api/games/:id`, `POST /api/games/:id/actions` — nenhuma
+  regra duplicada, só chama `legalActions`/`applyAction`/os bots, os mesmos que a CLI usa.
+  `public/` é HTML/CSS/JS puro, sem build step.
+- **Bug real encontrado via teste de navegador de verdade**: o próprio usuário perguntou se
+  eu tinha acesso a navegador para testar; como não tinha, instalei o Playwright (via `npx`,
+  não como dependência do projeto) e, depois de resolver duas rodadas de bibliotecas de
+  sistema faltando (pedi confirmação antes de rodar `sudo pacman -S` — usuário aprovou),
+  rodei a GUI num Chromium headless de verdade. Isso achou um bug sério que nenhum teste de
+  API/curl pegaria: `[hidden]` não vencia `main { display: grid }` nem `.overlay { display:
+  flex }` (mesma especificidade CSS, a regra do autor vem depois da folha do user-agent) — o
+  overlay de fim de jogo cobria a tela inteira e bloqueava todo clique desde o carregamento
+  da página. **A GUI estava com essa quebra grave desde o commit anterior; só apareceu ao
+  testar com um navegador real, nunca via curl.** Corrigido com uma regra global
+  `[hidden] { display: none !important }`, validado com screenshots antes/depois.
+- `npm run web` sobe o servidor; sem save/load/replay (só a CLI tem isso por enquanto).
+
 **Próximo passo concreto:** nenhum marco restante — M0 a M8 do `docs/PLANO.md` estão
-concluídos. Ver `README.md` para a entrega final (instalação, testes, como jogar, arquitetura,
-limitações conhecidas). O único item em aberto é a validação completa de 300 partidas do M7
-(1s/jogada), que ainda pode estar rodando em background — ver a nota nessa seção acima.
+concluídos, mais a GUI web pedida à parte. Ver `README.md` para a entrega final (instalação,
+testes, como jogar — CLI e GUI web —, arquitetura, limitações conhecidas). O único item em
+aberto é a validação completa de 300 partidas do M7 (1s/jogada), que ainda pode estar rodando
+em background — ver a nota na seção do M7 acima.
