@@ -16,6 +16,7 @@ import type { Bot } from '../bots/random.js';
 import { mulberry32, type Rng } from '../core/rng.js';
 import { describeAction } from '../cli/render.js';
 import { FARM_BREWERIES, INDUSTRIAL_LOCATIONS, LINK_SLOTS, MARKETS } from '../rules/board-data.js';
+import { INDUSTRY_TILES } from '../rules/industry-data.js';
 
 const HUMAN_ID: PlayerId = 'você';
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
@@ -90,6 +91,7 @@ function view(gameId: string, game: Game): unknown {
     humanId: HUMAN_ID,
     state: game.state,
     board: BOARD_SUMMARY,
+    industryTiles: INDUSTRY_TILES,
     legalActions: actions.map((action, index) => ({
       index,
       type: action.type,

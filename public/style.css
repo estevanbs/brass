@@ -357,6 +357,117 @@ main {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
+/* ---------- Player board dock (each player's personal stock of industry tiles) ---------- */
+
+.mat-dock {
+  position: absolute;
+  bottom: 20px;
+  left: 26px;
+}
+
+.mat-toggle {
+  background: rgba(43, 32, 19, 0.85);
+  color: #f1e6c8;
+  font-size: 0.78rem;
+  border-radius: 20px;
+}
+
+.mat-panel {
+  position: absolute;
+  bottom: 36px;
+  left: 0;
+  width: 560px;
+  max-width: min(560px, calc(100vw - 60px));
+  max-height: min(480px, 65vh);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.mat-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mat-tabs button {
+  background: #eee;
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.mat-tabs button.active {
+  background: var(--accent);
+  color: white;
+}
+
+.mat-stock {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.mat-industry {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.mat-industry-title {
+  font-family: var(--serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mat-tile-row {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.mat-tile {
+  width: 30px;
+  height: 38px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  color: white;
+  font-size: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  opacity: 0.45;
+}
+
+.mat-tile.next {
+  opacity: 1;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2px var(--highlight);
+}
+
+.mat-tile.locked {
+  outline: 2px dashed rgba(255, 255, 255, 0.7);
+  outline-offset: -3px;
+}
+
+.mat-tile-empty {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .log div {
   padding: 3px 5px;
   border-radius: 4px;

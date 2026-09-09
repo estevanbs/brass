@@ -67,6 +67,7 @@ let currentGameId = null;
 let currentView = null;
 let selectedCard = null; // cardKey string, or null for "nothing selected yet"
 let layout = null; // Map<locationId, {x,y}> — computed once per board topology
+let selectedMatPlayer = null; // which player's board the mat panel is showing
 let scoutPicks = []; // cardKeys chosen as the 2 extra Scout discards, while in scout mode
 let scoutMode = false;
 
@@ -112,6 +113,7 @@ async function newGame() {
     const view = await api('/api/games', { method: 'POST', body: JSON.stringify(body) });
     currentGameId = view.gameId;
     resetSelection();
+    selectedMatPlayer = null;
     setView(view);
     el('app').hidden = false;
     el('statusMsg').textContent = '';
@@ -156,6 +158,7 @@ function render() {
   renderHand();
   renderOtherActions();
   renderLog();
+  renderMat();
   renderGameOver();
 }
 
@@ -610,6 +613,74 @@ function renderLog() {
   }
 }
 
+// ---------- Player board ("mat"): each player's personal stock of industry tiles ----------
+
+const INDUSTRY_ORDER = ['coal', 'iron', 'cotton', 'manufacturer', 'pottery', 'brewery'];
+
+function tileInfo(industry, level) {
+  const tiles = (currentView && currentView.industryTiles) || [];
+  return tiles.find((t) => t.industry === industry && t.level === level) || null;
+}
+
+function renderMat() {
+  const { state, humanId } = currentView;
+  if (selectedMatPlayer === null || !state.players[selectedMatPlayer]) {
+    selectedMatPlayer = humanId;
+  }
+
+  const tabs = el('matTabs');
+  tabs.innerHTML = '';
+  const order = state.turnOrder.length ? state.turnOrder : Object.keys(state.players);
+  for (const playerId of order) {
+    const btn = document.createElement('button');
+    btn.textContent = playerId === humanId ? `${playerId} (você)` : playerId;
+    btn.className = playerId === selectedMatPlayer ? 'active' : '';
+    btn.onclick = () => {
+      selectedMatPlayer = playerId;
+      renderMat();
+    };
+    tabs.appendChild(btn);
+  }
+
+  const stockBox = el('matStock');
+  stockBox.innerHTML = '';
+  const player = state.players[selectedMatPlayer];
+  if (!player) return;
+
+  for (const industry of INDUSTRY_ORDER) {
+    const col = document.createElement('div');
+    col.className = 'mat-industry';
+    const title = document.createElement('div');
+    title.className = 'mat-industry-title';
+    title.innerHTML = `<span>${INDUSTRY_ICON[industry]}</span><span>${industry}</span>`;
+    col.appendChild(title);
+
+    const row = document.createElement('div');
+    row.className = 'mat-tile-row';
+    const stock = player.industryStock[industry] || [];
+    if (stock.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'mat-tile-empty';
+      empty.textContent = 'esgotado';
+      row.appendChild(empty);
+    } else {
+      stock.forEach((level, i) => {
+        const info = tileInfo(industry, level);
+        const chip = document.createElement('div');
+        chip.className = 'mat-tile' + (i === 0 ? ' next' : '') + (info && info.locked ? ' locked' : '');
+        chip.style.background = `var(--${industry})`;
+        chip.title = info
+          ? `Nível ${level} — custo £${info.cost}${info.coalCost ? ` + ${info.coalCost} carvão` : ''}${info.ironCost ? ` + ${info.ironCost} ferro` : ''} · ${info.victoryPoints}VP · renda +${info.incomeGain}${info.locked ? ' · TRAVADA (só via Desenvolver)' : ''}`
+          : `Nível ${level}`;
+        chip.innerHTML = `<div>L${level}</div>${info ? `<div>£${info.cost}</div>` : ''}`;
+        row.appendChild(chip);
+      });
+    }
+    col.appendChild(row);
+    stockBox.appendChild(col);
+  }
+}
+
 // ---------- Game over ----------
 
 function renderGameOver() {
@@ -637,5 +708,8 @@ el('playAgainBtn').addEventListener('click', () => {
 });
 el('logToggleBtn').addEventListener('click', () => {
   el('log').hidden = !el('log').hidden;
+});
+el('matToggleBtn').addEventListener('click', () => {
+  el('matPanel').hidden = !el('matPanel').hidden;
 });
 el('mapHint').textContent = 'Selecione uma carta na mão para ver as jogadas possíveis';
