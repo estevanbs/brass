@@ -23,6 +23,32 @@
   box-sizing: border-box;
 }
 
+/* Every `brass-*` tag here is an Angular component host element. Angular renders it as a real
+ * DOM element in between its template and whatever the template puts inside it — but every
+ * layout rule below (`app-root`'s flex column, `.stage`'s flex centering, `.hand-dock`'s flex
+ * column, ...) was written assuming its target class was a *direct* flex child of its parent.
+ * Left at the default `display: block`, each of these host tags becomes an extra unstyled box
+ * in between, which breaks that chain: children stop being real flex items, `flex: 1` on
+ * `.stage` does nothing, and the map SVG's `height: 100%` resolves against an indeterminate
+ * height instead of the flex-allocated one — so it sizes off its *width* instead, growing well
+ * past the viewport (a real bug: this pushed `.hand-dock` to y=1169 in a 900px-tall viewport,
+ * making the game unplayable). `display: contents` makes the host itself invisible to layout
+ * while keeping its children in the DOM, so the class inside each template becomes the direct
+ * flex child again — exactly the flat structure this CSS was written for. */
+brass-game-shell,
+brass-header,
+brass-top-strip,
+brass-board-map,
+brass-action-popup,
+brass-log-panel,
+brass-player-mat,
+brass-other-actions,
+brass-hand,
+brass-hand-card,
+brass-game-over {
+  display: contents;
+}
+
 /* The `hidden` attribute must win over any element/class display rule below, otherwise a
    hidden element still renders and — worse, for a fixed-position overlay — still intercepts
    clicks (a real bug found while testing this UI in an actual browser). */

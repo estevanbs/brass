@@ -9,7 +9,9 @@ const KIND_COLOR: Readonly<Record<'industrial' | 'farm_brewery' | 'market', stri
 };
 
 const ERA_COLOR: Readonly<Record<'canal' | 'rail', string>> = { canal: '#2f6ba8', rail: '#332924' };
-const INACTIVE_LINE = '#b9a97e';
+// Darker + more opaque than the original `#b9a97e`/0.6 — that combination was too close to the
+// `#f1e6c8` map background to read clearly once several unbuilt links cross near each other.
+const INACTIVE_LINE = '#8a7550';
 const ACTIVE_LINE = '#c98a2c';
 
 interface LinkLineViewModel {
@@ -122,6 +124,10 @@ interface LocationNodeViewModel {
               [attr.font-weight]="node.labelBold ? 700 : 400"
               [attr.fill]="node.labelFill"
               font-family="Georgia, 'Times New Roman', serif"
+              paint-order="stroke"
+              stroke="#f1e6c8"
+              stroke-width="3"
+              stroke-linejoin="round"
             >
               {{ node.label }}
             </text>
@@ -198,9 +204,9 @@ export class BoardMapComponent {
             x2: nb.x,
             y2: nb.y,
             stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : INACTIVE_LINE,
-            strokeWidth: built !== undefined || isActive ? 4 : 1.4,
+            strokeWidth: built !== undefined || isActive ? 4 : 1.6,
             dasharray: built !== undefined || isActive ? 'none' : '5,4',
-            opacity: built !== undefined || isActive ? 0.95 : 0.6,
+            opacity: built !== undefined || isActive ? 0.95 : 0.8,
             clickable: isActive && built === undefined,
             highlighted: isActive,
             midX: mid.x,

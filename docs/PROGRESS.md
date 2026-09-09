@@ -377,3 +377,41 @@ clean architecture e a última versão das dependências".
   console, comportamento idêntico ao app anterior.
 - `public/{index.html,app.js,style.css}` (o app vanilla-JS anterior) foram substituídos pelo
   build do Angular (`npm run client:build`); nada do JS antigo restou no diretório.
+
+## Extra (fora do plano original) — bug crítico de layout no mapa (reescrita Angular) + legibilidade
+
+O usuário testou a GUI reescrita em Angular e reportou: "o jogo está injogável. O mapa está
+gigante, cobrindo toda a tela." — mais o pedido de deixar o mapa mais amigável, caminhos mais
+legíveis, e nomes de cidade claramente associados ao ponto certo.
+
+- **Bug real, crítico, encontrado via Playwright (não visível olhando só o código)**: toda
+  tag de componente Angular (`<brass-board-map>`, `<brass-top-strip>`, `<brass-hand>`, etc.)
+  renderiza no DOM com `display: block` por padrão — mas o CSS inteiro do layout (herdado do
+  app vanilla-JS anterior) foi escrito assumindo uma árvore de `<div>`s plana, sem esses
+  wrappers extras no meio da cadeia flex. Resultado: `.stage` nunca virava um item flex de
+  verdade dentro de `.app-main`, `flex: 1` não fazia nada, e a `<svg>` do mapa (com
+  `height: 100%`) caía no fallback do CSS para altura percentual contra um ancestral sem
+  altura definida — passou a se dimensionar pela LARGURA disponível em vez da altura,
+  crescendo bem além da viewport (`.hand-dock`, com a mão do jogador, acabava em `y: 1169`
+  numa tela de 900px de altura — inacessível, literalmente injogável). Corrigido com uma
+  única regra global `display: contents` em todas as tags de componente que só envolvem uma
+  única div de layout (restaura a árvore flex plana original sem tocar em nenhum componente
+  individualmente).
+- **Legibilidade do mapa**: a projeção lat/lon linear (ver `docs/ASSUMPTIONS.md` #1) empacota
+  ~8 cidades da região "Black Country" (Wolverhampton/Dudley/West Bromwich/Walsall/
+  Birmingham/Stourbridge/Cannock) a poucos km reais umas das outras, então seus nomes e
+  círculos se sobrepunham a ponto de não dar pra saber qual nome era de qual ponto — a
+  reclamação específica do usuário. Adicionado um passo de "desamontoamento" determinístico
+  (`domain/map-layout.ts#declutter`, puro, sem aleatoriedade): separa qualquer par de nós mais
+  próximo que uma elipse mínima (mais larga que alta, porque o nome de cidade é bem mais largo
+  que alto) por metade da sobreposição a cada iteração, e puxa cada nó de volta de leve rumo à
+  posição geográfica real a cada passo — o resultado fica sem sobreposição nenhuma mas ainda
+  reconhecível como "o mapa real", não um layout arbitrário. Viewport do mapa alargado
+  (900×700 → 1080×640) pra aproveitar mais a tela disponível. Nomes de cidade ganharam um halo
+  (contorno na cor do fundo via `paint-order: stroke`) pra continuarem legíveis por cima de
+  linhas cruzando atrás. Linhas de conexão ainda não construídas ficaram mais escuras/opacas
+  (contraste era baixo demais contra o fundo pergaminho).
+- Validado com Playwright: screenshot antes/depois (bug de tamanho), zoom no cluster mais
+  denso antes/depois (zero sobreposição de rótulo restante), viewport pequeno (1024×700,
+  degrada bem), e o roteiro funcional completo de novo jogo/seleção/clique no
+  mapa/Empréstimo/Scout sem erros de console nem regressão de comportamento.
