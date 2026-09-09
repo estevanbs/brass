@@ -1,9 +1,0 @@
-export * from './lib/card.model';
-export * from './lib/game-state.model';
-export * from './lib/game-view.model';
-export * from './lib/popup-position.model';
-export * from './lib/card-format';
-export * from './lib/income';
-export * from './lib/map-layout';
-export * from './lib/player-color';
-//# sourceMappingURL=index.js.map
