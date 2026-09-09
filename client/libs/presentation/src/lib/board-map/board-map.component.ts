@@ -343,11 +343,11 @@ export class BoardMapComponent {
    * industry type(s) an empty slot still accepts, so "what can I build here" reads directly off
    * the map instead of requiring a click. */
   private buildSlotBadges(slots: readonly BuildSlotState[], humanId: string): TileBadgeViewModel[] {
-    // Slots with 2 accepted industries render a wider (r=8) badge than a single-industry or
-    // built one (r=7) — space badge centers by the widest pair actually present so neighboring
+    // Slots with 2 accepted industries render a wider (r=9) badge than a single-industry or
+    // built one (r=8) — space badge centers by the widest pair actually present so neighboring
     // badges never touch (a real bug found by measuring rendered circle bounding boxes).
     const anyWide = slots.some((s) => s.tile === null && s.allowedIndustries.length > 1);
-    const spacing = anyWide ? 17 : 15;
+    const spacing = anyWide ? 19 : 17;
     return slots.map((slot, i) => {
       const cx = (i - (slots.length - 1) / 2) * spacing;
       const cy = 0; // filled in by the caller once `r` is known
@@ -355,12 +355,12 @@ export class BoardMapComponent {
         return {
           cx,
           cy,
-          r: 7,
+          r: 8,
           fill: this.playerColor.colorFor(slot.tile.owner, humanId),
           stroke: '#f1e6c8',
           strokeDasharray: 'none',
           icon: this.cardFormat.industryIcon(slot.tile.industry),
-          fontSize: 8,
+          fontSize: 9,
           opacity: slot.tile.flipped ? 0.55 : 1,
         };
       }
@@ -369,12 +369,12 @@ export class BoardMapComponent {
       return {
         cx,
         cy,
-        r: wide ? 8 : 7,
+        r: wide ? 9 : 8,
         fill: BUILDABLE_BADGE_FILL,
         stroke: BUILDABLE_BADGE_STROKE,
         strokeDasharray: '2,1.5',
         icon,
-        fontSize: wide ? 6 : 8,
+        fontSize: wide ? 7 : 9,
         opacity: 0.9,
       };
     });
@@ -385,16 +385,16 @@ export class BoardMapComponent {
   private merchantBadges(location: LocationState): TileBadgeViewModel[] {
     const slots = location.merchantSlots ?? [];
     return slots.map((slot, i) => {
-      const cx = (i - (slots.length - 1) / 2) * 17;
+      const cx = (i - (slots.length - 1) / 2) * 19;
       return {
         cx,
         cy: 0,
-        r: 8,
+        r: 9,
         fill: slot.hasBeer ? MERCHANT_BADGE_FILL : MERCHANT_BADGE_FILL_SPENT,
         stroke: '#f1e6c8',
         strokeDasharray: 'none',
         icon: this.cardFormat.merchantIcon(slot.icon ?? 'blank'),
-        fontSize: 8,
+        fontSize: 9,
         opacity: slot.hasBeer ? 1 : 0.5,
       };
     });

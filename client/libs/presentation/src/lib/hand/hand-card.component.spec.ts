@@ -19,6 +19,23 @@ describe('HandCardComponent', () => {
     expect(button.classList.contains('selected')).toBe(true);
   });
 
+  it('shows the industry-specific icon for an industry card, not the generic card-kind icon', () => {
+    const fixture = TestBed.createComponent(HandCardComponent);
+    fixture.componentRef.setInput('card', { kind: 'industry', industry: 'cotton' } as Card);
+    fixture.detectChanges();
+    const icon = fixture.nativeElement.querySelector('.hand-card-icon') as HTMLElement;
+    expect(icon.textContent).toContain('🧵');
+    expect(icon.textContent).not.toContain('⚙');
+  });
+
+  it('keeps the generic card-kind icon for location and wild cards', () => {
+    const fixture = TestBed.createComponent(HandCardComponent);
+    fixture.componentRef.setInput('card', { kind: 'location', locationId: 'oxford' } as Card);
+    fixture.detectChanges();
+    const icon = fixture.nativeElement.querySelector('.hand-card-icon') as HTMLElement;
+    expect(icon.textContent).toContain('🏙');
+  });
+
   it('marks wild cards with the wild class', () => {
     const fixture = TestBed.createComponent(HandCardComponent);
     fixture.componentRef.setInput('card', { kind: 'wildLocation' } as Card);
