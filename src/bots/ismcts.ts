@@ -120,10 +120,16 @@ function simulate(root: Node, rng: Rng, rolloutDepth: number): void {
 }
 
 export interface IsmctsConfig {
-  /** Wall-clock budget for one move, split across as many determinized "worlds" as fit. */
+  /** Wall-clock budget for one move, split across as many determinized "worlds" as fit. Real
+   * time, so it makes move choice depend on machine speed/load — fine for interactive play,
+   * but never use it to bound a test (docs/PLANO.md's own testing rule: no test may depend on
+   * real time). Use `maxTotalSimulations` for a deterministic budget instead. */
   readonly timeBudgetMs?: number;
   /** Simulations run per world before moving on to the next determinization. */
   readonly simulationsPerWorld?: number;
+  /** Hard cap on total simulations across all worlds, independent of wall-clock time —
+   * reaching this ends the search deterministically regardless of machine speed. */
+  readonly maxTotalSimulations?: number;
   /** How many additional actions a rollout plays before it is scored, per player. */
   readonly rolloutDepth?: number;
   /** Root actions are narrowed to their top-scoring candidates before search — see
@@ -134,6 +140,7 @@ export interface IsmctsConfig {
 const DEFAULT_CONFIG: Required<IsmctsConfig> = {
   timeBudgetMs: 1000,
   simulationsPerWorld: 40,
+  maxTotalSimulations: Infinity,
   rolloutDepth: 4,
   rootTopK: 8,
 };
@@ -147,7 +154,10 @@ const DEFAULT_CONFIG: Required<IsmctsConfig> = {
  * single shared information-set tree.
  */
 export function makeIsmctsBot(config: IsmctsConfig = {}): Bot {
-  const { timeBudgetMs, simulationsPerWorld, rolloutDepth, rootTopK } = { ...DEFAULT_CONFIG, ...config };
+  const { timeBudgetMs, simulationsPerWorld, maxTotalSimulations, rolloutDepth, rootTopK } = {
+    ...DEFAULT_CONFIG,
+    ...config,
+  };
 
   return (state, playerId, rng) => {
     const rootActions = legalActions(state, playerId);
@@ -171,10 +181,14 @@ export function makeIsmctsBot(config: IsmctsConfig = {}): Bot {
 
     const deadline = Date.now() + timeBudgetMs;
     let totalSimulations = 0;
-    while (Date.now() < deadline) {
+    while (Date.now() < deadline && totalSimulations < maxTotalSimulations) {
       const world = determinize(state, rng, playerId);
       const root = makeNode(world, null, shortlist.slice());
-      for (let i = 0; i < simulationsPerWorld && Date.now() < deadline; i++) {
+      for (
+        let i = 0;
+        i < simulationsPerWorld && Date.now() < deadline && totalSimulations < maxTotalSimulations;
+        i++
+      ) {
         simulate(root, rng, rolloutDepth);
         totalSimulations++;
       }
