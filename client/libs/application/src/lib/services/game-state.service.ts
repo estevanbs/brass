@@ -7,10 +7,23 @@ import { GameGateway } from '../ports/game-gateway';
  * short enough not to still be running when the next move streams in in a fast game. */
 const BOT_HIGHLIGHT_DURATION_MS = 1800;
 
+/** How long the "botX jogou: ..." toast stays up — a bit longer than the map ping since it
+ * has text to actually read, not just a shape to notice. */
+const BOT_MOVE_TOAST_DURATION_MS = 2400;
+
 export interface PopupState {
   readonly title: string;
   readonly actions: readonly LegalActionView[];
   readonly position: PopupPosition;
+}
+
+export interface BotMoveToast {
+  readonly playerId: string;
+  readonly actionLabel: string;
+  /** Increments on every toast — even two back-to-back bot moves with an identical label stay
+   * distinguishable, so the UI can key an `@for` on it and always replay the animation instead
+   * of silently reusing the same (already-mid-animation) DOM node. */
+  readonly key: number;
 }
 
 /**
@@ -34,6 +47,9 @@ export class GameStateService {
   private readonly _popup = signal<PopupState | null>(null);
   private readonly _botHighlight = signal<ActionTargets | null>(null);
   private botHighlightTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly _botMoveToast = signal<BotMoveToast | null>(null);
+  private botMoveToastTimer: ReturnType<typeof setTimeout> | undefined;
+  private botMoveToastCounter = 0;
 
   readonly view = this._view.asReadonly();
   readonly selectedCard = this._selectedCard.asReadonly();
@@ -46,6 +62,9 @@ export class GameStateService {
    * drives a one-shot "ping" animation on the map; auto-clears after
    * `BOT_HIGHLIGHT_DURATION_MS`, and restarts if another bot move streams in before that. */
   readonly botHighlight = this._botHighlight.asReadonly();
+  /** "botX jogou: ..." — one per bot `GameMoveEvent`, for a toast that animates in as each
+   * move streams in and auto-clears after `BOT_MOVE_TOAST_DURATION_MS`. */
+  readonly botMoveToast = this._botMoveToast.asReadonly();
 
   readonly selectedMatPlayer = computed(() => this._selectedMatPlayer() ?? this.view()?.humanId ?? null);
 
@@ -92,7 +111,10 @@ export class GameStateService {
     this.gateway.submitAction(view.gameId, index).subscribe({
       next: (event) => {
         this.applyView(event.view);
-        if (event.playerId !== humanId) this.triggerBotHighlight(event.targets);
+        if (event.playerId !== humanId) {
+          this.triggerBotHighlight(event.targets);
+          this.triggerBotMoveToast(event.playerId, event.actionLabel);
+        }
       },
       error: (err: unknown) => this._statusMessage.set(`Erro: ${errorMessage(err)}`),
       complete: () => this._statusMessage.set(''),
@@ -106,6 +128,16 @@ export class GameStateService {
     clearTimeout(this.botHighlightTimer);
     this._botHighlight.set(targets);
     this.botHighlightTimer = setTimeout(() => this._botHighlight.set(null), BOT_HIGHLIGHT_DURATION_MS);
+  }
+
+  /** Shows "botX jogou: ..." for one bot move — restarts the timer (and bumps `key`, so the
+   * animation replays even for a repeated label) if another move streams in before the
+   * previous toast finished fading. */
+  private triggerBotMoveToast(playerId: string, actionLabel: string): void {
+    clearTimeout(this.botMoveToastTimer);
+    this.botMoveToastCounter += 1;
+    this._botMoveToast.set({ playerId, actionLabel, key: this.botMoveToastCounter });
+    this.botMoveToastTimer = setTimeout(() => this._botMoveToast.set(null), BOT_MOVE_TOAST_DURATION_MS);
   }
 
   /** Submits the single matching action for `key`'s selection context, if there is exactly
@@ -170,6 +202,8 @@ export class GameStateService {
     this._scoutPicks.set([]);
     clearTimeout(this.botHighlightTimer);
     this._botHighlight.set(null);
+    clearTimeout(this.botMoveToastTimer);
+    this._botMoveToast.set(null);
   }
 }
 

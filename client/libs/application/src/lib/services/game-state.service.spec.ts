@@ -297,4 +297,79 @@ describe('GameStateService', () => {
       expect(service.botHighlight()).toBeNull();
     });
   });
+
+  describe('botMoveToast', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('is null before any action is submitted', () => {
+      expect(service.botMoveToast()).toBeNull();
+    });
+
+    it('shows a toast with the bot\'s own move label, straight from that event', async () => {
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(
+        of(
+          moveEvent({ playerId: 'p1', actionLabel: 'Empréstimo' }),
+          moveEvent({ playerId: 'bot1', actionLabel: 'Construir carvão em dudley' }),
+        ),
+      );
+      service.submitAction(0);
+
+      expect(service.botMoveToast()).toMatchObject({ playerId: 'bot1', actionLabel: 'Construir carvão em dudley' });
+    });
+
+    it('never shows a toast for the human player\'s own move event', async () => {
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'p1', actionLabel: 'Empréstimo' })));
+      service.submitAction(0);
+
+      expect(service.botMoveToast()).toBeNull();
+    });
+
+    it('bumps its key on every new toast, even with an identical label, so the animation always replays', async () => {
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', actionLabel: 'Passar' })));
+      service.submitAction(0);
+      const firstKey = service.botMoveToast()?.key;
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', actionLabel: 'Passar' })));
+      service.submitAction(0);
+      const secondKey = service.botMoveToast()?.key;
+
+      expect(firstKey).toBeDefined();
+      expect(secondKey).toBeDefined();
+      expect(secondKey).not.toBe(firstKey);
+    });
+
+    it('auto-clears after its display duration', async () => {
+      vi.useFakeTimers();
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', actionLabel: 'Passar' })));
+      service.submitAction(0);
+      expect(service.botMoveToast()).not.toBeNull();
+
+      vi.advanceTimersByTime(2399);
+      expect(service.botMoveToast()).not.toBeNull();
+      vi.advanceTimersByTime(1);
+      expect(service.botMoveToast()).toBeNull();
+    });
+
+    it('does not carry a stale toast into a new action with no bot move of its own', async () => {
+      await service.newGame(2, undefined);
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', actionLabel: 'Passar' })));
+      service.submitAction(0);
+      expect(service.botMoveToast()).not.toBeNull();
+
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'p1' })));
+      service.submitAction(0);
+      expect(service.botMoveToast()).toBeNull();
+    });
+  });
 });

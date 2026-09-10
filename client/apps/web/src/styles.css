@@ -283,6 +283,58 @@ button:hover {
   font-style: italic;
 }
 
+/* One-shot toast per bot move (GameStateService.botMoveToast) — slides/fades in as the move
+   streams over the WebSocket, holds long enough to read, then fades back out. `pointer-events:
+   none` so it never steals a click meant for the map underneath it. */
+.bot-move-toast {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: min(480px, calc(100% - 40px));
+  background: rgba(43, 32, 19, 0.92);
+  color: #f1e6c8;
+  padding: 8px 18px;
+  border-radius: 20px;
+  border-left: 4px solid var(--toast-color, #c98a2c);
+  font-size: 0.82rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: botMoveToast 2.4s ease-in-out forwards;
+}
+
+.bot-move-toast-player {
+  font-family: var(--serif);
+  font-weight: 700;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.bot-move-toast-label {
+  color: #d8c9a3;
+}
+
+@keyframes botMoveToast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -14px);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  82% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
 /* Animate via `transform: scale()`, not the `r` attribute — animating `r` changes the
    element's actual geometry/bounding box every frame, which is both less efficient and (found
    while testing) makes hit-testing tools think the element never stops moving. A transform

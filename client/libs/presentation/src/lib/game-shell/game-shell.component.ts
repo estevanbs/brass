@@ -4,6 +4,7 @@ import { HeaderComponent } from '../header/header.component';
 import { TopStripComponent } from '../top-strip/top-strip.component';
 import { BoardMapComponent } from '../board-map/board-map.component';
 import { ActionPopupComponent } from '../action-popup/action-popup.component';
+import { BotMoveToastComponent } from '../bot-move-toast/bot-move-toast.component';
 import { LogPanelComponent } from '../log-panel/log-panel.component';
 import { PlayerMatComponent } from '../player-mat/player-mat.component';
 import { OtherActionsComponent } from '../other-actions/other-actions.component';
@@ -22,6 +23,7 @@ import { GameOverComponent } from '../game-over/game-over.component';
     TopStripComponent,
     BoardMapComponent,
     ActionPopupComponent,
+    BotMoveToastComponent,
     LogPanelComponent,
     PlayerMatComponent,
     OtherActionsComponent,
@@ -41,6 +43,7 @@ import { GameOverComponent } from '../game-over/game-over.component';
 
         <brass-board-map>
           <brass-action-popup />
+          <brass-bot-move-toast />
         </brass-board-map>
 
         <brass-log-panel />
