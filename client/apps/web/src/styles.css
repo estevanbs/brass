@@ -616,6 +616,31 @@ button:hover {
   font-style: italic;
 }
 
+/* Tiles already on the board (as opposed to still in the player's stock above) — full opacity
+   by default since these are a settled fact, not a choice still to make; dimmed only once
+   flipped, mirroring how a flipped tile reads on the map itself. */
+.mat-built-label {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 6px 0 3px;
+}
+
+.mat-tile.built {
+  opacity: 1;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+}
+
+.mat-tile.built.flipped {
+  opacity: 0.55;
+}
+
+.mat-built-flip {
+  font-size: 0.5rem;
+  white-space: nowrap;
+}
+
 /* ---------- Hand dock (Hearthstone-style fanned cards) ---------- */
 
 .hand-dock {

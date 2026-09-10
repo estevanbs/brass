@@ -32,17 +32,17 @@ describe('PlayerMatComponent', () => {
     gateway = TestBed.inject(GameGateway) as FakeGameGateway;
   });
 
-  it('is collapsed until the toggle button is clicked', async () => {
+  it('is open by default, and can still be collapsed via the toggle button', async () => {
     gateway.createGame.mockReturnValueOnce(of(baseGameView()));
     await gameState.newGame(2, undefined);
 
     const fixture = TestBed.createComponent(PlayerMatComponent);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.mat-panel')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.mat-panel')).not.toBeNull();
 
     (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.mat-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.mat-panel')).toBeNull();
   });
 
   it('defaults to the human player and shows a tab per player', async () => {
@@ -61,8 +61,6 @@ describe('PlayerMatComponent', () => {
     await gameState.newGame(2, undefined);
 
     const fixture = TestBed.createComponent(PlayerMatComponent);
-    fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     const tabs = fixture.nativeElement.querySelectorAll('.mat-tabs button');
@@ -94,13 +92,11 @@ describe('PlayerMatComponent', () => {
 
     const fixture = TestBed.createComponent(PlayerMatComponent);
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
-    fixture.detectChanges();
 
     const coalColumn = Array.from(fixture.nativeElement.querySelectorAll('.mat-industry')).find((el) =>
       (el as HTMLElement).textContent?.includes('coal'),
     ) as HTMLElement;
-    const tiles = coalColumn.querySelectorAll('.mat-tile');
+    const tiles = coalColumn.querySelectorAll('.mat-tile-row .mat-tile');
     expect(tiles.length).toBe(2);
     expect(tiles[0].classList.contains('next')).toBe(true);
     expect(tiles[1].classList.contains('next')).toBe(false);
@@ -129,11 +125,60 @@ describe('PlayerMatComponent', () => {
 
     const fixture = TestBed.createComponent(PlayerMatComponent);
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
-    fixture.detectChanges();
 
     const chipText = (fixture.nativeElement.querySelector('.mat-tile') as HTMLElement).textContent ?? '';
     expect(chipText).toContain('3pv');
     expect(chipText).toContain('+2r');
+  });
+
+  it('also lists tiles already built on the board, with VP/renda for reference, separate from the remaining stock', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          humanId: 'p1',
+          industryTiles: [coalTile(1, { victoryPoints: 1, incomeGain: 1 }), coalTile(2, { victoryPoints: 2, incomeGain: 1 })],
+          board: { locations: [{ id: 'dudley', kind: 'industrial' }], links: [] },
+          state: {
+            ...baseGameView().state,
+            turnOrder: ['p1'],
+            players: {
+              p1: player({
+                id: 'p1',
+                industryStock: { coal: [2], iron: [], cotton: [], manufacturer: [], pottery: [], brewery: [] },
+              }),
+            },
+            locations: {
+              dudley: {
+                id: 'dudley',
+                kind: 'industrial',
+                slots: [{ allowedIndustries: ['coal'], tile: { owner: 'p1', industry: 'coal', level: 1, flipped: false, resourceRemaining: 2 } }],
+              },
+            },
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(1, undefined);
+
+    const fixture = TestBed.createComponent(PlayerMatComponent);
+    fixture.detectChanges();
+
+    const coalColumn = Array.from(fixture.nativeElement.querySelectorAll('.mat-industry')).find((el) =>
+      (el as HTMLElement).textContent?.includes('coal'),
+    ) as HTMLElement;
+
+    // Still in stock: level 2.
+    const stockTiles = coalColumn.querySelectorAll('.mat-tile-row .mat-tile:not(.built)');
+    expect(stockTiles.length).toBe(1);
+    expect(stockTiles[0].textContent).toContain('L2');
+
+    // Already built: level 1, at dudley, not yet flipped.
+    const builtTiles = coalColumn.querySelectorAll('.mat-tile.built');
+    expect(builtTiles.length).toBe(1);
+    expect(builtTiles[0].textContent).toContain('L1');
+    expect(builtTiles[0].textContent).toContain('1pv');
+    expect(builtTiles[0].textContent).toContain('+1r');
+    expect(builtTiles[0].classList.contains('flipped')).toBe(false);
+    expect((builtTiles[0] as HTMLElement).title).toContain('dudley');
   });
 });

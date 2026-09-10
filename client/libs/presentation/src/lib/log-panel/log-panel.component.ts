@@ -7,7 +7,7 @@ import { GameStateService } from '@brass/application';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="log-dock">
-      <button type="button" class="log-toggle" (click)="open.set(!open())">📜 registro</button>
+      <button type="button" class="log-toggle" (click)="open.set(!open())">📜 registro {{ open() ? '▾' : '▸' }}</button>
       @if (open()) {
         <div class="log">
           @for (line of reversedLog(); track $index) {
@@ -20,7 +20,7 @@ import { GameStateService } from '@brass/application';
 })
 export class LogPanelComponent {
   private readonly gameState = inject(GameStateService);
-  protected readonly open = signal(false);
+  protected readonly open = signal(true);
 
   reversedLog(): readonly string[] {
     return [...(this.gameState.view()?.log ?? [])].reverse();

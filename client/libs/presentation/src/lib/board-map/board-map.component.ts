@@ -53,6 +53,9 @@ interface LinkLineViewModel {
   readonly midX: number;
   readonly midY: number;
   readonly builtOwnerColor: string | null;
+  /** VP this link would score right now if the era ended this instant ("pontos por conexão") —
+   * always rendered on the map for a built link, not only on hover. `null` while unbuilt. */
+  readonly points: number | null;
   readonly title: string;
   readonly botHighlighted: boolean;
 }
@@ -140,7 +143,17 @@ interface LocationNodeViewModel {
             (click)="line.clickable && onLinkClick(line)"
           ><title>{{ line.title }}</title></line>
           @if (line.builtOwnerColor !== null) {
-            <circle [attr.cx]="line.midX" [attr.cy]="line.midY" r="6" [attr.fill]="line.builtOwnerColor" stroke="#f1e6c8" stroke-width="1.5" />
+            <circle [attr.cx]="line.midX" [attr.cy]="line.midY" r="9.5" [attr.fill]="line.builtOwnerColor" stroke="#f1e6c8" stroke-width="1.5" />
+            @if (line.points !== null) {
+              <text
+                [attr.x]="line.midX"
+                [attr.y]="line.midY + 3"
+                text-anchor="middle"
+                font-size="9"
+                font-weight="700"
+                fill="white"
+              >{{ line.points }}</text>
+            }
           }
           @if (line.botHighlighted) {
             <line [attr.x1]="line.x1" [attr.y1]="line.y1" [attr.x2]="line.x2" [attr.y2]="line.y2" class="bot-ping-line" />
@@ -232,6 +245,7 @@ interface LocationNodeViewModel {
         <span><i class="line dashed" [style.border-top-color]="unbuiltEraColor.both"></i> constrói em qualquer era</span>
         <span><i class="dot outline"></i> pode construir (indústria aceita)</span>
         <span><i class="dot" style="background:#d4a537"></i> mercador compra este bem</span>
+        <span><i class="dot" style="background:#5a4d38"></i> número = pontos que o link daria agora</span>
       </div>
 
       @if (hintText(); as hint) {
@@ -286,6 +300,7 @@ export class BoardMapComponent {
       const built = builtByLinkId.get(link.id);
       const isActive = activeIds.has(link.id);
       const isBuilt = built !== undefined;
+      const points = built !== undefined ? this.industryTile.linkPoints(link, view.state, view.industryTiles) : null;
       const style = {
         botHighlighted: botHighlighted.has(link.id),
         stroke: built !== undefined ? ERA_COLOR[built.kind] : isActive ? ACTIVE_LINE : UNBUILT_ERA_COLOR[link.era],
@@ -295,9 +310,10 @@ export class BoardMapComponent {
         clickable: isActive && !isBuilt,
         highlighted: isActive,
         builtOwnerColor: built !== undefined ? this.playerColor.colorFor(built.owner, view.humanId) : null,
+        points,
         title:
           built !== undefined
-            ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'}) · pontuaria ${this.industryTile.linkPoints(link, view.state, view.industryTiles)}VP agora`
+            ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'}) · pontuaria ${points}VP agora`
             : ERA_TITLE[link.era],
       };
 
@@ -328,8 +344,10 @@ export class BoardMapComponent {
           ...style,
           midX: junction.x,
           midY: junction.y,
-          // Only one spoke carries the built-owner marker so it renders once, at the junction.
+          // Only one spoke carries the built-owner marker (and points badge) so it renders
+          // once, at the junction, instead of 3 overlapping copies.
           builtOwnerColor: i === 0 ? style.builtOwnerColor : null,
+          points: i === 0 ? style.points : null,
         }));
       }
 

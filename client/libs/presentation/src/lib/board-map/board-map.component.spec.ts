@@ -234,5 +234,10 @@ describe('BoardMapComponent', () => {
     const lineTitle = fixture.nativeElement.querySelector('svg.map-svg line title') as SVGTitleElement;
     expect(lineTitle.textContent).toContain('construído (Canal)');
     expect(lineTitle.textContent).toContain('pontuaria 4VP agora');
+
+    // Not just on hover — the score is also rendered directly on the map, next to the
+    // built-owner marker at the link's midpoint.
+    const svgTexts = Array.from(fixture.nativeElement.querySelectorAll('svg.map-svg text')) as SVGTextElement[];
+    expect(svgTexts.some((t) => t.textContent === '4')).toBe(true);
   });
 });

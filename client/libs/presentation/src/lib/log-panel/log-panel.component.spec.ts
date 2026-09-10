@@ -15,17 +15,26 @@ describe('LogPanelComponent', () => {
     gateway = TestBed.inject(GameGateway) as FakeGameGateway;
   });
 
-  it('is collapsed until toggled, then shows the log newest-first', async () => {
+  it('is open by default, showing the log newest-first', async () => {
     gateway.createGame.mockReturnValueOnce(of(baseGameView({ log: ['primeiro', 'segundo', 'terceiro'] })));
     await gameState.newGame(2, undefined);
 
     const fixture = TestBed.createComponent(LogPanelComponent);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.log')).toBeNull();
+    const lines = fixture.nativeElement.querySelectorAll('.log div');
+    expect(Array.from(lines).map((l) => (l as HTMLElement).textContent)).toEqual(['terceiro', 'segundo', 'primeiro']);
+  });
+
+  it('can still be collapsed via the toggle button', async () => {
+    gateway.createGame.mockReturnValueOnce(of(baseGameView({ log: ['primeiro'] })));
+    await gameState.newGame(2, undefined);
+
+    const fixture = TestBed.createComponent(LogPanelComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.log')).not.toBeNull();
 
     (fixture.nativeElement.querySelector('.log-toggle') as HTMLButtonElement).click();
     fixture.detectChanges();
-    const lines = fixture.nativeElement.querySelectorAll('.log div');
-    expect(Array.from(lines).map((l) => (l as HTMLElement).textContent)).toEqual(['terceiro', 'segundo', 'primeiro']);
+    expect(fixture.nativeElement.querySelector('.log')).toBeNull();
   });
 });
