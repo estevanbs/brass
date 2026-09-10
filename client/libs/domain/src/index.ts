@@ -5,5 +5,6 @@ export * from './lib/popup-position.model';
 export * from './lib/bot-highlight';
 export * from './lib/card-format';
 export * from './lib/income';
+export * from './lib/industry-tile';
 export * from './lib/map-layout';
 export * from './lib/player-color';

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, viewChild } from '@angular/core';
-import { CardFormatService, GameStateService, MapLayoutService, PlayerColorService } from '@brass/application';
-import type { BuildSlotState, LegalActionView, LocationState, Point } from '@brass/domain';
+import { CardFormatService, GameStateService, IndustryTileService, MapLayoutService, PlayerColorService } from '@brass/application';
+import type { BuildSlotState, IndustryTileDef, LegalActionView, LocationState, Point } from '@brass/domain';
 
 const KIND_COLOR: Readonly<Record<'industrial' | 'farm_brewery' | 'market', string>> = {
   industrial: '#d8c9a3',
@@ -67,6 +67,13 @@ interface TileBadgeViewModel {
   readonly icon: string;
   readonly fontSize: number;
   readonly opacity: number;
+  /** Hover detail (industry, level, VP, renda, and — for coal/iron — how many resource units
+   * are left before it flips on its own). Empty for an unbuilt slot's badge. */
+  readonly title: string;
+  /** Small always-visible counter overlaid on the badge's corner — the resource units still on
+   * a coal/iron tile before it flips ("quanto falta para virar"). `null` once flipped or for
+   * every other industry, which don't carry resource cubes. */
+  readonly counter: number | null;
 }
 
 const BUILDABLE_BADGE_FILL = '#fbf5e6';
@@ -169,8 +176,16 @@ interface LocationNodeViewModel {
                 [attr.stroke]="badge.stroke"
                 [attr.stroke-dasharray]="badge.strokeDasharray"
                 stroke-width="1"
-              />
+              >
+                @if (badge.title !== '') {
+                  <title>{{ badge.title }}</title>
+                }
+              </circle>
               <text [attr.x]="badge.cx" [attr.y]="badge.cy + 3.5" text-anchor="middle" [attr.font-size]="badge.fontSize" [attr.opacity]="badge.opacity">{{ badge.icon }}</text>
+              @if (badge.counter !== null) {
+                <circle [attr.cx]="badge.cx + badge.r * 0.72" [attr.cy]="badge.cy - badge.r * 0.72" r="5.5" class="tile-counter-badge" />
+                <text [attr.x]="badge.cx + badge.r * 0.72" [attr.y]="badge.cy - badge.r * 0.72 + 2.5" text-anchor="middle" class="tile-counter-text">{{ badge.counter }}</text>
+              }
             }
             @if (node.subLabel !== null) {
               <text
@@ -232,6 +247,7 @@ export class BoardMapComponent {
   protected readonly mapLayout = inject(MapLayoutService);
   private readonly cardFormat = inject(CardFormatService);
   private readonly playerColor = inject(PlayerColorService);
+  private readonly industryTile = inject(IndustryTileService);
 
   protected readonly kindColor = KIND_COLOR;
   protected readonly eraColor = ERA_COLOR;
@@ -281,7 +297,7 @@ export class BoardMapComponent {
         builtOwnerColor: built !== undefined ? this.playerColor.colorFor(built.owner, view.humanId) : null,
         title:
           built !== undefined
-            ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'})`
+            ? `construído (${built.kind === 'canal' ? 'Canal' : 'Ferrovia'}) · pontuaria ${this.industryTile.linkPoints(link, view.state, view.industryTiles)}VP agora`
             : ERA_TITLE[link.era],
       };
 
@@ -338,11 +354,22 @@ export class BoardMapComponent {
     });
   });
 
+  /** Full hover detail for a built tile: industry, level, VP, renda, owner, and — for a coal
+   * or iron mine still holding cubes — how many are left before it flips on its own. */
+  private tileTitle(tile: NonNullable<BuildSlotState['tile']>, industryTiles: readonly IndustryTileDef[]): string {
+    const def = this.industryTile.find(industryTiles, tile.industry, tile.level);
+    const base = `${tile.industry} nível ${tile.level} (${tile.owner})`;
+    if (def === undefined) return base;
+    const resourceNote = tile.resourceRemaining > 0 ? ` · restam ${tile.resourceRemaining}/${def.resourceProduced} antes de virar` : '';
+    const flipNote = tile.flipped ? ' · VIRADA' : resourceNote;
+    return `${base} — ${def.victoryPoints}VP · renda +${def.incomeGain}${flipNote}`;
+  }
+
   /** Row of badges under an industrial/farm-brewery node: one per build slot, in board order —
    * a filled, owner-colored badge for a built tile, or a hollow dashed one showing which
    * industry type(s) an empty slot still accepts, so "what can I build here" reads directly off
    * the map instead of requiring a click. */
-  private buildSlotBadges(slots: readonly BuildSlotState[], humanId: string): TileBadgeViewModel[] {
+  private buildSlotBadges(slots: readonly BuildSlotState[], humanId: string, industryTiles: readonly IndustryTileDef[]): TileBadgeViewModel[] {
     // Slots with 2 accepted industries render a wider (r=9) badge than a single-industry or
     // built one (r=8) — space badge centers by the widest pair actually present so neighboring
     // badges never touch (a real bug found by measuring rendered circle bounding boxes).
@@ -352,16 +379,20 @@ export class BoardMapComponent {
       const cx = (i - (slots.length - 1) / 2) * spacing;
       const cy = 0; // filled in by the caller once `r` is known
       if (slot.tile !== null) {
+        const { tile } = slot;
+        const isMine = tile.industry === 'coal' || tile.industry === 'iron';
         return {
           cx,
           cy,
-          r: 8,
-          fill: this.playerColor.colorFor(slot.tile.owner, humanId),
+          r: 9,
+          fill: this.playerColor.colorFor(tile.owner, humanId),
           stroke: '#f1e6c8',
           strokeDasharray: 'none',
-          icon: this.cardFormat.industryIcon(slot.tile.industry),
-          fontSize: 9,
-          opacity: slot.tile.flipped ? 0.55 : 1,
+          icon: `${this.cardFormat.industryIcon(tile.industry)}${tile.level}`,
+          fontSize: 7,
+          opacity: tile.flipped ? 0.55 : 1,
+          title: this.tileTitle(tile, industryTiles),
+          counter: isMine && !tile.flipped && tile.resourceRemaining > 0 ? tile.resourceRemaining : null,
         };
       }
       const icon = slot.allowedIndustries.map((i2) => this.cardFormat.industryIcon(i2)).join('');
@@ -376,6 +407,8 @@ export class BoardMapComponent {
         icon,
         fontSize: wide ? 7 : 9,
         opacity: 0.9,
+        title: '',
+        counter: null,
       };
     });
   }
@@ -396,6 +429,8 @@ export class BoardMapComponent {
         icon: this.cardFormat.merchantIcon(slot.icon ?? 'blank'),
         fontSize: 9,
         opacity: slot.hasBeer ? 1 : 0.5,
+        title: slot.hasBeer ? 'cerveja disponível para venda' : 'cerveja já vendida',
+        counter: null,
       };
     });
   }
@@ -418,7 +453,7 @@ export class BoardMapComponent {
       const cy = r + 12;
 
       const isMarket = location.kind === 'market';
-      const rawBadges = isMarket && locState !== undefined ? this.merchantBadges(locState) : this.buildSlotBadges(slots, view.humanId);
+      const rawBadges = isMarket && locState !== undefined ? this.merchantBadges(locState) : this.buildSlotBadges(slots, view.humanId, view.industryTiles);
       const badges = rawBadges.map((b) => ({ ...b, cy }));
 
       const marketInPlay = !isMarket || (locState?.merchantSlots ?? []).some((s) => s.icon !== null);

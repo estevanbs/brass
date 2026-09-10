@@ -120,4 +120,119 @@ describe('BoardMapComponent', () => {
     expect(gameState.popup()?.actions.length).toBe(2);
     expect(gateway.submitAction).not.toHaveBeenCalled();
   });
+
+  it('shows a built tile\'s level, VP, renda and remaining resource in its hover title, plus a visible counter badge while it has resource left', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          industryTiles: [
+            { industry: 'coal', level: 1, cost: 5, coalCost: 0, ironCost: 0, resourceProduced: 2, beerToSell: 0, victoryPoints: 1, incomeGain: 1, locked: false, eraRestricted: true },
+          ],
+          board: { locations: [{ id: 'coalbrookdale', kind: 'industrial' }], links: [] },
+          state: {
+            ...baseGameView().state,
+            locations: {
+              coalbrookdale: {
+                id: 'coalbrookdale',
+                kind: 'industrial',
+                slots: [
+                  {
+                    allowedIndustries: ['coal'],
+                    tile: { owner: 'p1', industry: 'coal', level: 1, flipped: false, resourceRemaining: 2 },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(2, undefined);
+
+    const fixture = TestBed.createComponent(BoardMapComponent);
+    fixture.detectChanges();
+
+    const title = fixture.nativeElement.querySelector('svg.map-svg circle title') as SVGTitleElement;
+    expect(title.textContent).toContain('coal nível 1 (p1)');
+    expect(title.textContent).toContain('1VP');
+    expect(title.textContent).toContain('renda +1');
+    expect(title.textContent).toContain('restam 2/2 antes de virar');
+
+    expect(fixture.nativeElement.querySelector('.tile-counter-text').textContent).toBe('2');
+  });
+
+  it('omits the remaining-resource counter once a tile has flipped', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          industryTiles: [
+            { industry: 'coal', level: 1, cost: 5, coalCost: 0, ironCost: 0, resourceProduced: 2, beerToSell: 0, victoryPoints: 1, incomeGain: 1, locked: false, eraRestricted: true },
+          ],
+          board: { locations: [{ id: 'coalbrookdale', kind: 'industrial' }], links: [] },
+          state: {
+            ...baseGameView().state,
+            locations: {
+              coalbrookdale: {
+                id: 'coalbrookdale',
+                kind: 'industrial',
+                slots: [
+                  {
+                    allowedIndustries: ['coal'],
+                    tile: { owner: 'p1', industry: 'coal', level: 1, flipped: true, resourceRemaining: 0 },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(2, undefined);
+
+    const fixture = TestBed.createComponent(BoardMapComponent);
+    fixture.detectChanges();
+
+    const title = fixture.nativeElement.querySelector('svg.map-svg circle title') as SVGTitleElement;
+    expect(title.textContent).toContain('VIRADA');
+    expect(fixture.nativeElement.querySelector('.tile-counter-badge')).toBeNull();
+  });
+
+  it('shows the live "would score X VP now" preview in a built link\'s hover title', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          industryTiles: [
+            { industry: 'coal', level: 1, cost: 5, coalCost: 0, ironCost: 0, resourceProduced: 2, beerToSell: 0, victoryPoints: 4, incomeGain: 1, locked: false, eraRestricted: true },
+          ],
+          board: {
+            locations: [
+              { id: 'birmingham', kind: 'industrial' },
+              { id: 'oxford', kind: 'industrial' },
+            ],
+            links: [{ id: 'birmingham__oxford', locations: ['birmingham', 'oxford'], bonusConnections: [], era: 'both' }],
+          },
+          state: {
+            ...baseGameView().state,
+            locations: {
+              birmingham: {
+                id: 'birmingham',
+                kind: 'industrial',
+                slots: [{ allowedIndustries: ['coal'], tile: { owner: 'p1', industry: 'coal', level: 1, flipped: true, resourceRemaining: 0 } }],
+              },
+              oxford: { id: 'oxford', kind: 'industrial', slots: [] },
+            },
+            links: [{ slotId: 'birmingham__oxford', owner: 'p1', kind: 'canal' }],
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(2, undefined);
+
+    const fixture = TestBed.createComponent(BoardMapComponent);
+    fixture.detectChanges();
+
+    const lineTitle = fixture.nativeElement.querySelector('svg.map-svg line title') as SVGTitleElement;
+    expect(lineTitle.textContent).toContain('construído (Canal)');
+    expect(lineTitle.textContent).toContain('pontuaria 4VP agora');
+  });
 });

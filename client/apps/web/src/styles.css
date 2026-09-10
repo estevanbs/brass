@@ -310,6 +310,21 @@ button:hover {
   filter: drop-shadow(0 0 4px var(--highlight));
 }
 
+/* Always-visible counter on a coal/iron tile badge — "quanto falta para virar" (resource
+   cubes left before it flips on its own), so this reads off the map without hovering. */
+.tile-counter-badge {
+  fill: #a8432f;
+  stroke: #f1e6c8;
+  stroke-width: 1;
+}
+
+.tile-counter-text {
+  font-size: 7px;
+  font-weight: 700;
+  fill: white;
+  pointer-events: none;
+}
+
 .map-target-line {
   filter: drop-shadow(0 0 3px var(--highlight));
 }
@@ -570,17 +585,17 @@ button:hover {
 }
 
 .mat-tile {
-  width: 30px;
-  height: 38px;
+  width: 32px;
+  height: 56px;
   border-radius: 4px;
   border: 1px solid rgba(0, 0, 0, 0.25);
   color: white;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: 1.15;
+  line-height: 1.25;
   opacity: 0.45;
 }
 

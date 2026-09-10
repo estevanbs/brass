@@ -7,6 +7,8 @@ interface TileChipViewModel {
   readonly isNext: boolean;
   readonly isLocked: boolean;
   readonly cost: number | null;
+  readonly victoryPoints: number | null;
+  readonly incomeGain: number | null;
   readonly tooltip: string;
 }
 
@@ -51,6 +53,12 @@ interface IndustryColumnViewModel {
                       <div>L{{ tile.level }}</div>
                       @if (tile.cost !== null) {
                         <div>£{{ tile.cost }}</div>
+                      }
+                      @if (tile.victoryPoints !== null) {
+                        <div>{{ tile.victoryPoints }}pv</div>
+                      }
+                      @if (tile.incomeGain !== null) {
+                        <div>+{{ tile.incomeGain }}r</div>
                       }
                     </div>
                   }
@@ -109,6 +117,8 @@ export class PlayerMatComponent {
       isNext,
       isLocked: info?.locked ?? false,
       cost: info?.cost ?? null,
+      victoryPoints: info?.victoryPoints ?? null,
+      incomeGain: info?.incomeGain ?? null,
       tooltip,
     };
   }

@@ -105,4 +105,35 @@ describe('PlayerMatComponent', () => {
     expect(tiles[0].classList.contains('next')).toBe(true);
     expect(tiles[1].classList.contains('next')).toBe(false);
   });
+
+  it('shows victory points and income gain directly on the chip, not only in the hover title', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          humanId: 'p1',
+          industryTiles: [coalTile(1, { victoryPoints: 3, incomeGain: 2 })],
+          state: {
+            ...baseGameView().state,
+            turnOrder: ['p1'],
+            players: {
+              p1: player({
+                id: 'p1',
+                industryStock: { coal: [1], iron: [], cotton: [], manufacturer: [], pottery: [], brewery: [] },
+              }),
+            },
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(1, undefined);
+
+    const fixture = TestBed.createComponent(PlayerMatComponent);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const chipText = (fixture.nativeElement.querySelector('.mat-tile') as HTMLElement).textContent ?? '';
+    expect(chipText).toContain('3pv');
+    expect(chipText).toContain('+2r');
+  });
 });
