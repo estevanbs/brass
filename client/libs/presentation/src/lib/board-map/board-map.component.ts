@@ -125,7 +125,6 @@ interface LocationNodeViewModel {
         preserveAspectRatio="xMidYMid meet"
       >
         <rect x="0" y="0" [attr.width]="mapLayout.width" [attr.height]="mapLayout.height" fill="#f1e6c8" />
-        <text [attr.x]="mapLayout.width - 40" y="46" text-anchor="middle" font-size="26" fill="#c9b787">✦</text>
 
         @for (line of links(); track line.key) {
           <line

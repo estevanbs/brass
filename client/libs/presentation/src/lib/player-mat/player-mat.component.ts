@@ -9,6 +9,10 @@ interface TileChipViewModel {
   readonly cost: number | null;
   readonly victoryPoints: number | null;
   readonly incomeGain: number | null;
+  /** Coal/iron this tile also costs to build, e.g. "+1⚫" — `null` when it needs neither
+   * (no tile needs both at once, so one line is always enough). Shown directly on the chip,
+   * not only in the hover tooltip. */
+  readonly materialsLabel: string | null;
   readonly tooltip: string;
 }
 
@@ -79,6 +83,9 @@ interface BuiltTileEntry {
                       }
                       @if (tile.incomeGain !== null) {
                         <div>+{{ tile.incomeGain }}r</div>
+                      }
+                      @if (tile.materialsLabel !== null) {
+                        <div>{{ tile.materialsLabel }}</div>
                       }
                     </div>
                   }
@@ -190,6 +197,14 @@ export class PlayerMatComponent {
       info === null
         ? `Nível ${level}`
         : `Nível ${level} — custo £${info.cost}${resourceNote} · ${info.victoryPoints}VP · renda +${info.incomeGain}${lockedNote}${eraNote}`;
+    const materialsLabel =
+      info === null
+        ? null
+        : info.coalCost > 0
+          ? `+${info.coalCost}${this.cardFormat.industryIcon('coal')}`
+          : info.ironCost > 0
+            ? `+${info.ironCost}${this.cardFormat.industryIcon('iron')}`
+            : null;
     return {
       level,
       isNext,
@@ -197,6 +212,7 @@ export class PlayerMatComponent {
       cost: info?.cost ?? null,
       victoryPoints: info?.victoryPoints ?? null,
       incomeGain: info?.incomeGain ?? null,
+      materialsLabel,
       tooltip,
     };
   }

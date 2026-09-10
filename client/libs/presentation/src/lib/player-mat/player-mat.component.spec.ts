@@ -131,6 +131,47 @@ describe('PlayerMatComponent', () => {
     expect(chipText).toContain('+2r');
   });
 
+  it('shows the coal or iron this tile also costs to build directly on the chip', async () => {
+    gateway.createGame.mockReturnValueOnce(
+      of(
+        baseGameView({
+          humanId: 'p1',
+          industryTiles: [
+            coalTile(1, { industry: 'cotton', coalCost: 1 }),
+            coalTile(1, { industry: 'manufacturer', ironCost: 1 }),
+            coalTile(1, { industry: 'coal', coalCost: 0, ironCost: 0 }),
+          ],
+          state: {
+            ...baseGameView().state,
+            turnOrder: ['p1'],
+            players: {
+              p1: player({
+                id: 'p1',
+                industryStock: { coal: [1], iron: [], cotton: [1], manufacturer: [1], pottery: [], brewery: [] },
+              }),
+            },
+          },
+        }),
+      ),
+    );
+    await gameState.newGame(1, undefined);
+
+    const fixture = TestBed.createComponent(PlayerMatComponent);
+    fixture.detectChanges();
+
+    const columnText = (industry: string) =>
+      (Array.from(fixture.nativeElement.querySelectorAll('.mat-industry')).find((el) =>
+        (el as HTMLElement).textContent?.includes(industry),
+      ) as HTMLElement).textContent ?? '';
+
+    expect(columnText('cotton')).toContain('+1⚫');
+    expect(columnText('manufacturer')).toContain('+1⛓');
+    // Coal itself needs neither coal nor iron to build — no extra line for it.
+    const coalChip = fixture.nativeElement.querySelector('.mat-tile-row .mat-tile') as HTMLElement;
+    expect(coalChip.textContent).not.toContain('⚫');
+    expect(coalChip.textContent).not.toContain('⛓');
+  });
+
   it('also lists tiles already built on the board, with VP/renda for reference, separate from the remaining stock', async () => {
     gateway.createGame.mockReturnValueOnce(
       of(
