@@ -4,6 +4,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { GameService, InMemoryGameRepository } from '@brass/backend-application';
 import { GamesController } from './games/games.controller.js';
+import { GamesGateway } from './games/games.gateway.js';
 import { GameErrorsFilter } from './games/game-errors.filter.js';
 
 // Built Angular app (`nx build web`) lands at the workspace-root-relative "../public" —
@@ -29,6 +30,7 @@ const PUBLIC_DIR = join(__dirname, '../../../../public');
       provide: APP_FILTER,
       useClass: GameErrorsFilter,
     },
+    GamesGateway,
   ],
 })
 export class AppModule {}

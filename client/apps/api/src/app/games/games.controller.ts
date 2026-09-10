@@ -1,13 +1,13 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { GameService } from '@brass/backend-application';
 import { CreateGameDto } from './dto/create-game.dto.js';
-import { SubmitActionDto } from './dto/submit-action.dto.js';
 
 /**
- * Same 3 routes `src/web/server.ts` used to serve directly over `node:http`
- * (`POST /api/games`, `GET /api/games/:id`, `POST /api/games/:id/actions`) — now just thin
- * HTTP adapters over `GameService` (`@brass/backend-application`), which owns the actual
- * orchestration logic unchanged. `@HttpCode(200)` on the POSTs matches the original server's
+ * Game lifecycle endpoints that stay plain request/response — creating a game (no bot moves
+ * happen before the human's first turn, so there's nothing to stream) and fetching the current
+ * state (e.g. to resync after a dropped WebSocket connection). Submitting an action moved to
+ * `GamesGateway` (`/ws/games`), which streams one event per move instead of only the final
+ * state once every bot has played. `@HttpCode(200)` matches the original `node:http` server's
  * `sendJson(res, 200, ...)` on every success response (Nest's own POST default is 201).
  */
 @Controller('games')
@@ -25,11 +25,5 @@ export class GamesController {
   @Get(':id')
   getGame(@Param('id') id: string): unknown {
     return this.gameService.getView(id);
-  }
-
-  @Post(':id/actions')
-  @HttpCode(HttpStatus.OK)
-  submitAction(@Param('id') id: string, @Body() body: SubmitActionDto): unknown {
-    return this.gameService.submitHumanAction(id, body.index);
   }
 }

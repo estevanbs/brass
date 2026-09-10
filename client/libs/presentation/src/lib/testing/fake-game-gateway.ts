@@ -1,14 +1,24 @@
 import { of, type Observable } from 'rxjs';
 import { vi } from 'vitest';
 import { GameGateway } from '@brass/application';
-import type { GameView, LegalActionView, PlayerState } from '@brass/domain';
+import type { GameMoveEvent, GameView, LegalActionView, PlayerState } from '@brass/domain';
 
 /** Shared fixtures + a fake `GameGateway` for component specs in this lib — every spec that
  * needs a `GameStateService` provides this instead of talking to a real HTTP backend. */
 export class FakeGameGateway implements GameGateway {
   createGame = vi.fn((): Observable<GameView> => of(baseGameView()));
   getGame = vi.fn((): Observable<GameView> => of(baseGameView()));
-  submitAction = vi.fn((): Observable<GameView> => of(baseGameView()));
+  submitAction = vi.fn((): Observable<GameMoveEvent> => of(moveEvent()));
+}
+
+export function moveEvent(overrides: Partial<GameMoveEvent> = {}): GameMoveEvent {
+  return {
+    playerId: 'p1',
+    actionLabel: 'Empréstimo',
+    targets: { locationIds: [], linkSlotIds: [] },
+    view: baseGameView(),
+    ...overrides,
+  };
 }
 
 export function fakeGameGatewayProvider() {

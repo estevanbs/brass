@@ -77,16 +77,19 @@ node dist/apps/api/main.js   # serve a API em /api/* e o build do Angular (clien
 ```
 
 É a mesma partida da CLI, com a mesma lógica de motor por baixo — o backend só expõe
-`legalActions`/`applyAction`/os bots por uma API JSON pequena (`apps/api`, NestJS). Estilo
-Hearthstone: o tabuleiro (mapa cujo layout reproduz o posicionamento real das localidades no
-tabuleiro físico do jogo — ver `docs/ASSUMPTIONS.md` #16) ocupa a tela inteira como fundo, a
-mão fica em cartas na frente, e selecionar uma carta destaca diretamente no mapa os
-locais/links jogáveis — clicar neles abre uma caixa de confirmação mostrando o que a ação vai
-custar (dinheiro, peça, fonte de carvão/ferro/cerveja) antes de executá-la. Cada jogador tem
-seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda) acessível
-por um painel lateral. Não salva/carrega partida nem faz replay (só a CLI faz isso, por
-enquanto) — o estado de cada partida fica em memória no processo do backend e se perde ao
-reiniciá-lo.
+`legalActions`/`applyAction`/os bots (`apps/api`, NestJS). Depois que você joga sua carta, cada
+jogada de bot que segue chega pelo WebSocket (`/ws/games`) **uma de cada vez**, conforme
+acontece — não só o resultado final depois que todos os bots já jogaram — então dá pra
+acompanhar o tabuleiro/mão/registro mudando jogada a jogada em vez de um salto direto pro
+estado final. Estilo Hearthstone: o tabuleiro (mapa cujo layout reproduz o posicionamento real
+das localidades no tabuleiro físico do jogo — ver `docs/ASSUMPTIONS.md` #16) ocupa a tela
+inteira como fundo, a mão fica em cartas na frente, e selecionar uma carta destaca diretamente
+no mapa os locais/links jogáveis — clicar neles abre uma caixa de confirmação mostrando o que a
+ação vai custar (dinheiro, peça, fonte de carvão/ferro/cerveja) antes de executá-la. Cada
+jogador tem seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda,
+mais as já construídas no tabuleiro) sempre visível num painel; o registro de jogadas também.
+Não salva/carrega partida nem faz replay (só a CLI faz isso, por enquanto) — o estado de cada
+partida fica em memória no processo do backend e se perde ao reiniciá-lo.
 
 ## Arquitetura
 
@@ -114,20 +117,30 @@ npx nx run-many -t lint typecheck test build   # os 8 projetos
   `bots/ismcts.ts`) e o harness que os joga uns contra os outros (`bots/harness.ts`), como
   implementações plugáveis do motor — nenhuma conhece HTTP nem Nest.
 - **`libs/backend-application`** — casos de uso, framework-agnósticos: `GameService` (criar
-  partida, aplicar a ação do humano, deixar os bots jogarem até voltar a vez do humano —
-  extração comportamentalmente idêntica do antigo `src/web/server.ts`), `action-cost.ts`
-  (o que uma ação vai custar, para a caixa de confirmação da GUI), `render.ts` (formatação de
-  texto a partir do `GameState`, compartilhada pela CLI e pela API) e `game-log.ts` (salvar
-  uma partida é só `{ seed, playerIds, actions }`, nunca o estado completo — o replay é
-  literalmente `createInitialState(seed)` seguido de reaplicar cada ação do log, o que dobra
-  como uma prova de determinismo do motor inteiro toda vez que roda). `InMemoryGameRepository`
-  também mora aqui, junto ao *port* `GameRepository` que implementa.
-- **`apps/api`** — só a fiação NestJS: `GamesController` (as mesmas 3 rotas de sempre —
-  `POST /api/games`, `GET|POST /api/games/:id[/actions]`), DTOs com `class-validator`, e um
-  filtro de exceção que traduz os erros de `GameService` para os mesmos status code/mensagem
-  de antes. `GameService` é conectado via `useFactory` no módulo — não é decorado com
-  `@Injectable()`, então continua 100% testável fora do Nest (ver
-  `libs/backend-application/tests/unit/game.service.test.ts`).
+  partida, aplicar a ação do humano, deixar os bots jogarem até voltar a vez do humano),
+  `action-cost.ts` (o que uma ação vai custar, para a caixa de confirmação da GUI), `render.ts`
+  (formatação de texto a partir do `GameState`, compartilhada pela CLI e pela API) e
+  `game-log.ts` (salvar uma partida é só `{ seed, playerIds, actions }`, nunca o estado
+  completo — o replay é literalmente `createInitialState(seed)` seguido de reaplicar cada ação
+  do log, o que dobra como uma prova de determinismo do motor inteiro toda vez que roda).
+  `InMemoryGameRepository` também mora aqui, junto ao *port* `GameRepository` que implementa.
+  `GameService.submitHumanAction` aceita um `onMove` opcional, chamado uma vez por jogada
+  (a do humano, depois uma por bot) em vez de só devolver o estado final — é o que permite ao
+  transporte (o gateway WebSocket abaixo) fazer streaming em vez de esperar o lote inteiro.
+- **`apps/api`** — a fiação NestJS. `GamesController` só cuida do que não precisa de streaming
+  — `POST /api/games` (criar partida) e `GET /api/games/:id` (buscar o estado atual, útil pra
+  resincronizar depois de uma queda de conexão). Submeter uma ação é `GamesGateway`, um
+  WebSocket em `/ws/games` (`@nestjs/websockets` + `@nestjs/platform-ws`, sem socket.io — o
+  frontend usa a `WebSocket` nativa do browser): o cliente manda uma mensagem `submitAction`, o
+  servidor devolve um `moveApplied` por jogada aplicada conforme `onMove` dispara, e fecha com
+  `sequenceComplete` (ou um único `error` em caso de falha) — ver `apps/api/src/app/games/
+  ws-events.ts` para o protocolo completo. DTOs com `class-validator` nos dois transportes; um
+  filtro de exceção traduz os erros de `GameService` para os mesmos status code/mensagem de
+  sempre no REST, e o próprio handler do gateway faz o equivalente para o WebSocket.
+  `GameService` é conectado via `useFactory` no módulo — não é decorado com `@Injectable()`,
+  então continua 100% testável fora do Nest (ver
+  `libs/backend-application/tests/unit/game.service.test.ts` e
+  `apps/api/src/app/games/games.gateway.spec.ts`, este último com um cliente `ws` real).
 
 O ponto mais delicado do motor continua sendo a geração de ações legais (`engine/legal/`),
 por causa do fator de ramificação real do jogo: um turno típico oferece de 100 a mais de 600
@@ -175,8 +188,11 @@ da ação escolhida dentre as `legalActions` que a API já calculou.
   Também expõe wrappers injetáveis finos (`CardFormatService`, `IncomeService`, etc.) em cima
   das funções puras de `domain`, para que a UI sempre injete via DI em vez de importar função
   solta.
-- **`infrastructure`** — `HttpGameGateway`, o único adaptador que de fato conhece a API HTTP
-  do backend (`/api/games...`), implementando o port `GameGateway` de `application`.
+- **`infrastructure`** — `HttpGameGateway`, o único adaptador que de fato conhece o transporte
+  do backend, implementando o port `GameGateway` de `application`: `createGame`/`getGame` via
+  REST (`HttpClient`, `/api/games...`), `submitAction` via WebSocket nativa do browser
+  (`/ws/games`) — devolve um `Observable<GameMoveEvent>` que emite um valor por jogada
+  transmitida e completa quando o servidor manda `sequenceComplete`.
 - **`presentation`** — todos os componentes de UI (mapa, mão, tabuleiro pessoal, popups,
   etc.), consumindo só `application`/`domain` — nunca `infrastructure` diretamente.
 - **`apps/web`** — a *composition root*: o único lugar que sabe que `GameGateway` é

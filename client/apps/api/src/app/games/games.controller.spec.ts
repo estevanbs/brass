@@ -64,30 +64,5 @@ describe('GamesController (e2e-ish, via @nestjs/testing + supertest)', () => {
     expect(res.body).toEqual({ error: 'jogo não encontrado' });
   });
 
-  it('POST /games/:id/actions advances the game on a valid index', async () => {
-    const created = await request(app.getHttpServer()).post('/games').send({ playerCount: 2, seed: 3 });
-    const before = created.body as View;
-    const id = before.gameId;
-
-    const res = await request(app.getHttpServer())
-      .post(`/games/${id}/actions`)
-      .send({ index: before.legalActions[0]?.index });
-    expect(res.status).toBe(200);
-    expect((res.body as View).gameId).toBe(id);
-  });
-
-  it('POST /games/:id/actions returns 400 with {"error": "índice de ação inválido"} for a bad index', async () => {
-    const created = await request(app.getHttpServer()).post('/games').send({ playerCount: 2, seed: 4 });
-    const id = (created.body as View).gameId;
-
-    const res = await request(app.getHttpServer()).post(`/games/${id}/actions`).send({ index: 999 });
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: 'índice de ação inválido' });
-  });
-
-  it('POST /games/:id/actions returns 404 with {"error": "jogo não encontrado"} for an unknown id', async () => {
-    const res = await request(app.getHttpServer()).post('/games/does-not-exist/actions').send({ index: 0 });
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'jogo não encontrado' });
-  });
+  // Submitting an action moved to GamesGateway (/ws/games) — see games.gateway.spec.ts.
 });

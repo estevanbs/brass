@@ -1,5 +1,5 @@
 import type { Observable } from 'rxjs';
-import type { GameView, NewGameRequest } from '@brass/domain';
+import type { GameMoveEvent, GameView, NewGameRequest } from '@brass/domain';
 
 /**
  * The port `GameStateService` talks to instead of a concrete HTTP client — an abstract class
@@ -11,5 +11,9 @@ import type { GameView, NewGameRequest } from '@brass/domain';
 export abstract class GameGateway {
   abstract createGame(request: NewGameRequest): Observable<GameView>;
   abstract getGame(gameId: string): Observable<GameView>;
-  abstract submitAction(gameId: string, actionIndex: number): Observable<GameView>;
+  /** Emits one `GameMoveEvent` per move as the backend streams them over `/ws/games` (the
+   * human's own move, then one per bot move) and completes once it's the human's turn again
+   * or the game ends — replacing the old single-response `Observable<GameView>` that only ever
+   * surfaced the final state once every bot had already played. */
+  abstract submitAction(gameId: string, actionIndex: number): Observable<GameMoveEvent>;
 }

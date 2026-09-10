@@ -61,7 +61,8 @@ export interface IndustryTileDef {
 }
 
 /** The full payload the backend sends after creating a game or applying an action
- * (src/web/server.ts#view) — the single source of truth the whole UI renders from. */
+ * (`GameService#view` in `client/libs/backend-application`) — the single source of truth the
+ * whole UI renders from. */
 export interface GameView {
   readonly gameId: string;
   readonly humanId: string;
@@ -75,6 +76,17 @@ export interface GameView {
 export interface NewGameRequest {
   readonly playerCount: number;
   readonly seed?: number;
+}
+
+/** One move applied while a `submitAction` sequence streams over the WebSocket gateway
+ * (`/ws/games`) — the human's own move first, then one per bot move, in the order they
+ * actually happened. `targets` is the same shape `LegalActionView` already carries, so the map
+ * can highlight exactly what this specific move touched without diffing state before/after. */
+export interface GameMoveEvent {
+  readonly playerId: string;
+  readonly actionLabel: string;
+  readonly targets: ActionTargets;
+  readonly view: GameView;
 }
 
 export type { Card };

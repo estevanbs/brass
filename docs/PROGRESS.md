@@ -730,3 +730,51 @@ presentation, web). Smoke test real via Playwright contra `nx serve api` + `nx s
 no mapa, ação de fato submetida pela API — sem erro de console. `nx build web && nx build api`
 seguido de `node dist/apps/api/main.js` também verificado manualmente: serve o SPA em `/` e a
 API em `/api/*` no mesmo processo/porta, exatamente como o antigo `tsx src/web/server.ts`.
+
+## Extra (fora do plano original) — submissão de ação passa a ser um protocolo de eventos via WebSocket
+
+Pedido direto do usuário: `POST /api/games/:id/actions` devolvia só o estado final depois de
+`GameService` rodar o laço inteiro de bots (`advanceBotsUntilHumanOrOver`) internamente — o
+frontend nunca via as jogadas intermediárias, só fingia isso comparando o antes/depois
+(`diffBotMoves`) pra decidir o que "piscar" no mapa. Pedido: um protocolo que emita um evento
+por jogada conforme ela acontece. Antes de implementar, apresentei vantagens/desvantagens de
+WebSocket, WebTransport e gRPC-Web para esse caso específico (um cliente conectado, mensagens
+pequenas e ordenadas, sem necessidade de datagramas não confiáveis nem de múltiplos streams
+paralelos) — o usuário escolheu WebSocket, a recomendação: suporte universal de browser,
+integração de primeira classe com NestJS (`@nestjs/websockets` + `@nestjs/platform-ws`, sem
+socket.io — o frontend usa a `WebSocket` nativa), e nenhuma infraestrutura nova (WebTransport
+exige HTTP/3 e não roda no Safari; gRPC-Web exigiria um pipeline de Protobuf que este projeto,
+100% TypeScript com tipos já compartilhados à mão entre backend e frontend, não precisa).
+
+**Achado durante a investigação, corrigido como parte do trabalho**: `GameService.view()`
+calculava `legalActions(state, HUMAN_ID)` incondicionalmente (só filtrava por `gameOver`) —
+nunca foi um bug porque `view()` só era chamado depois do laço de bots terminar, quando já era
+de fato a vez do humano. Emitir uma view a cada jogada individual — inclusive no meio do laço,
+enquanto um bot ainda é o jogador ativo — teria revelado isso como um bug real: o motor não
+impede `legalActions` de calcular jogadas do humano fora de hora (`legal/index.ts#isApplicable`
+chama as funções de aplicação diretamente, sem passar pelo guard de turno que só `applyAction`
+tem). Corrigido: `view()` só calcula ações de verdade quando é a vez do humano ou o jogo
+terminou; caso contrário, `[]`.
+
+**Protocolo**: `POST /api/games` e `GET /api/games/:id` continuam REST (não streiam nada — o
+humano é sempre o primeiro no `turnOrder`, então não há jogada de bot antes do primeiro turno
+dele). `POST /api/games/:id/actions` foi removido; submeter uma ação virou uma mensagem
+WebSocket em `/ws/games` — `{event: 'submitAction', data: {gameId, index}}` — que recebe de
+volta um `moveApplied` por jogada aplicada (a do humano primeiro, depois uma por bot, na ordem
+real), terminando com `sequenceComplete` ou, em caso de erro, um único `error` com a mesma
+mensagem que a rota REST antiga mandava. `GameService.submitHumanAction` ganhou um `onMove`
+opcional que dispara esse fluxo — sem callback, continua devolvendo só o estado final,
+preservando o uso direto que a CLI/testes já faziam.
+
+**Efeito colateral bom, não pedido mas natural**: `diffBotMoves` (`libs/domain/bot-highlight.ts`)
+— o hack de diffar estado antes/depois pra adivinhar o que um bot mudou — deixou de ser
+necessário. Cada `moveApplied` já carrega os `targets` exatos da jogada (a mesma função que
+alimenta `LegalActionView.targets`), então o "ping" de jogada de bot no mapa agora usa dado
+real por jogada em vez de uma adivinhação agregada no fim do lote. Arquivo e teste removidos.
+
+Verificação: `npx nx run-many -t lint typecheck test build` limpo nos 9 projetos. Novo
+`games.gateway.spec.ts` sobe um `INestApplication` real com `WsAdapter` e conecta um cliente
+`ws` de verdade, confirmando a ordem exata dos eventos e as 3 mensagens de erro. Smoke test real
+via Playwright contra `nx serve api` + `nx serve web` capturando os frames do WebSocket:
+confirmado `moveApplied` (você) → `moveApplied` (bot1) → `sequenceComplete`, com a mensagem de
+status mostrando "Aguardando bots..." durante o streaming e limpando ao final.

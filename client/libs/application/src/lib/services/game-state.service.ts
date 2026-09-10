@@ -1,11 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { BotHighlight, GameState, GameView, LegalActionView, PopupPosition } from '@brass/domain';
-import { diffBotMoves } from '@brass/domain';
+import type { ActionTargets, GameView, LegalActionView, PopupPosition } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
 
 /** How long a bot-move ping stays on the map before auto-clearing — long enough to notice,
- * short enough not to still be running when the next action resolves in a fast game. */
+ * short enough not to still be running when the next move streams in in a fast game. */
 const BOT_HIGHLIGHT_DURATION_MS = 1800;
 
 export interface PopupState {
@@ -33,7 +32,7 @@ export class GameStateService {
   private readonly _selectedMatPlayer = signal<string | null>(null);
   private readonly _statusMessage = signal('');
   private readonly _popup = signal<PopupState | null>(null);
-  private readonly _botHighlight = signal<BotHighlight | null>(null);
+  private readonly _botHighlight = signal<ActionTargets | null>(null);
   private botHighlightTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly view = this._view.asReadonly();
@@ -42,9 +41,10 @@ export class GameStateService {
   readonly scoutPicks = this._scoutPicks.asReadonly();
   readonly statusMessage = this._statusMessage.asReadonly();
   readonly popup = this._popup.asReadonly();
-  /** Board locations/links a bot changed since the human's last submitted action — see
-   * `diffBotMoves` for why a state diff, not structured data from the server, is the source.
-   * Drives a one-shot "ping" animation on the map; auto-clears after `BOT_HIGHLIGHT_DURATION_MS`. */
+  /** Board locations/links a bot's move just touched, straight from that move's own
+   * `GameMoveEvent.targets` (`GameGateway#submitAction` streams one such event per move) —
+   * drives a one-shot "ping" animation on the map; auto-clears after
+   * `BOT_HIGHLIGHT_DURATION_MS`, and restarts if another bot move streams in before that. */
   readonly botHighlight = this._botHighlight.asReadonly();
 
   readonly selectedMatPlayer = computed(() => this._selectedMatPlayer() ?? this.view()?.humanId ?? null);
@@ -80,31 +80,31 @@ export class GameStateService {
     }
   }
 
-  async submitAction(index: number): Promise<void> {
+  /** Streams the human's move and every bot move that follows it (`GameGateway#submitAction`)
+   * — applies each one's view as it arrives, so the board/log/hand update move by move instead
+   * of jumping straight to the final state once every bot has played. */
+  submitAction(index: number): void {
     const view = this._view();
     if (view === null) return;
-    const submittedAction = view.legalActions.find((a) => a.index === index);
-    const before = view.state;
+    const humanId = view.humanId;
     this._statusMessage.set('Aguardando bots...');
     this.closePopup();
-    try {
-      const updated = await firstValueFrom(this.gateway.submitAction(view.gameId, index));
-      this.applyView(updated);
-      if (submittedAction !== undefined) this.triggerBotHighlight(before, updated.state, submittedAction.targets);
-      this._statusMessage.set('');
-    } catch (err) {
-      this._statusMessage.set(`Erro: ${errorMessage(err)}`);
-    }
+    this.gateway.submitAction(view.gameId, index).subscribe({
+      next: (event) => {
+        this.applyView(event.view);
+        if (event.playerId !== humanId) this.triggerBotHighlight(event.targets);
+      },
+      error: (err: unknown) => this._statusMessage.set(`Erro: ${errorMessage(err)}`),
+      complete: () => this._statusMessage.set(''),
+    });
   }
 
-  /** One request can silently resolve several bot turns before it's the human's turn again
-   * (`src/web/server.ts#advanceBotsUntilHumanOrOver`) — diff the board to find what changed
-   * that the human's own action didn't, and ping it on the map for a moment. */
-  private triggerBotHighlight(before: GameState, after: GameState, humanTargets: LegalActionView['targets']): void {
-    const highlight = diffBotMoves(before, after, humanTargets);
-    if (highlight.locationIds.length === 0 && highlight.linkSlotIds.length === 0) return;
+  /** Pings whatever a single bot move just touched on the map — restarts the timer if another
+   * move streams in before the previous ping finished fading. */
+  private triggerBotHighlight(targets: ActionTargets): void {
+    if (targets.locationIds.length === 0 && targets.linkSlotIds.length === 0) return;
     clearTimeout(this.botHighlightTimer);
-    this._botHighlight.set(highlight);
+    this._botHighlight.set(targets);
     this.botHighlightTimer = setTimeout(() => this._botHighlight.set(null), BOT_HIGHLIGHT_DURATION_MS);
   }
 
@@ -147,7 +147,7 @@ export class GameStateService {
     this._scoutPicks.set(nextPicks);
     if (nextPicks.length === 2) {
       const match = this.filteredActions()[0];
-      if (match !== undefined) void this.submitAction(match.index);
+      if (match !== undefined) this.submitAction(match.index);
     }
   }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryGameRepository } from '../../src/lib/game.model.js';
-import { GameService } from '../../src/lib/game.service.js';
+import { GameService, type MoveEvent } from '../../src/lib/game.service.js';
 import { GameAlreadyOverError, GameNotFoundError, InvalidActionIndexError } from '../../src/lib/game.errors.js';
 
 interface View {
@@ -65,6 +65,41 @@ describe('GameService', () => {
     const { service } = makeService();
     const { id } = service.createGame(2, 1);
     expect(() => service.submitHumanAction(id, undefined)).toThrow(InvalidActionIndexError);
+  });
+
+  it('submitHumanAction calls onMove once per move, in order, ending with the same view it returns', () => {
+    const { service } = makeService();
+    const { id, view } = service.createGame(2, 7);
+    const before = view as View;
+
+    const events: MoveEvent[] = [];
+    const returned = service.submitHumanAction(id, before.legalActions[0]?.index, (event) => events.push(event)) as View;
+
+    expect(events.length).toBeGreaterThan(0);
+    // The human's own move is always the first event.
+    expect(events[0]?.playerId).toBe('você');
+
+    // Every event but the last happens while it's still not the human's turn and the game
+    // hasn't ended (that's exactly why the loop kept going past it).
+    for (const event of events.slice(0, -1)) {
+      const v = event.view as View;
+      expect(v.legalActions.length).toBe(0);
+      expect(v.state.gameOver).toBe(false);
+    }
+
+    const lastEventView = events[events.length - 1]?.view as View;
+    expect(lastEventView.gameId).toBe(id);
+    expect(lastEventView.legalActions.length > 0 || lastEventView.state.gameOver).toBe(true);
+    // The last streamed view is exactly the final view submitHumanAction returns.
+    expect(lastEventView).toEqual(returned);
+  });
+
+  it('submitHumanAction works the same with no onMove callback at all', () => {
+    const { service } = makeService();
+    const { id, view } = service.createGame(2, 7);
+    const before = view as View;
+    const returned = service.submitHumanAction(id, before.legalActions[0]?.index) as View;
+    expect(returned.gameId).toBe(id);
   });
 
   it('submitHumanAction throws GameAlreadyOverError once the game has ended', () => {

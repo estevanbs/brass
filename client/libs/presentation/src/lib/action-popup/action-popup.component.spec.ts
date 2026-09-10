@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { GameGateway, GameStateService } from '@brass/application';
-import { baseGameView, FakeGameGateway, fakeGameGatewayProvider, legalAction } from '../testing/fake-game-gateway';
+import { baseGameView, FakeGameGateway, fakeGameGatewayProvider, legalAction, moveEvent } from '../testing/fake-game-gateway';
 import { ActionPopupComponent } from './action-popup.component';
 
 describe('ActionPopupComponent', () => {
@@ -34,12 +34,11 @@ describe('ActionPopupComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.map-popup-title').textContent).toBe('construir');
 
-    const nextView = baseGameView({ gameId: 'after-choice' });
-    gateway.submitAction.mockReturnValueOnce(of(nextView));
+    gateway.submitAction.mockReturnValueOnce(of(moveEvent({ view: baseGameView({ gameId: 'after-choice' }) })));
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('.map-popup button')) as HTMLButtonElement[];
     buttons.find((b) => b.textContent === 'construir carvão')!.click();
 
-    await vi.waitFor(() => expect(gameState.view()?.gameId).toBe('after-choice'));
+    expect(gameState.view()?.gameId).toBe('after-choice');
   });
 
   it('closes the popup when "cancelar" is clicked, without submitting anything', async () => {

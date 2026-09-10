@@ -1,17 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GameState, GameView, LegalActionView, NewGameRequest } from '@brass/domain';
+import type { GameMoveEvent, GameView, LegalActionView, NewGameRequest } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
 import { GameStateService } from './game-state.service';
-
-function builtTile(): NonNullable<GameState['locations'][string]['slots'][number]['tile']> {
-  return { owner: 'p2', industry: 'coal', level: 1, flipped: false, resourceRemaining: 2 };
-}
-
-function locations(id: string, tile: ReturnType<typeof builtTile> | null): GameState['locations'] {
-  return { [id]: { id, kind: 'industrial', slots: [{ allowedIndustries: ['coal'], tile }] } };
-}
 
 function legalAction(overrides: Partial<LegalActionView> = {}): LegalActionView {
   return {
@@ -53,10 +45,20 @@ function gameView(overrides: Partial<GameView> = {}): GameView {
   };
 }
 
+function moveEvent(overrides: Partial<GameMoveEvent> = {}): GameMoveEvent {
+  return {
+    playerId: 'p1',
+    actionLabel: 'Empréstimo',
+    targets: { locationIds: [], linkSlotIds: [] },
+    view: gameView(),
+    ...overrides,
+  };
+}
+
 class FakeGameGateway implements GameGateway {
   createGame = vi.fn((_request: NewGameRequest) => of(gameView()));
   getGame = vi.fn((_gameId: string) => of(gameView()));
-  submitAction = vi.fn((_gameId: string, _actionIndex: number) => of(gameView()));
+  submitAction = vi.fn((_gameId: string, _actionIndex: number) => of(moveEvent()));
 }
 
 describe('GameStateService', () => {
@@ -122,24 +124,37 @@ describe('GameStateService', () => {
     expect(service.filteredActions()).toEqual([loan]);
   });
 
-  it('submitAction replaces the view and resets selection', async () => {
+  it('submitAction streams the human move then a bot move, ending on the last view, and resets selection', async () => {
     const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
     gateway.createGame.mockReturnValueOnce(of(gameView({ legalActions: [loan] })));
     await service.newGame(2, undefined);
     service.selectCard('industry:coal');
 
-    const nextView = gameView({ gameId: 'game-2' });
-    gateway.submitAction.mockReturnValueOnce(of(nextView));
-    await service.submitAction(0);
+    gateway.submitAction.mockReturnValueOnce(
+      of(
+        moveEvent({ playerId: 'p1', view: gameView({ gameId: 'game-1' }) }),
+        moveEvent({ playerId: 'bot1', view: gameView({ gameId: 'game-2' }) }),
+      ),
+    );
+    service.submitAction(0);
 
     expect(gateway.submitAction).toHaveBeenCalledWith('game-1', 0);
     expect(service.view()?.gameId).toBe('game-2');
     expect(service.selectedCard()).toBeNull();
+    expect(service.statusMessage()).toBe('');
   });
 
-  it('submitAction is a no-op when there is no active game', async () => {
-    await service.submitAction(0);
+  it('submitAction is a no-op when there is no active game', () => {
+    service.submitAction(0);
     expect(gateway.submitAction).not.toHaveBeenCalled();
+  });
+
+  it('submitAction surfaces a gateway error as a status message', async () => {
+    gateway.createGame.mockReturnValueOnce(of(gameView()));
+    await service.newGame(2, undefined);
+    gateway.submitAction.mockReturnValueOnce(throwError(() => new Error('jogo não encontrado')));
+    service.submitAction(0);
+    expect(service.statusMessage()).toBe('Erro: jogo não encontrado');
   });
 
   describe('scout mode', () => {
@@ -175,12 +190,11 @@ describe('GameStateService', () => {
       expect(service.isScoutPick('industry:iron')).toBe(true);
       expect(gateway.submitAction).not.toHaveBeenCalled();
 
-      const nextView = gameView({ gameId: 'after-scout' });
-      gateway.submitAction.mockReturnValueOnce(of(nextView));
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ view: gameView({ gameId: 'after-scout' }) })));
       service.selectCard('industry:cotton'); // pick 2 -> auto-submit
 
-      await vi.waitFor(() => expect(gateway.submitAction).toHaveBeenCalledWith('game-1', 5));
-      await vi.waitFor(() => expect(service.view()?.gameId).toBe('after-scout'));
+      expect(gateway.submitAction).toHaveBeenCalledWith('game-1', 5);
+      expect(service.view()?.gameId).toBe('after-scout');
     });
 
     it('does not let the base card be re-picked as one of its own scout discards', async () => {
@@ -234,45 +248,35 @@ describe('GameStateService', () => {
       expect(service.botHighlight()).toBeNull();
     });
 
-    it('flags a location a bot changed that the human action did not target itself', async () => {
-      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'], targets: { locationIds: [], linkSlotIds: [] } });
-      gateway.createGame.mockReturnValueOnce(
-        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
-      );
+    it('pings the targets of a bot move event, straight from that event — not the diff of some before/after state', async () => {
       await service.newGame(2, undefined);
 
-      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
-      gateway.submitAction.mockReturnValueOnce(of(nextView));
-      await service.submitAction(0);
+      gateway.submitAction.mockReturnValueOnce(
+        of(
+          moveEvent({ playerId: 'p1', targets: { locationIds: ['walsall'], linkSlotIds: [] } }),
+          moveEvent({ playerId: 'bot1', targets: { locationIds: ['dudley'], linkSlotIds: [] } }),
+        ),
+      );
+      service.submitAction(0);
 
       expect(service.botHighlight()).toEqual({ locationIds: ['dudley'], linkSlotIds: [] });
     });
 
-    it('excludes the location the human action itself targeted', async () => {
-      const build = legalAction({ index: 0, cardKeys: ['industry:coal'], targets: { locationIds: ['dudley'], linkSlotIds: [] } });
-      gateway.createGame.mockReturnValueOnce(
-        of(gameView({ legalActions: [build], state: { ...gameView().state, locations: locations('dudley', null) } })),
-      );
+    it('never highlights the human player\'s own move event', async () => {
       await service.newGame(2, undefined);
 
-      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
-      gateway.submitAction.mockReturnValueOnce(of(nextView));
-      await service.submitAction(0);
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'p1', targets: { locationIds: ['dudley'], linkSlotIds: [] } })));
+      service.submitAction(0);
 
       expect(service.botHighlight()).toBeNull();
     });
 
     it('auto-clears after its display duration', async () => {
       vi.useFakeTimers();
-      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
-      gateway.createGame.mockReturnValueOnce(
-        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
-      );
       await service.newGame(2, undefined);
 
-      const nextView = gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } });
-      gateway.submitAction.mockReturnValueOnce(of(nextView));
-      await service.submitAction(0);
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', targets: { locationIds: ['dudley'], linkSlotIds: [] } })));
+      service.submitAction(0);
       expect(service.botHighlight()).not.toBeNull();
 
       vi.advanceTimersByTime(1799);
@@ -281,21 +285,15 @@ describe('GameStateService', () => {
       expect(service.botHighlight()).toBeNull();
     });
 
-    it('does not carry a stale highlight into a new action whose own diff found nothing to report', async () => {
-      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
-      gateway.createGame.mockReturnValueOnce(
-        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', null) } })),
-      );
+    it('does not carry a stale highlight into a new action with no bot move of its own', async () => {
       await service.newGame(2, undefined);
 
-      gateway.submitAction.mockReturnValueOnce(
-        of(gameView({ legalActions: [loan], state: { ...gameView().state, locations: locations('dudley', builtTile()) } })),
-      );
-      await service.submitAction(0);
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'bot1', targets: { locationIds: ['dudley'], linkSlotIds: [] } })));
+      service.submitAction(0);
       expect(service.botHighlight()).not.toBeNull();
 
-      gateway.submitAction.mockReturnValueOnce(of(gameView({ state: { ...gameView().state, locations: locations('dudley', builtTile()) } })));
-      await service.submitAction(0);
+      gateway.submitAction.mockReturnValueOnce(of(moveEvent({ playerId: 'p1' })));
+      service.submitAction(0);
       expect(service.botHighlight()).toBeNull();
     });
   });

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameGateway } from '@brass/application';
-import type { GameView } from '@brass/domain';
+import type { GameMoveEvent, GameView } from '@brass/domain';
 import { App } from './app';
 
 function emptyGameView(): GameView {
@@ -32,10 +32,14 @@ function emptyGameView(): GameView {
   };
 }
 
+function emptyMoveEvent(): GameMoveEvent {
+  return { playerId: 'p1', actionLabel: '', targets: { locationIds: [], linkSlotIds: [] }, view: emptyGameView() };
+}
+
 class FakeGameGateway implements GameGateway {
   createGame = vi.fn(() => of(emptyGameView()));
   getGame = vi.fn(() => of(emptyGameView()));
-  submitAction = vi.fn(() => of(emptyGameView()));
+  submitAction = vi.fn(() => of(emptyMoveEvent()));
 }
 
 describe('App', () => {
