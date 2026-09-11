@@ -14,9 +14,10 @@ function defaultWebSocketFactory(): WebSocket {
  * (`RoomGameGateway`'s `submitAction`/`watchMoves`, built on this same connection). `events$`
  * is a multicast `Subject`, not a fresh `Observable` per call, specifically so several
  * independent subscribers (the lobby's own state, a live in-game move feed, a single
- * in-flight `submitAction` call) can all listen to the same incoming messages at once — a
- * `HttpGameGateway`-style "open a fresh socket per call" wouldn't work here, since a room's
- * moves can arrive with no call of this client's own in flight to correlate them to.
+ * in-flight `submitAction` call) can all listen to the same incoming messages at once —
+ * opening a fresh socket per call (as the offline-server adapter this replaced once did)
+ * wouldn't work here, since a room's moves can arrive with no call of this client's own in
+ * flight to correlate them to.
  */
 export class RoomConnection {
   private readonly ws: WebSocket;

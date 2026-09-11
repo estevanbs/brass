@@ -1,18 +1,17 @@
 import { Routes } from '@angular/router';
 import { GameGateway, RoomGateway, RoomLobbyService } from '@brass/application';
 import { InProcessGameGateway, LazyRoomGameGateway, RoomConnection, WsRoomGateway } from '@brass/infrastructure';
-import { GameShellComponent, OnlinePlayComponent } from '@brass/presentation';
+import { GameShellComponent, HomeComponent, OnlinePlayComponent } from '@brass/presentation';
 
 /**
  * `/offline` and `/online` both reuse `GameShellComponent` completely unchanged (`/online`
  * indirectly, inside `OnlinePlayComponent`) — the only thing that differs per route is which
  * `GameGateway` is bound for that route's injector (`GameGateway` has no app-wide default
  * anymore — see `app.config.ts` — every route that renders `GameShellComponent` must supply
- * its own). `''` redirects to `/offline` for now; once a real mode-select home page exists
- * (offline vs. online) it will take over `''` and this redirect goes away.
+ * its own).
  */
 export const routes: Routes = [
-  { path: '', redirectTo: 'offline', pathMatch: 'full' },
+  { path: '', component: HomeComponent },
   { path: 'offline', component: GameShellComponent, providers: [{ provide: GameGateway, useFactory: () => new InProcessGameGateway() }] },
   {
     path: 'online',

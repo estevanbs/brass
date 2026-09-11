@@ -10,3 +10,4 @@ export * from './lib/hand/hand.component';
 export * from './lib/hand/hand-card.component';
 export * from './lib/game-over/game-over.component';
 export * from './lib/online-play/online-play.component';
+export * from './lib/home/home.component';

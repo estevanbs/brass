@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameGateway, RoomGateway, RoomLobbyService } from '@brass/application';
 import { RoomConnection } from '@brass/infrastructure';
-import { GameShellComponent, OnlinePlayComponent } from '@brass/presentation';
+import { GameShellComponent, HomeComponent, OnlinePlayComponent } from '@brass/presentation';
 import { routes } from './app.routes';
 
 function findProvider(providers: unknown[] | undefined, token: unknown): { provide: unknown; useFactory?: unknown } | undefined {
@@ -17,10 +17,9 @@ function findProvider(providers: unknown[] | undefined, token: unknown): { provi
  * jsdom has neither a Worker nor a real network — this test only guards the wiring that
  * determines *which* concrete adapters each route gets. */
 describe('app routes', () => {
-  it('"" redirects to "offline"', () => {
+  it('"" renders HomeComponent', () => {
     const root = routes.find((r) => r.path === '');
-    expect(root?.redirectTo).toBe('offline');
-    expect(root?.pathMatch).toBe('full');
+    expect(root?.component).toBe(HomeComponent);
   });
 
   it('"offline" renders GameShellComponent with an InProcessGameGateway factory', () => {

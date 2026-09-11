@@ -7,6 +7,7 @@ import { GameGateway } from '@brass/application';
 import type { GameMoveEvent, GameView } from '@brass/domain';
 import { GameShellComponent } from '@brass/presentation';
 import { App } from './app';
+import { routes } from './app.routes';
 
 function emptyGameView(): GameView {
   return {
@@ -52,6 +53,14 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
+  });
+
+  it('"" renders the real home page (safe to navigate for real: no Worker/WebSocket involved)', async () => {
+    await TestBed.configureTestingModule({ providers: [provideRouter(routes)] }).compileComponents();
+    const harness = await RouterTestingHarness.create('/');
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Jogar offline');
+    expect(compiled.textContent).toContain('Jogar online');
   });
 
   it('GameShellComponent renders the "new game" setup form before any game exists', async () => {
