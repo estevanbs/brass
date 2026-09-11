@@ -12,6 +12,10 @@ export type ServerToClientEvent =
   | { readonly type: 'sequenceComplete' }
   | { readonly type: 'error'; readonly message: string };
 
-export function moveAppliedEvent(event: MoveEvent): ServerToClientEvent {
-  return { type: 'moveApplied', playerId: event.playerId, actionLabel: event.actionLabel, targets: event.targets, view: event.view };
+/** `view` is the recipient's own (redacted) view as of right after this move — `MoveEvent`
+ * itself carries no view because different recipients need different views of the same move
+ * (a room's `RoomsGateway` will call `GameService#getView` once per connected socket instead
+ * of once here); this single-viewer gateway just does that once, immediately. */
+export function moveAppliedEvent(event: MoveEvent, view: unknown): ServerToClientEvent {
+  return { type: 'moveApplied', playerId: event.playerId, actionLabel: event.actionLabel, targets: event.targets, view };
 }

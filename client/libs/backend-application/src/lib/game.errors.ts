@@ -18,3 +18,15 @@ export class InvalidActionIndexError extends Error {
     this.name = 'InvalidActionIndexError';
   }
 }
+
+/** `legalActions(state, playerId)` reflects what's in `playerId`'s hand regardless of whose
+ * turn it actually is (see `GameService#view`'s own comment on the same gap) — so a
+ * wrong-turn submission does get rejected, just as a raw `applyAction` "it is not X's turn"
+ * error deep inside `submitHumanAction`, not this purpose-built one, *unless* the caller (a
+ * multi-human room) checks first and throws this instead for a clearer message. */
+export class NotYourTurnError extends Error {
+  constructor() {
+    super('não é a sua vez');
+    this.name = 'NotYourTurnError';
+  }
+}

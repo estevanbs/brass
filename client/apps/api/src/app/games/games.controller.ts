@@ -1,6 +1,13 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import type { GameSeat } from '@brass/backend-application';
 import { GameService } from '@brass/backend-application';
 import { CreateGameDto } from './dto/create-game.dto.js';
+
+/** This single-viewer "vs bots via the server" route predates seat-aware `GameService` and
+ * will be replaced by `RoomsGateway` once online rooms exist (a room with one human seat and
+ * the rest filled with bots covers this exact case). Until then it keeps its old fixed-human
+ * shape by always seating itself as `'você'`. */
+const HUMAN_ID = 'você';
 
 /**
  * Game lifecycle endpoints that stay plain request/response — creating a game (no bot moves
@@ -17,13 +24,18 @@ export class GamesController {
   @Post()
   @HttpCode(HttpStatus.OK)
   createGame(@Body() body: CreateGameDto): unknown {
-    const playerCount = body.playerCount ?? 2;
+    const count = Math.max(2, Math.min(4, body.playerCount ?? 2));
     const seed = body.seed ?? Date.now() % 1_000_000;
-    return this.gameService.createGame(playerCount, seed).view;
+    const seats: GameSeat[] = [
+      { playerId: HUMAN_ID, isBot: false },
+      ...Array.from({ length: count - 1 }, (_, i) => ({ playerId: `bot${i + 1}`, isBot: true })),
+    ];
+    const { id } = this.gameService.createGame(seats, seed);
+    return this.gameService.getView(id, HUMAN_ID);
   }
 
   @Get(':id')
   getGame(@Param('id') id: string): unknown {
-    return this.gameService.getView(id);
+    return this.gameService.getView(id, HUMAN_ID);
   }
 }

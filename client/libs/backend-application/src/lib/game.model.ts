@@ -1,9 +1,14 @@
 import type { GameState, PlayerId, Rng } from '@brass/backend-domain';
 import type { Bot } from '@brass/backend-infrastructure';
 
+export interface GameSeat {
+  readonly playerId: PlayerId;
+  readonly isBot: boolean;
+}
+
 export interface Game {
   state: GameState;
-  readonly playerIds: readonly PlayerId[];
+  readonly seats: readonly GameSeat[];
   readonly bot: Bot;
   readonly botRng: Rng;
   log: string[];

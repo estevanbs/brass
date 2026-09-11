@@ -4,6 +4,10 @@ import { GameService } from '@brass/backend-application';
 import { SubmitActionMessageDto } from './dto/submit-action-message.dto.js';
 import { moveAppliedEvent, type ServerToClientEvent } from './ws-events.js';
 
+/** See the matching constant in `games.controller.ts` — this gateway and that controller
+ * together implement one single-human-seat "game" and must agree on its id. */
+const HUMAN_ID = 'você';
+
 /**
  * Replaces `POST /api/games/:id/actions`: instead of running every bot turn synchronously and
  * returning only the final state, this streams one `moveApplied` message per move as
@@ -19,8 +23,9 @@ export class GamesGateway {
   submitAction(@MessageBody() body: SubmitActionMessageDto): Observable<ServerToClientEvent> {
     return new Observable<ServerToClientEvent>((subscriber) => {
       try {
-        this.gameService.submitHumanAction(body.gameId, body.index, (event) => {
-          subscriber.next(moveAppliedEvent(event));
+        this.gameService.submitHumanAction(body.gameId, HUMAN_ID, body.index, (event) => {
+          const view = this.gameService.getView(body.gameId, HUMAN_ID);
+          subscriber.next(moveAppliedEvent(event, view));
         });
         subscriber.next({ type: 'sequenceComplete' });
       } catch (err) {

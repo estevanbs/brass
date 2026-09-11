@@ -53,7 +53,14 @@ describe('GamesGateway (e2e-ish, via a real ws client)', () => {
 
   function createGameDirectly(): { id: string; index: number } {
     const gameService = app.get(GameService);
-    const { id, view } = gameService.createGame(2, 1);
+    const { id } = gameService.createGame(
+      [
+        { playerId: 'você', isBot: false },
+        { playerId: 'bot1', isBot: true },
+      ],
+      1,
+    );
+    const view = gameService.getView(id, 'você');
     const legalActions = (view as View).legalActions;
     const index = legalActions[0]?.index;
     if (index === undefined) throw new Error('unreachable: fresh game has no legal actions');
