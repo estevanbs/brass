@@ -22,7 +22,7 @@ npm install
 
 ```sh
 cd client
-npx nx run-many -t lint typecheck test build   # tudo — os 8 projetos do workspace
+npx nx run-many -t lint typecheck test build   # tudo — os 9 projetos do workspace
 npx nx test backend-domain                      # só as regras do motor
 npx nx test backend-infrastructure              # só os bots (é o alvo lento, ver abaixo)
 ```
@@ -60,36 +60,51 @@ no mesmo estado final (ver `libs/backend-application/tests/unit/render-and-game-
 ### GUI web (opcional, mais amigável que a CLI)
 
 Em desenvolvimento, backend e frontend rodam como dois processos separados (dois apps Nx), com
-o Angular fazendo proxy de `/api/*` para o Nest:
+o Angular fazendo proxy de `/api/*` e `/ws/*` para o Nest:
 
 ```sh
 cd client
 npx nx serve api    # NestJS em http://localhost:3000/api
-npx nx serve web    # Angular em http://localhost:4200 (proxy.conf.json encaminha /api para :3000)
+npx nx serve web    # Angular em http://localhost:4200 (proxy.conf.json encaminha /api e /ws para :3000)
 ```
 
-Abra `http://localhost:4200`. Para rodar como um único processo/origem (mais perto de produção
-— era assim que o antigo servidor `node:http` funcionava):
+Abra `http://localhost:4200` — a página inicial deixa escolher entre **offline** e **online**.
+Para rodar como um único processo/origem (mais perto de produção):
 
 ```sh
 npx nx build web && npx nx build api
-node dist/apps/api/main.js   # serve a API em /api/* e o build do Angular (client/../public) em /
+node dist/apps/api/main.js   # serve a API/rooms em /ws/rooms e o build do Angular (client/../public) em /
 ```
 
-É a mesma partida da CLI, com a mesma lógica de motor por baixo — o backend só expõe
-`legalActions`/`applyAction`/os bots (`apps/api`, NestJS). Depois que você joga sua carta, cada
-jogada de bot que segue chega pelo WebSocket (`/ws/games`) **uma de cada vez**, conforme
-acontece — não só o resultado final depois que todos os bots já jogaram — então dá pra
-acompanhar o tabuleiro/mão/registro mudando jogada a jogada em vez de um salto direto pro
-estado final. Estilo Hearthstone: o tabuleiro (mapa cujo layout reproduz o posicionamento real
-das localidades no tabuleiro físico do jogo — ver `docs/ASSUMPTIONS.md` #16) ocupa a tela
-inteira como fundo, a mão fica em cartas na frente, e selecionar uma carta destaca diretamente
-no mapa os locais/links jogáveis — clicar neles abre uma caixa de confirmação mostrando o que a
-ação vai custar (dinheiro, peça, fonte de carvão/ferro/cerveja) antes de executá-la. Cada
-jogador tem seu próprio "tabuleiro pessoal" (estoque de peças de indústria por custo/VP/renda,
-mais as já construídas no tabuleiro) sempre visível num painel; o registro de jogadas também.
-Não salva/carrega partida nem faz replay (só a CLI faz isso, por enquanto) — o estado de cada
-partida fica em memória no processo do backend e se perde ao reiniciá-lo.
+Nos dois modos, é a mesma partida da CLI, com a mesma lógica de motor por baixo — nenhuma
+regra de jogo é reimplementada em lugar nenhum, só *exibida*.
+
+- **Offline (`/offline`)** — o motor inteiro (`backend-domain`/`backend-infrastructure`/
+  `backend-application`) roda dentro de um **Web Worker no próprio navegador**
+  (`libs/infrastructure/src/lib/offline/`), sem nenhuma conexão de rede — você contra bots,
+  igual à CLI, só que com a GUI. Um **service worker** (`@angular/service-worker`, PWA) cacheia
+  a aplicação inteira no primeiro carregamento, então depois disso o modo offline funciona de
+  verdade sem internet (inclusive instalável como app, via o `manifest.webmanifest`).
+- **Online (`/online`)** — multiplayer de verdade entre pessoas, exige conexão com o backend.
+  Um jogador cria uma sala (`RoomsGateway`, WebSocket em `/ws/rooms`) e recebe um código curto
+  pra compartilhar; outros entram digitando esse código; o host pode adicionar bots nas vagas
+  vazias só ao clicar em "iniciar partida" (vagas sem humano nesse momento viram bot). Cada
+  assento tem um token privado (guardado no navegador) que permite reconectar no mesmo lugar
+  depois de uma queda de conexão ou um refresh da página. A mão de cada jogador e o baralho de
+  compra são redigidos na view que cada um recebe — ninguém vê a mão alheia.
+
+Em ambos os modos: o tabuleiro/mão/registro atualizam jogada a jogada conforme cada uma
+acontece (a sua, a de um bot, ou — só no modo online — a de outro jogador real), não só o
+resultado final depois que tudo já rodou. Estilo Hearthstone: o tabuleiro (mapa cujo layout
+reproduz o posicionamento real das localidades no tabuleiro físico do jogo — ver
+`docs/ASSUMPTIONS.md` #16) ocupa a tela inteira como fundo, a mão fica em cartas na frente, e
+selecionar uma carta destaca diretamente no mapa os locais/links jogáveis — clicar neles abre
+uma caixa de confirmação mostrando o que a ação vai custar (dinheiro, peça, fonte de
+carvão/ferro/cerveja) antes de executá-la. Cada jogador tem seu próprio "tabuleiro pessoal"
+(estoque de peças de indústria por custo/VP/renda, mais as já construídas no tabuleiro) sempre
+visível num painel; o registro de jogadas também. Não salva/carrega partida nem faz replay (só
+a CLI faz isso) — partidas e salas ficam em memória no processo do backend (modo online) ou na
+aba do navegador (modo offline) e se perdem ao reiniciar/fechar.
 
 ## Arquitetura
 
@@ -99,7 +114,7 @@ com seu próprio `lint`/`typecheck`/`test`/`build`:
 
 ```sh
 cd client
-npx nx run-many -t lint typecheck test build   # os 8 projetos
+npx nx run-many -t lint typecheck test build   # os 9 projetos
 ```
 
 **Backend — clean architecture em três camadas, sem nenhuma delas conhecer NestJS:**
@@ -116,31 +131,45 @@ npx nx run-many -t lint typecheck test build   # os 8 projetos
 - **`libs/backend-infrastructure`** — os três bots (`bots/random.ts`, `bots/heuristic.ts`,
   `bots/ismcts.ts`) e o harness que os joga uns contra os outros (`bots/harness.ts`), como
   implementações plugáveis do motor — nenhuma conhece HTTP nem Nest.
-- **`libs/backend-application`** — casos de uso, framework-agnósticos: `GameService` (criar
-  partida, aplicar a ação do humano, deixar os bots jogarem até voltar a vez do humano),
-  `action-cost.ts` (o que uma ação vai custar, para a caixa de confirmação da GUI), `render.ts`
-  (formatação de texto a partir do `GameState`, compartilhada pela CLI e pela API) e
-  `game-log.ts` (salvar uma partida é só `{ seed, playerIds, actions }`, nunca o estado
+- **`libs/backend-application`** — casos de uso, framework-agnósticos. `GameService` cria uma
+  partida a partir de uma lista de **assentos** (`{ playerId, isBot }[]` — quem chama decide
+  quantos humanos e quantos bots, em vez do serviço assumir "um humano fixo + bots"), aplica a
+  ação de um assento e deixa os bots jogarem até a vez voltar pra um assento humano;
+  `getView(gameId, viewerId)` devolve, pra cada assento, uma cópia **redigida** do estado — a
+  mão de qualquer outro assento e o baralho de compra saem como `[]` — nunca o estado interno
+  real, só o payload de saída (é o que torna seguro várias pessoas reais jogando a mesma
+  partida, no modo online abaixo). `RoomService` faz o mesmo tipo de papel pra uma **sala**:
+  criar (gera código + token do host), entrar (novo assento + token), reconectar (token →
+  assento), iniciar (só o host, preenche vagas vazias com bot e chama `GameService.createGame`
+  com a lista final de assentos) — nunca reimplementa regra de jogo, só decide quem pode agir
+  em qual assento. `action-cost.ts` (o que uma ação vai custar, pra caixa de confirmação da
+  GUI), `render.ts` (formatação de texto a partir do `GameState`, compartilhada pela CLI e pela
+  API) e `replay.ts` (salvar uma partida é só `{ seed, playerIds, actions }`, nunca o estado
   completo — o replay é literalmente `createInitialState(seed)` seguido de reaplicar cada ação
-  do log, o que dobra como uma prova de determinismo do motor inteiro toda vez que roda).
-  `InMemoryGameRepository` também mora aqui, junto ao *port* `GameRepository` que implementa.
-  `GameService.submitHumanAction` aceita um `onMove` opcional, chamado uma vez por jogada
-  (a do humano, depois uma por bot) em vez de só devolver o estado final — é o que permite ao
-  transporte (o gateway WebSocket abaixo) fazer streaming em vez de esperar o lote inteiro.
-- **`apps/api`** — a fiação NestJS. `GamesController` só cuida do que não precisa de streaming
-  — `POST /api/games` (criar partida) e `GET /api/games/:id` (buscar o estado atual, útil pra
-  resincronizar depois de uma queda de conexão). Submeter uma ação é `GamesGateway`, um
-  WebSocket em `/ws/games` (`@nestjs/websockets` + `@nestjs/platform-ws`, sem socket.io — o
-  frontend usa a `WebSocket` nativa do browser): o cliente manda uma mensagem `submitAction`, o
-  servidor devolve um `moveApplied` por jogada aplicada conforme `onMove` dispara, e fecha com
-  `sequenceComplete` (ou um único `error` em caso de falha) — ver `apps/api/src/app/games/
-  ws-events.ts` para o protocolo completo. DTOs com `class-validator` nos dois transportes; um
-  filtro de exceção traduz os erros de `GameService` para os mesmos status code/mensagem de
-  sempre no REST, e o próprio handler do gateway faz o equivalente para o WebSocket.
-  `GameService` é conectado via `useFactory` no módulo — não é decorado com `@Injectable()`,
-  então continua 100% testável fora do Nest (ver
-  `libs/backend-application/tests/unit/game.service.test.ts` e
-  `apps/api/src/app/games/games.gateway.spec.ts`, este último com um cliente `ws` real).
+  do log, o que dobra como prova de determinismo do motor inteiro toda vez que roda; `save-file.ts`,
+  a única parte que toca `node:fs`, fica separada e não é reexportada pelo pacote, pra não
+  vazar num bundle de navegador — só `tools/cli.ts` importa esse arquivo direto).
+  `InMemoryGameRepository`/`InMemoryRoomRepository` também moram aqui, junto aos *ports*
+  `GameRepository`/`RoomRepository` que implementam. `GameService.submitHumanAction` aceita um
+  `onMove` opcional, chamado uma vez por jogada (a de quem submeteu, depois uma por bot) em vez
+  de só devolver o estado final — é o que permite ao transporte fazer streaming em vez de
+  esperar o lote inteiro.
+- **`apps/api`** — a fiação NestJS, hoje um único gateway WebSocket: `RoomsGateway`, em
+  `/ws/rooms` (`@nestjs/websockets` + `@nestjs/platform-ws`, sem socket.io — o frontend usa a
+  `WebSocket` nativa do browser). Mensagens `createRoom`/`joinRoom`/`reconnectRoom`/
+  `startRoom`/`submitAction`; a maioria responde só a quem perguntou (`roomJoined`, um `error`),
+  mas uma sala tem vários sockets conectados ao mesmo tempo, então `joinRoom`/`startRoom`/uma
+  jogada aplicada são propagados pra **todo mundo** conectado naquela sala — cada um recebendo
+  sua própria view redigida (`GameService#getView` por viewer), nunca um payload compartilhado.
+  DTOs com `class-validator`. `bindMessageHandler` do adaptador `ws` engole silenciosamente
+  qualquer exceção síncrona lançada de dentro de um handler, então cada handler roda dentro de
+  um `try/catch` próprio que devolve um `error` explícito em vez de deixar a conexão travar sem
+  resposta nenhuma (ver o comentário no topo de `rooms.gateway.ts`). `GameService`/`RoomService`
+  são conectados via `useFactory` no módulo — não decorados com `@Injectable()`, então
+  continuam 100% testáveis fora do Nest (ver `libs/backend-application/tests/unit/
+  game.service.test.ts`, `room.service.test.ts`, e `apps/api/src/app/rooms/rooms.gateway.spec.ts`,
+  este último com clientes `ws` reais — mais de um ao mesmo tempo, simulando duas pessoas na
+  mesma sala).
 
 O ponto mais delicado do motor continua sendo a geração de ações legais (`engine/legal/`),
 por causa do fator de ramificação real do jogo: um turno típico oferece de 100 a mais de 600
@@ -169,35 +198,52 @@ poda corrigiu).
 
 A CLI (`client/tools/cli.ts`) é deliberadamente fina — só chama `backend-domain`,
 `backend-infrastructure` e os helpers de `backend-application`, sem regra própria nenhuma.
-Nenhuma regra de jogo é duplicada no backend — tanto a CLI quanto a GUI web só formatam o
-mesmo estado e despacham para o mesmo `applyAction`; o frontend por sua vez também não
-reimplementa regra nenhuma, só *exibe* o `GameState` que a API manda e envia de volta o índice
-da ação escolhida dentre as `legalActions` que a API já calculou.
+Nenhuma regra de jogo é duplicada em lugar nenhum — a CLI, o modo offline (que roda o mesmo
+`GameService` dentro de um Web Worker no navegador, não no backend) e o modo online (o mesmo
+`GameService`, agora orquestrado por `RoomService`, rodando no backend de verdade) só formatam
+o mesmo estado e despacham para o mesmo `applyAction`; o frontend por sua vez também não
+reimplementa regra nenhuma, só *exibe* o `GameState` que recebeu e envia de volta o índice da
+ação escolhida dentre as `legalActions` que já vieram calculadas.
 
 **Frontend — clean architecture em quatro camadas, cada uma um projeto Nx sob `client/libs/`:**
 
-- **`domain`** — modelos (`Card`, `GameState`, `GameView`, ...) e funções puras sem nenhuma
-  dependência de Angular ou de framework nenhum: `cardKey`/formatação de carta,
+- **`domain`** — modelos (`Card`, `GameState`, `GameView`, `RoomView`, ...) e funções puras sem
+  nenhuma dependência de Angular ou de framework nenhum: `cardKey`/formatação de carta,
   `incomeLevelForPosition` (mesma fórmula de `backend-domain/engine/income.ts`, duplicada só
   para exibição), o layout do mapa (`computeMapLayout`, posições lidas do tabuleiro físico real
   — `docs/ASSUMPTIONS.md` #16 — mais um passo de "desamontoamento" de rótulos) e a atribuição
-  de cor por jogador. Testável com Vitest puro, sem `TestBed`.
+  de cor por jogador. Também o protocolo de wire de `/ws/rooms` (`RoomServerToClientEvent`),
+  espelhado à mão do lado do backend — pro *port* `RoomGateway` (abaixo) poder referenciá-lo
+  sem `application` depender de `infrastructure`. Testável com Vitest puro, sem `TestBed`.
 - **`application`** — `GameStateService`, o único lugar que guarda estado de seleção/UI (carta
   selecionada, modo Scout, popup aberto) como signals, e o *port* `GameGateway` (uma classe
-  abstrata usada como token de injeção) que ele depende — nunca de um cliente HTTP concreto.
-  Também expõe wrappers injetáveis finos (`CardFormatService`, `IncomeService`, etc.) em cima
-  das funções puras de `domain`, para que a UI sempre injete via DI em vez de importar função
-  solta.
-- **`infrastructure`** — `HttpGameGateway`, o único adaptador que de fato conhece o transporte
-  do backend, implementando o port `GameGateway` de `application`: `createGame`/`getGame` via
-  REST (`HttpClient`, `/api/games...`), `submitAction` via WebSocket nativa do browser
-  (`/ws/games`) — devolve um `Observable<GameMoveEvent>` que emite um valor por jogada
-  transmitida e completa quando o servidor manda `sequenceComplete`.
-- **`presentation`** — todos os componentes de UI (mapa, mão, tabuleiro pessoal, popups,
-  etc.), consumindo só `application`/`domain` — nunca `infrastructure` diretamente.
-- **`apps/web`** — a *composition root*: o único lugar que sabe que `GameGateway` é
-  implementado por `HttpGameGateway` (`app.config.ts` faz esse `provide`), e que renderiza o
-  componente-raiz de `presentation`. Propositalmente fino — nenhuma lógica de tela mora aqui.
+  abstrata usada como token de injeção) que ele depende — nunca de um transporte concreto.
+  `GameGateway` tem um método a mais além de `createGame`/`getGame`/`submitAction`:
+  `watchMoves(gameId)`, um fluxo contínuo de toda jogada aplicada por **qualquer** assento —
+  necessário porque, numa sala online, outro jogador pode jogar sem que este cliente tenha
+  chamado `submitAction`; sem esse canal o tabuleiro só atualizaria na sua vez seguinte. Pro
+  modo offline (sempre um único jogador vendo a tela) esse fluxo nunca emite nada — não há o
+  que "chegar" sem ter sido a própria jogada. `RoomLobbyService` é o equivalente pra fase de
+  sala (criar, entrar, esperar, iniciar), dependendo do *port* `RoomGateway`; persiste
+  `{código, token}` no `localStorage` pra sustentar reconexão. Também expõe wrappers injetáveis
+  finos (`CardFormatService`, `IncomeService`, etc.) em cima das funções puras de `domain`.
+- **`infrastructure`** — os adaptadores concretos dos dois *ports* acima, um por modo de jogo:
+  `InProcessGameGateway` (offline) sobe um Web Worker (`offline/game.worker.ts`, rodando
+  `GameService` de verdade dentro dele, via `GameWorkerHandler` — testável sem runtime de
+  Worker nenhum) e fala com ele por `postMessage`, correlacionado por `requestId`; `RoomConnection`
+  (online) é um único WebSocket persistente pra `/ws/rooms`, compartilhado por toda a sessão —
+  `WsRoomGateway` o expõe como `RoomGateway` pro lobby, e `RoomGameGateway` o expõe como
+  `GameGateway` pro jogo em si, uma vez que a sala já começou (`LazyRoomGameGateway` resolve
+  essa segunda peça só na primeira chamada real, porque o `GameGateway` da rota `/online`
+  precisa existir antes da sala ter de fato começado).
+- **`presentation`** — todos os componentes de UI (mapa, mão, tabuleiro pessoal, popups, a
+  página inicial, o fluxo de sala online, etc.), consumindo só `application`/`domain` — nunca
+  `infrastructure` diretamente.
+- **`apps/web`** — a *composition root*, agora por rota em vez de um único `provide` global:
+  `/offline` liga `GameGateway` a `InProcessGameGateway`; `/online` liga `RoomGateway` a
+  `WsRoomGateway` e `GameGateway` a `LazyRoomGameGateway`, ambos sobre o mesmo `RoomConnection`
+  (ver `app.routes.ts`). `GameShellComponent` — o componente de `presentation` que desenha o
+  jogo em si — é reaproveitado **sem nenhuma mudança** pelos dois modos.
 
 A regra de dependência é de mão única em cada lado: no backend, `backend-domain` não depende
 de nada, `backend-infrastructure` só de `backend-domain`, `backend-application` dos dois,
@@ -321,6 +367,22 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
 - **Ao pagar uma renda negativa sem dinheiro suficiente, o motor vende peças automaticamente**
   pela política fixa "mais baratas primeiro" (`docs/ASSUMPTIONS.md` #10) — mesmo no modo
   interativo, um jogador humano não escolhe qual peça sacrificar.
-- **A GUI web (`apps/api`) guarda as partidas só em memória do processo** — sem
-  save/load/replay em disco (isso continua sendo só da CLI), sem autenticação, e pensada para
-  uso local de um único jogador por vez, não para expor na rede.
+- **A GUI web guarda partidas e salas só em memória** — do processo do backend no modo online,
+  da aba do navegador no modo offline — sem save/load/replay em disco (isso continua sendo só
+  da CLI) e sem persistência nenhuma entre reinícios. O modo online não tem autenticação além
+  do token por assento (nome de jogador é só um texto digitado, sem conta) e foi pensado pra
+  partidas entre pessoas que já se conhecem via um código compartilhado à parte (chat, etc.) —
+  não há lista pública de salas nem qualquer forma de descobrir uma sala sem já ter o código.
+  Hospedar o backend pra além de `localhost` (pra realmente jogar com alguém em outra rede) é
+  responsabilidade de quem sobe o servidor — o projeto só garante que `apps/api` é deployável
+  como está, não fornece hospedagem nem HTTPS/TLS.
+- **O fluxo online não foi testado numa combinação real de dois navegadores de verdade
+  (Playwright), só via testes automatizados (unitários + um cliente `ws` real contra o
+  servidor compilado, dois clientes simultâneos simulando dois jogadores) e via `nx build`
+  bem-sucedido do bundle do navegador.** A lógica de rede (protocolo de sala, redação de mão
+  por jogador, streaming de jogada em tempo real) está coberta ponta a ponta dessa forma; o que
+  não foi verificado é a experiência real na UI — duas abas de um browser de verdade jogando
+  uma partida completa uma contra a outra. O modo offline tem a mesma lacuna quanto ao Web
+  Worker especificamente (o `nx build` confirma que o worker é gerado como chunk separado e os
+  testes unitários cobrem sua lógica de roteamento de mensagem, mas nenhum teste realmente
+  instancia um `Worker` de browser de verdade).

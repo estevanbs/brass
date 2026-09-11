@@ -778,3 +778,114 @@ Verificação: `npx nx run-many -t lint typecheck test build` limpo nos 9 projet
 via Playwright contra `nx serve api` + `nx serve web` capturando os frames do WebSocket:
 confirmado `moveApplied` (você) → `moveApplied` (bot1) → `sequenceComplete`, com a mensagem de
 status mostrando "Aguardando bots..." durante o streaming e limpando ao final.
+
+## Extra (fora do plano original) — modo offline (Web Worker + PWA) e modo online (salas multiplayer)
+
+Pedido direto do usuário: o jogo precisava rodar **offline no navegador** (via service worker,
+pra funcionar sem internet depois do primeiro carregamento) e **online entre pessoas de
+verdade** (sala com código compartilhável, bots preenchendo vagas vazias só quando o host
+decide iniciar), sem duplicar regra de jogo, com cobertura de testes, e com uma página inicial
+pra escolher o modo. Antes de implementar, uma pergunta separada e só-resposta ("dá pra rodar
+o backend no navegador pra compartilhar como página estática?") já tinha estabelecido que sim
+— `backend-domain`/`backend-infrastructure`/`backend-application` já eram TypeScript puro sem
+nada específico de Node, exceto duas exceções pequenas encontradas só na hora de implementar de
+verdade (abaixo). Quatro decisões de design foram levadas ao usuário via pergunta direta antes
+de começar: início de partida manual pelo host (vagas sem humano viram bot só nesse momento,
+não antecipadamente), reconexão por token privado por assento (separado do código público da
+sala), identificação só por nome digitado (sem conta), e hospedagem do backend online fica por
+conta de quem sobe o servidor depois. Executado em 4 etapas sequenciais, cada uma com
+`nx run-many -t lint typecheck test build` limpo e commit próprio antes da próxima.
+
+**Etapa 1 — generalizar `GameService`.** Trocou o `HUMAN_ID = 'você'` fixo por uma lista de
+assentos (`{playerId, isBot}[]`) decidida por quem chama `createGame`, e adicionou redação por
+viewer em `getView` (mão de quem não é o próprio viewer, e o baralho de compra pra todo mundo,
+saem como `[]` só na view de saída — nunca no estado interno real). Sem efeito visível no modo
+single-player de então, mas pré-requisito pro modo online (vários humanos de verdade não podiam
+ver a mão um do outro). `GamesController`/`GamesGateway` migrados pro novo formato sem mudança
+de comportamento — seriam removidos de vez na etapa 3.
+
+**Etapa 2 — offline: motor num Web Worker + PWA.** `GameWorkerHandler` (nova lib
+`libs/infrastructure/src/lib/offline/`) roda o mesmo `GameService` de sempre dentro de um Web
+Worker — testável sem runtime de Worker nenhum, já que é só uma função pura `(request, emit) =>
+void` por trás; `game.worker.ts` é a única parte que de fato conhece `self`/`postMessage`, e
+fica fina de propósito. `InProcessGameGateway` sobe esse worker (`new Worker(new URL(...))`,
+suportado nativamente pelo builder esbuild do Angular sem config nenhuma extra) e implementa o
+port `GameGateway` por cima de `postMessage`, correlacionando por `requestId` — como Angular
+não consegue construir a classe via `useClass` (seu construtor recebe uma função `WorkerFactory`
+opcional, não um token de DI), ela não é `@Injectable()` e é sempre conectada via `useFactory`
+na rota. Nova rota `/offline` reaproveita `GameShellComponent` sem mudança nenhuma. PWA via
+`@angular/service-worker`: `ngsw-config.json` cacheia o app shell inteiro (incluindo o chunk do
+worker) no primeiro carregamento; `manifest.webmanifest` + um ícone SVG simples tornam o app
+instalável.
+
+**Efeito colateral necessário, achado só na hora de buildar pra navegador de verdade**: o
+`web:build:production` falhou com `Could not resolve "node:crypto"`/`"node:fs"` — importar
+`@brass/backend-application` (pro worker) puxa `game.service.ts` (`randomUUID` de `node:crypto`)
+e `state.ts` (`createHash` de `node:crypto`, só usado por `hashState`, uma função só de teste) e
+`game-log.ts` (`node:fs`, só usado pela CLI) pro bundle do navegador, que o esbuild recusa
+resolver sob `platform: browser` — um erro de *resolução*, não de tree-shaking, então nenhuma
+poda de código morto evitaria isso. Corrigido na raiz: `randomUUID` → `crypto.randomUUID()`
+(Web Crypto global, existe em Node e navegador igual); `hashState` (só usada em teste, nunca em
+produção) reescrita como um hash não-criptográfico (variante do cyrb53) sem import nenhum, já
+que nunca precisou de força criptográfica de verdade; `game-log.ts` dividido em `replay.ts`
+(puro, reexportado pelo pacote) e `save-file.ts` (`node:fs`, **não** reexportado pelo barrel —
+só `tools/cli.ts` importa esse arquivo direto por caminho).
+
+**Etapa 3 — online: `RoomService` + `RoomsGateway` + `RoomGameGateway`.** `RoomService` (mesmo
+molde de `GameService`) cuida de criar sala (código de 6 caracteres via `crypto.getRandomValues`
+— `Math.random` é banido em todo o projeto pelo lint, mesmo fora do motor), entrar, reconectar
+(token → assento), e iniciar (só o host, preenchendo vagas vazias com bot nomeado/deduplicado
+antes de chamar `GameService.createGame`). `RoomsGateway` substitui `GamesController`/
+`GamesGateway` inteiramente — WebSocket único em `/ws/rooms`; a diferença chave é que uma sala
+tem **vários** sockets conectados ao mesmo tempo, então mensagens como `joinRoom`/`startRoom`/
+uma jogada aplicada são propagadas pra todo mundo conectado, cada um recebendo sua própria view
+redigida (nunca um payload compartilhado).
+
+**Achado de debugging real, não superficial**: os primeiros testes de `RoomsGateway` (cliente
+`ws` real contra `@nestjs/testing` + `WsAdapter`) travavam em timeout total, sem nenhum erro
+visível. Investigação por eliminação (logs de depuração temporários em cada camada) confirmou
+que o handler rodava, resolvia `@ConnectedSocket()` corretamente (contrário a uma hipótese
+inicial errada sobre o adapter `ws` não suportar esse decorator — checado lendo o código-fonte
+de `WsContextCreator`/`WsAdapter` e confirmado que `client` é de fato pré-vinculado como
+primeiro argumento via `.bind(instance, client)` antes do handler rodar), e o `client.send()`
+de fato escrevia os bytes com sucesso (callback de confirmação sem erro). O bug real estava no
+**teste**: seu helper `nextMessage(ws)` registrava um listener `ws.once('message', ...)` *depois*
+de mandar a mensagem que dispara a resposta — quando o servidor manda duas mensagens em
+sucessão síncrona (ex. `createRoom` manda `roomJoined` e depois `roomState` no mesmo tick), as
+duas chegam como eventos `'message'` antes do teste sequer registrar o listener da *segunda*
+`await`, e a segunda mensagem é descartada silenciosamente (evento `'message'` sem nenhum
+listener não lança, ao contrário de `'error'`). Corrigido trocando o padrão por uma fila
+persistente por conexão (`connect()` já registra um `.on('message', ...)` permanente que
+enfileira tudo, e `next()` lê da fila ou espera o próximo item) — o mesmo padrão "listener
+persistente, não um-por-`await`" que `games.gateway.spec.ts` (da etapa WS anterior) já usava
+por acaso, mas que este arquivo novo não tinha copiado.
+
+No frontend: `RoomConnection` (um WebSocket persistente por sessão online, com `events$`
+multicast via `Subject` — várias partes independentes, lobby e jogo, escutam a mesma conexão)
++ `WsRoomGateway` (implementa o novo port `RoomGateway`) + `RoomLobbyService` (estado do lobby
+como signals, persistindo `{código, token}` no `localStorage` pra reconexão) +
+`RoomGameGateway` (o `GameGateway` online de verdade) + `LazyRoomGameGateway` (só existe porque
+a rota `/online` precisa fornecer um `GameGateway` no momento em que ativa, antes da sala ter
+sequer começado — resolve o `RoomGameGateway` real só na primeira chamada de método, que o
+próprio template de `OnlinePlayComponent` garante nunca acontecer antes da sala estar
+`'started'`). `GameGateway` ganhou um método novo, `watchMoves(gameId)`: um fluxo contínuo de
+toda jogada aplicada por qualquer assento, necessário porque — ao contrário do modo offline/
+solo — outro jogador pode jogar sem que este cliente tenha chamado `submitAction`; sem esse
+canal o tabuleiro só atualizaria na próxima vez do próprio jogador. Pro modo offline
+(`InProcessGameGateway`) esse método nunca emite nada, já que nada muda sem ser em resposta
+direta à própria jogada.
+
+**Etapa 4 — `HomeComponent` + limpeza.** Página inicial em `/` com dois links (offline/online);
+`HttpGameGateway` (o adapter REST+WS do modo "single-player via servidor" que `GamesController`/
+`GamesGateway` implementavam) removido por completo — ficou órfão no instante em que as rotas
+que ele chamava deixaram de existir.
+
+Verificação: `npx nx run-many -t lint typecheck test build` limpo nos 9 projetos, a cada etapa.
+Smoke test real de dois clientes `ws` contra o servidor `apps/api` compilado (não mockado):
+criar sala, entrar pelo código, iniciar (uma vaga vira bot), mão de cada jogador redigida da
+visão do outro, tentativa de jogar fora da vez rejeitada com a mensagem certa, jogada real
+propagada aos dois lados com a mesma contagem de eventos. **Não verificado**: o fluxo completo
+numa combinação de dois navegadores reais via Playwright (nenhuma ferramenta de automação de
+browser disponível nesta sessão) — a lógica de rede está coberta ponta a ponta via os testes
+acima, mas a experiência de UI real (duas abas jogando uma partida inteira) fica como lacuna
+conhecida, documentada em `README.md` (seção Limitações).
