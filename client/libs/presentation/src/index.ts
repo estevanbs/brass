@@ -9,3 +9,4 @@ export * from './lib/other-actions/other-actions.component';
 export * from './lib/hand/hand.component';
 export * from './lib/hand/hand-card.component';
 export * from './lib/game-over/game-over.component';
+export * from './lib/online-play/online-play.component';

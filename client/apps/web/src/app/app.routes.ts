@@ -1,15 +1,27 @@
 import { Routes } from '@angular/router';
-import { GameGateway } from '@brass/application';
-import { InProcessGameGateway } from '@brass/infrastructure';
-import { GameShellComponent } from '@brass/presentation';
+import { GameGateway, RoomGateway, RoomLobbyService } from '@brass/application';
+import { InProcessGameGateway, LazyRoomGameGateway, RoomConnection, WsRoomGateway } from '@brass/infrastructure';
+import { GameShellComponent, OnlinePlayComponent } from '@brass/presentation';
 
 /**
- * `/offline` reuses `GameShellComponent` completely unchanged — the only thing that differs
- * from the default (server-backed) game is which `GameGateway` is bound for this route's
- * injector, overriding the app-wide `HttpGameGateway` from `app.config.ts` with
- * `InProcessGameGateway` (the engine running in a Web Worker, no network involved at all).
+ * `/offline` and `/online` both reuse `GameShellComponent` completely unchanged (`/online`
+ * indirectly, inside `OnlinePlayComponent`) — the only thing that differs per route is which
+ * `GameGateway` is bound for that route's injector (`GameGateway` has no app-wide default
+ * anymore — see `app.config.ts` — every route that renders `GameShellComponent` must supply
+ * its own). `''` redirects to `/offline` for now; once a real mode-select home page exists
+ * (offline vs. online) it will take over `''` and this redirect goes away.
  */
 export const routes: Routes = [
-  { path: '', component: GameShellComponent },
+  { path: '', redirectTo: 'offline', pathMatch: 'full' },
   { path: 'offline', component: GameShellComponent, providers: [{ provide: GameGateway, useFactory: () => new InProcessGameGateway() }] },
+  {
+    path: 'online',
+    component: OnlinePlayComponent,
+    providers: [
+      { provide: RoomConnection, useFactory: () => new RoomConnection() },
+      { provide: RoomGateway, useFactory: (conn: RoomConnection) => new WsRoomGateway(conn), deps: [RoomConnection] },
+      RoomLobbyService,
+      { provide: GameGateway, useFactory: (lobby: RoomLobbyService, conn: RoomConnection) => new LazyRoomGameGateway(lobby, conn), deps: [RoomLobbyService, RoomConnection] },
+    ],
+  },
 ];

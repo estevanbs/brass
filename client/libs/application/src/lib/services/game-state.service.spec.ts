@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GameMoveEvent, GameView, LegalActionView, NewGameRequest } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
@@ -59,6 +59,7 @@ class FakeGameGateway implements GameGateway {
   createGame = vi.fn((_request: NewGameRequest) => of(gameView()));
   getGame = vi.fn((_gameId: string) => of(gameView()));
   submitAction = vi.fn((_gameId: string, _actionIndex: number) => of(moveEvent()));
+  watchMoves = vi.fn((_gameId: string) => EMPTY);
 }
 
 describe('GameStateService', () => {
@@ -96,6 +97,61 @@ describe('GameStateService', () => {
     await service.newGame(2, undefined);
     expect(service.view()).toBeNull();
     expect(service.statusMessage()).toBe('Erro: partida cheia');
+  });
+
+  it('loadGame fetches and stores the view by id, and clears selection state', async () => {
+    gateway.getGame.mockReturnValueOnce(of(gameView({ gameId: 'room-game' })));
+    await service.loadGame('room-game');
+    expect(gateway.getGame).toHaveBeenCalledWith('room-game');
+    expect(service.view()?.gameId).toBe('room-game');
+    expect(service.statusMessage()).toBe('');
+  });
+
+  it('loadGame surfaces a gateway error as a status message instead of throwing', async () => {
+    gateway.getGame.mockReturnValueOnce(throwError(() => new Error('sala não encontrada')));
+    await service.loadGame('nope');
+    expect(service.view()).toBeNull();
+    expect(service.statusMessage()).toBe('Erro: sala não encontrada');
+  });
+
+  describe('watchMoves (live updates not triggered by this client\'s own submitAction)', () => {
+    it('applies a view pushed by watchMoves after newGame', async () => {
+      const moves = new Subject<GameMoveEvent>();
+      gateway.watchMoves.mockReturnValueOnce(moves);
+      await service.newGame(2, undefined);
+
+      moves.next(moveEvent({ playerId: 'p2', view: gameView({ gameId: 'pushed' }) }));
+      expect(service.view()?.gameId).toBe('pushed');
+    });
+
+    it('applies a view pushed by watchMoves after loadGame', async () => {
+      const moves = new Subject<GameMoveEvent>();
+      gateway.watchMoves.mockReturnValueOnce(moves);
+      await service.loadGame('room-game');
+
+      moves.next(moveEvent({ playerId: 'p2', view: gameView({ gameId: 'pushed' }) }));
+      expect(service.view()?.gameId).toBe('pushed');
+    });
+
+    it('triggers the bot/opponent toast and highlight for a pushed move from someone else', async () => {
+      const moves = new Subject<GameMoveEvent>();
+      gateway.watchMoves.mockReturnValueOnce(moves);
+      await service.newGame(2, undefined);
+
+      moves.next(moveEvent({ playerId: 'p2', actionLabel: 'Passar', targets: { locationIds: ['dudley'], linkSlotIds: [] } }));
+      expect(service.botMoveToast()).toMatchObject({ playerId: 'p2', actionLabel: 'Passar' });
+      expect(service.botHighlight()).toEqual({ locationIds: ['dudley'], linkSlotIds: [] });
+    });
+
+    it('does not toast/highlight a pushed move that is the human\'s own', async () => {
+      const moves = new Subject<GameMoveEvent>();
+      gateway.watchMoves.mockReturnValueOnce(moves);
+      await service.newGame(2, undefined);
+
+      moves.next(moveEvent({ playerId: 'p1', targets: { locationIds: ['dudley'], linkSlotIds: [] } }));
+      expect(service.botMoveToast()).toBeNull();
+      expect(service.botHighlight()).toBeNull();
+    });
   });
 
   it('selectCard toggles selection on and off', async () => {

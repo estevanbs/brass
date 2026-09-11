@@ -1,5 +1,7 @@
 export * from './lib/ports/game-gateway';
+export * from './lib/ports/room-gateway';
 export * from './lib/services/game-state.service';
+export * from './lib/services/room-lobby.service';
 export * from './lib/services/card-format.service';
 export * from './lib/services/income.service';
 export * from './lib/services/industry-tile.service';

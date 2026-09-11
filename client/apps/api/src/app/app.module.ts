@@ -1,11 +1,8 @@
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { GameService, InMemoryGameRepository } from '@brass/backend-application';
-import { GamesController } from './games/games.controller.js';
-import { GamesGateway } from './games/games.gateway.js';
-import { GameErrorsFilter } from './games/game-errors.filter.js';
+import { GameService, InMemoryGameRepository, InMemoryRoomRepository, RoomService } from '@brass/backend-application';
+import { RoomsGateway } from './rooms/rooms.gateway.js';
 
 // Built Angular app (`nx build web`) lands at the workspace-root-relative "../public" —
 // i.e. the repo root's `public/`, the same directory `src/web/server.ts` used to serve
@@ -20,17 +17,17 @@ const PUBLIC_DIR = join(__dirname, '../../../../public');
       exclude: ['/api/{*any}'],
     }),
   ],
-  controllers: [GamesController],
   providers: [
     {
       provide: GameService,
       useFactory: () => new GameService(new InMemoryGameRepository()),
     },
     {
-      provide: APP_FILTER,
-      useClass: GameErrorsFilter,
+      provide: RoomService,
+      useFactory: (games: GameService) => new RoomService(new InMemoryRoomRepository(), games),
+      inject: [GameService],
     },
-    GamesGateway,
+    RoomsGateway,
   ],
 })
 export class AppModule {}

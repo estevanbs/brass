@@ -4,3 +4,6 @@ export * from './lib/replay.js';
 export * from './lib/game.model.js';
 export * from './lib/game.errors.js';
 export * from './lib/game.service.js';
+export * from './lib/room.model.js';
+export * from './lib/room.errors.js';
+export * from './lib/room.service.js';

@@ -1,4 +1,4 @@
-import { of, type Observable } from 'rxjs';
+import { EMPTY, of, type Observable } from 'rxjs';
 import { vi } from 'vitest';
 import { GameGateway } from '@brass/application';
 import type { GameMoveEvent, GameView, LegalActionView, PlayerState } from '@brass/domain';
@@ -9,6 +9,7 @@ export class FakeGameGateway implements GameGateway {
   createGame = vi.fn((): Observable<GameView> => of(baseGameView()));
   getGame = vi.fn((): Observable<GameView> => of(baseGameView()));
   submitAction = vi.fn((): Observable<GameMoveEvent> => of(moveEvent()));
+  watchMoves = vi.fn((): Observable<GameMoveEvent> => EMPTY);
 }
 
 export function moveEvent(overrides: Partial<GameMoveEvent> = {}): GameMoveEvent {

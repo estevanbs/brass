@@ -1,30 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { GameGateway } from '@brass/application';
-import { GameShellComponent } from '@brass/presentation';
+import { GameGateway, RoomGateway, RoomLobbyService } from '@brass/application';
+import { RoomConnection } from '@brass/infrastructure';
+import { GameShellComponent, OnlinePlayComponent } from '@brass/presentation';
 import { routes } from './app.routes';
 
-/** Checks the route *configuration* directly — no navigation, no `TestBed`, and the
- * `useFactory` function is never actually called, so nothing here ever constructs a real
- * `InProcessGameGateway` (which would spin up an actual Worker). `app.spec.ts` already covers
- * `''` end-to-end through `RouterTestingHarness`; `/offline`'s happy path needs a real browser
- * (or Playwright) since jsdom has no Worker runtime — this test only guards the wiring that
- * determines *which* gateway that route will get. */
+function findProvider(providers: unknown[] | undefined, token: unknown): { provide: unknown; useFactory?: unknown } | undefined {
+  return providers?.find((p) => typeof p === 'object' && p !== null && 'provide' in p && (p as { provide: unknown }).provide === token) as
+    | { provide: unknown; useFactory?: unknown }
+    | undefined;
+}
+
+/** Checks the route *configuration* directly — no navigation, no `TestBed`, and no
+ * `useFactory` function is ever actually called, so nothing here ever constructs a real
+ * `InProcessGameGateway`/`RoomConnection` (which would spin up an actual Worker/WebSocket).
+ * Both `/offline`'s and `/online`'s happy paths need a real browser (or Playwright) since
+ * jsdom has neither a Worker nor a real network — this test only guards the wiring that
+ * determines *which* concrete adapters each route gets. */
 describe('app routes', () => {
-  it('both "" and "offline" render GameShellComponent', () => {
+  it('"" redirects to "offline"', () => {
     const root = routes.find((r) => r.path === '');
-    const offline = routes.find((r) => r.path === 'offline');
-    expect(root?.component).toBe(GameShellComponent);
-    expect(offline?.component).toBe(GameShellComponent);
+    expect(root?.redirectTo).toBe('offline');
+    expect(root?.pathMatch).toBe('full');
   });
 
-  it('"offline" overrides GameGateway with a factory; "" leaves it to the app-wide default', () => {
-    const root = routes.find((r) => r.path === '');
+  it('"offline" renders GameShellComponent with an InProcessGameGateway factory', () => {
     const offline = routes.find((r) => r.path === 'offline');
-    expect(root?.providers).toBeUndefined();
+    expect(offline?.component).toBe(GameShellComponent);
+    expect(typeof findProvider(offline?.providers, GameGateway)?.useFactory).toBe('function');
+  });
 
-    const provider = offline?.providers?.find((p) => 'provide' in p && p.provide === GameGateway) as
-      | { provide: unknown; useFactory: unknown }
-      | undefined;
-    expect(typeof provider?.useFactory).toBe('function');
+  it('"online" renders OnlinePlayComponent with RoomConnection, RoomGateway, RoomLobbyService, and GameGateway wired', () => {
+    const online = routes.find((r) => r.path === 'online');
+    expect(online?.component).toBe(OnlinePlayComponent);
+
+    expect(typeof findProvider(online?.providers, RoomConnection)?.useFactory).toBe('function');
+    expect(typeof findProvider(online?.providers, RoomGateway)?.useFactory).toBe('function');
+    expect(typeof findProvider(online?.providers, GameGateway)?.useFactory).toBe('function');
+    expect(online?.providers).toContain(RoomLobbyService);
   });
 });

@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import type { ActionTargets, GameView, LegalActionView, PopupPosition } from '@brass/domain';
+import { firstValueFrom, type Subscription } from 'rxjs';
+import type { ActionTargets, GameMoveEvent, GameView, LegalActionView, PopupPosition } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
 
 /** How long a bot-move ping stays on the map before auto-clearing — long enough to notice,
@@ -50,6 +50,7 @@ export class GameStateService {
   private readonly _botMoveToast = signal<BotMoveToast | null>(null);
   private botMoveToastTimer: ReturnType<typeof setTimeout> | undefined;
   private botMoveToastCounter = 0;
+  private movesSubscription: Subscription | undefined;
 
   readonly view = this._view.asReadonly();
   readonly selectedCard = this._selectedCard.asReadonly();
@@ -94,9 +95,42 @@ export class GameStateService {
       this._selectedMatPlayer.set(null);
       this.applyView(view);
       this._statusMessage.set('');
+      this.watchMoves(view.gameId, view.humanId);
     } catch (err) {
       this._statusMessage.set(`Erro: ${errorMessage(err)}`);
     }
+  }
+
+  /** Attaches to a game that already exists — the online room flow's entry point, once its
+   * lobby has a `gameId` (the room already started, or a reconnect found it already started),
+   * as opposed to `newGame`'s "make a brand new local game". Reuses the same `GameGateway#getGame`
+   * every gateway already implements for resync. */
+  async loadGame(gameId: string): Promise<void> {
+    this._statusMessage.set('Carregando partida...');
+    try {
+      const view = await firstValueFrom(this.gateway.getGame(gameId));
+      this._selectedMatPlayer.set(null);
+      this.applyView(view);
+      this._statusMessage.set('');
+      this.watchMoves(view.gameId, view.humanId);
+    } catch (err) {
+      this._statusMessage.set(`Erro: ${errorMessage(err)}`);
+    }
+  }
+
+  /** Subscribes (once per game) to every move `gateway.watchMoves` pushes that this client
+   * didn't itself trigger via `submitAction` — an offline gateway never emits here, so this is
+   * a no-op there; an online room gateway pushes every seat's move live, which is what lets
+   * this client's board update the instant another real player acts. */
+  private watchMoves(gameId: string, humanId: string): void {
+    this.movesSubscription?.unsubscribe();
+    this.movesSubscription = this.gateway.watchMoves(gameId).subscribe((event: GameMoveEvent) => {
+      this.applyView(event.view);
+      if (event.playerId !== humanId) {
+        this.triggerBotHighlight(event.targets);
+        this.triggerBotMoveToast(event.playerId, event.actionLabel);
+      }
+    });
   }
 
   /** Streams the human's move and every bot move that follows it (`GameGateway#submitAction`)

@@ -1,4 +1,4 @@
-import { Observable, type Subscriber } from 'rxjs';
+import { EMPTY, Observable, type Subscriber } from 'rxjs';
 import type { GameMoveEvent, GameView, NewGameRequest } from '@brass/domain';
 import { GameGateway } from '@brass/application';
 import type { WorkerRequest, WorkerResponse } from './game-worker-protocol';
@@ -70,6 +70,13 @@ export class InProcessGameGateway implements GameGateway {
         subscriber.error(new Error(response.message));
       }
     });
+  }
+
+  /** Offline is always a single viewer — nothing here ever moves except in direct response to
+   * this client's own `submitAction`, which already reports it, so there's never anything
+   * extra to watch for. */
+  watchMoves(_gameId: string): Observable<GameMoveEvent> {
+    return EMPTY;
   }
 
   private request<T>(req: WorkerRequest, onResponse: (response: WorkerResponse, subscriber: Subscriber<T>) => void): Observable<T> {
