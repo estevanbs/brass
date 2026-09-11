@@ -112,20 +112,51 @@ describe('RoomLobbyService', () => {
     expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
   });
 
-  it('a "room not found" error clears the stored room and returns to idle', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: 'ABC123', token: 'tok1' }));
+  it('"sala não encontrada"/"token inválido" from an explicit join is shown as an error, not silently swallowed', () => {
+    // This is the exact scenario a real browser caught (Playwright, apps/web/e2e/online.spec.ts):
+    // joinRoom with a bad code and reconnectRoom on a stale token both fail with the same
+    // message a resume failure would — the two must not be handled the same way, since only
+    // one of them is something the user actually asked for and should see.
+    service.joinRoom('ZZZZZZ', 'Ninguém');
     gateway.incoming.next({ type: 'error', message: 'sala não encontrada' });
 
-    expect(service.status()).toBe('idle');
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(service.status()).toBe('error');
+    expect(service.errorMessage()).toBe('sala não encontrada');
   });
 
-  it('an "invalid token" error clears the stored room and returns to idle', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: 'ABC123', token: 'bad' }));
-    gateway.incoming.next({ type: 'error', message: 'token inválido' });
+  describe('a resume attempt (tryResume) failing with "sala não encontrada"/"token inválido"', () => {
+    it('clears the stored room and returns to idle silently — no error shown', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: 'ABC123', token: 'tok1' }));
+      service.tryResume();
+      gateway.incoming.next({ type: 'error', message: 'sala não encontrada' });
 
-    expect(service.status()).toBe('idle');
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(service.status()).toBe('idle');
+      expect(service.errorMessage()).toBe('');
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('also clears storage for "token inválido"', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: 'ABC123', token: 'bad' }));
+      service.tryResume();
+      gateway.incoming.next({ type: 'error', message: 'token inválido' });
+
+      expect(service.status()).toBe('idle');
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('does not affect a later, unrelated explicit error', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: 'ABC123', token: 'tok1' }));
+      service.tryResume();
+      gateway.incoming.next({ type: 'error', message: 'sala não encontrada' });
+      expect(service.status()).toBe('idle');
+
+      // A subsequent explicit join failing must show its own error normally — the resume's
+      // "swallow this" flag must not still apply to it.
+      service.joinRoom('ZZZZZZ', 'Ninguém');
+      gateway.incoming.next({ type: 'error', message: 'sala não encontrada' });
+      expect(service.status()).toBe('error');
+      expect(service.errorMessage()).toBe('sala não encontrada');
+    });
   });
 
   describe('tryResume', () => {

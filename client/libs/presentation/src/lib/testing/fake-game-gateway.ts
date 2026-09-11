@@ -1,6 +1,7 @@
+import type { Provider } from '@angular/core';
 import { EMPTY, of, type Observable } from 'rxjs';
 import { vi } from 'vitest';
-import { GameGateway } from '@brass/application';
+import { GameGateway, GameStateService } from '@brass/application';
 import type { GameMoveEvent, GameView, LegalActionView, PlayerState } from '@brass/domain';
 
 /** Shared fixtures + a fake `GameGateway` for component specs in this lib — every spec that
@@ -22,8 +23,13 @@ export function moveEvent(overrides: Partial<GameMoveEvent> = {}): GameMoveEvent
   };
 }
 
-export function fakeGameGatewayProvider() {
-  return { provide: GameGateway, useClass: FakeGameGateway };
+/** `GameStateService` is no longer `providedIn: 'root'` (see the comment on the service itself
+ * — a root singleton can't see a per-route `GameGateway`), so every spec that injects it must
+ * provide it explicitly, at the same injector level as its `GameGateway`. Returning both here,
+ * as an array, keeps every call site's `providers: [fakeGameGatewayProvider()]` working
+ * unchanged — Angular flattens nested provider arrays. */
+export function fakeGameGatewayProvider(): Provider[] {
+  return [GameStateService, { provide: GameGateway, useClass: FakeGameGateway }];
 }
 
 export function player(overrides: Partial<PlayerState> = {}): PlayerState {

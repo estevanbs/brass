@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { EMPTY, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import { GameGateway } from '@brass/application';
+import { GameGateway, GameStateService } from '@brass/application';
 import type { GameMoveEvent, GameView } from '@brass/domain';
 import { GameShellComponent } from '@brass/presentation';
 import { App } from './app';
@@ -70,7 +70,11 @@ describe('App', () => {
     // exercising the real route here would fail for a reason that has nothing to do with what
     // this test checks. `app.routes.spec.ts` covers the production wiring itself, statically.
     await TestBed.configureTestingModule({
-      providers: [provideRouter([{ path: '', component: GameShellComponent }]), { provide: GameGateway, useClass: FakeGameGateway }],
+      providers: [
+        provideRouter([
+          { path: '', component: GameShellComponent, providers: [GameStateService, { provide: GameGateway, useClass: FakeGameGateway }] },
+        ]),
+      ],
     }).compileComponents();
 
     const harness = await RouterTestingHarness.create('/');

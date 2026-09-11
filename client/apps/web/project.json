@@ -53,6 +53,10 @@
       "continuous": true,
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
+      "dependsOn": ["api:serve"],
+      "options": {
+        "proxyConfig": "apps/web/proxy.conf.json"
+      },
       "configurations": {
         "production": {
           "buildTarget": "web:build:production"
@@ -60,10 +64,6 @@
         "development": {
           "buildTarget": "web:build:development"
         }
-      },
-      "dependsOn": ["api:serve"],
-      "options": {
-        "proxyConfig": "apps/web/proxy.conf.json"
       }
     },
     "test": {

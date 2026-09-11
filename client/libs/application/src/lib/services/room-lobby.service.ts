@@ -40,6 +40,14 @@ export class RoomLobbyService {
     return room !== null && me !== null && room.hostId === me;
   });
 
+  /** Whether the *current* outstanding request is `tryResume`'s own silent reconnect attempt,
+   * as opposed to a `createRoom`/`joinRoom` the user explicitly asked for — both a failed
+   * resume and a failed explicit join can come back as the exact same "sala não encontrada"/
+   * "token inválido" message (no request id on this wire protocol to tell them apart), but
+   * they must be handled differently: a resume failing means "silently show the create/join
+   * form, nothing the user did was wrong"; an explicit join failing means "show them why". */
+  private resumingFromStorage = false;
+
   constructor() {
     this.gateway.events$.subscribe((event) => this.handleEvent(event));
   }
@@ -50,16 +58,19 @@ export class RoomLobbyService {
   tryResume(): boolean {
     const stored = this.readStored();
     if (stored === null) return false;
+    this.resumingFromStorage = true;
     this.gateway.reconnectRoom(stored.code, stored.token);
     return true;
   }
 
   createRoom(hostName: string, maxPlayers: number): void {
+    this.resumingFromStorage = false;
     this._errorMessage.set('');
     this.gateway.createRoom(hostName, maxPlayers);
   }
 
   joinRoom(code: string, name: string): void {
+    this.resumingFromStorage = false;
     this._errorMessage.set('');
     this.gateway.joinRoom(code, name);
   }
@@ -84,6 +95,7 @@ export class RoomLobbyService {
   private handleEvent(event: RoomServerToClientEvent): void {
     switch (event.type) {
       case 'roomJoined': {
+        this.resumingFromStorage = false;
         this._myPlayerId.set(event.playerId);
         this._myToken.set(event.token);
         this._status.set('lobby');
@@ -100,18 +112,18 @@ export class RoomLobbyService {
         break;
       }
       case 'error': {
-        this._errorMessage.set(event.message);
-        // These two specific messages (`RoomNotFoundError`/`InvalidRoomTokenError` on the
-        // backend) are the only ones that mean "this stored room is gone or was never ours" —
-        // every other room error (room full, already started, not the host) happens to a room
-        // that's still perfectly valid, so the stored seat must stay. There's no request id on
-        // this wire protocol to tell errors apart more precisely than by message text.
-        if (event.message === 'sala não encontrada' || event.message === 'token inválido') {
+        const wasResuming = this.resumingFromStorage;
+        this.resumingFromStorage = false;
+        if (wasResuming) {
+          // The silent auto-resume attempt failed — the stored seat is gone or was never
+          // ours. Nothing the user did was wrong, so fall back to the create/join form
+          // quietly instead of greeting them with an error for an action they never took.
           this.clearStored();
           this._status.set('idle');
-        } else if (this._status() !== 'started') {
-          this._status.set('error');
+          return;
         }
+        this._errorMessage.set(event.message);
+        if (this._status() !== 'started') this._status.set('error');
         break;
       }
     }

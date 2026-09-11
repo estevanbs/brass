@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RoomLobbyService } from '@brass/application';
+import { GameStateService, RoomLobbyService } from '@brass/application';
 import { GameShellComponent } from '../game-shell/game-shell.component';
 
 /**
@@ -81,11 +81,29 @@ import { GameShellComponent } from '../game-shell/game-shell.component';
 })
 export class OnlinePlayComponent implements OnInit {
   protected readonly lobby = inject(RoomLobbyService);
+  private readonly gameState = inject(GameStateService);
 
   protected readonly hostName = signal('');
   protected readonly maxPlayers = signal(4);
   protected readonly joinName = signal('');
   protected readonly joinCode = signal('');
+
+  /** `<brass-game-shell>` below only ever *renders* correctly once `GameStateService#view` has
+   * something in it — nothing populates that on its own for the online flow (there's no
+   * offline-style "Novo jogo" click to trigger it), so this component is the one place that
+   * must call `loadGame` the moment the room actually starts. Guarded so a re-run of the
+   * effect (e.g. an unrelated `lobby.room()` update after the game is already loaded) doesn't
+   * call `loadGame` again and reset the view back to nothing while a game is in progress. */
+  private gameLoadedFor: string | undefined;
+
+  constructor() {
+    effect(() => {
+      const gameId = this.lobby.room()?.gameId;
+      if (this.lobby.status() !== 'started' || gameId === undefined || gameId === this.gameLoadedFor) return;
+      this.gameLoadedFor = gameId;
+      void this.gameState.loadGame(gameId);
+    });
+  }
 
   ngOnInit(): void {
     this.lobby.tryResume();

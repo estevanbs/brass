@@ -33,8 +33,17 @@ export interface BotMoveToast {
  * selected, which actions does that unlock" logic in one testable place instead of scattered
  * across components. Depends only on the `GameGateway` port, never on a concrete HTTP client,
  * so it can be unit-tested with a fake gateway.
+ *
+ * Deliberately *not* `providedIn: 'root'`: a root-provided service is a true singleton whose
+ * own `inject()` calls resolve against the root injector, no matter which route triggered its
+ * first creation — so a root-singleton `GameStateService` would resolve `GameGateway` from the
+ * root too, never seeing a route's own per-route binding (`/offline` vs. `/online` each bind a
+ * different concrete `GameGateway` — see `app.routes.ts`). Each route that renders
+ * `GameShellComponent` provides `GameStateService` itself, alongside its `GameGateway`, so both
+ * resolve from the same injector and each route gets its own fresh instance (also correct on
+ * its own terms: switching modes shouldn't carry over stale game/selection state).
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class GameStateService {
   private readonly gateway = inject(GameGateway);
 

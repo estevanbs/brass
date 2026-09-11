@@ -884,8 +884,90 @@ Verificação: `npx nx run-many -t lint typecheck test build` limpo nos 9 projet
 Smoke test real de dois clientes `ws` contra o servidor `apps/api` compilado (não mockado):
 criar sala, entrar pelo código, iniciar (uma vaga vira bot), mão de cada jogador redigida da
 visão do outro, tentativa de jogar fora da vez rejeitada com a mensagem certa, jogada real
-propagada aos dois lados com a mesma contagem de eventos. **Não verificado**: o fluxo completo
-numa combinação de dois navegadores reais via Playwright (nenhuma ferramenta de automação de
-browser disponível nesta sessão) — a lógica de rede está coberta ponta a ponta via os testes
-acima, mas a experiência de UI real (duas abas jogando uma partida inteira) fica como lacuna
-conhecida, documentada em `README.md` (seção Limitações).
+propagada aos dois lados com a mesma contagem de eventos. **Não verificado nesta etapa**: o
+fluxo completo numa combinação de dois navegadores reais (nenhuma ferramenta de automação de
+browser disponível na sessão) — resolvido na entrada seguinte.
+
+## Extra (fora do plano original) — Playwright real, e três bugs reais que só um navegador de verdade revelou
+
+Depois da entrega acima, o usuário perguntou por que Playwright não estava disponível. Resposta
+(investigada, não suposta): nenhum servidor MCP de Playwright conectado a esta sessão (`claude
+mcp list` só mostrava um MCP do Gmail) e nenhuma instalação local (`npx playwright` teve que
+baixar o pacote na hora) — provavelmente porque esta sessão específica roda como *background
+job*, e ferramentas de automação de browser parecem estar disponíveis só em sessões
+interativas (entradas anteriores deste arquivo já mencionam Playwright funcionando em outras
+partes desta mesma conversa). Pedido do usuário: instalar Playwright como dependência real do
+projeto e escrever specs de e2e de verdade para os fluxos offline/online.
+
+**Setup**: `@nx/playwright` + `@playwright/test` instalados (`^23.2.0`/`^1.63.0`, casando com a
+versão do Nx do workspace); `npx nx g @nx/playwright:configuration --project web --directory
+e2e` gerou `apps/web/playwright.config.mts` + `apps/web/e2e/`. Só o binário do Chromium foi
+baixado e verificado (`npx playwright install chromium`) — o ambiente não tem `apt-get`/root
+pra instalar as dependências de sistema que Firefox/WebKit precisam, então o config lista só
+o projeto `chromium`. `webServer` aponta pra `npx nx serve web` (que já sobe a API atrás via
+`dependsOn: ["api:serve"]` + proxy), então os testes rodam contra os dois processos reais, não
+contra nada mockado. O gerador também aplicou `eslint-plugin-playwright` ao `eslint.config.mjs`
+de `apps/web` sem escopo — precisou ser restrito a `files: ['e2e/**/*.ts']`, porque sem isso ele
+também passava a marcar os specs Vitest do próprio app (`app.spec.ts`, `app.routes.ts`) como se
+fossem specs do Playwright mal-usadas.
+
+**Especificações reais** (`apps/web/e2e/`): `home.spec.ts` (a página inicial linka pros dois
+modos); `offline.spec.ts` (cria uma partida offline de verdade, seleciona uma carta, joga
+Passar — sempre legal pra qualquer carta na mão, `legal/misc.ts#legalPass`, o que dá uma jogada
+determinística sem depender de qual ação específica está disponível — e confirma que a UI
+continua respondendo a cliques não relacionados enquanto a busca do bot ISMCTS roda dentro do
+Worker); `online.spec.ts` (dois `BrowserContext` isolados — que não compartilham
+`localStorage`, simulando duas pessoas de verdade, não duas abas da mesma sessão — criam sala,
+entram, iniciam, e o teste confirma que uma jogada feita de um lado aparece no `.log` do outro
+lado sem que esse outro lado tenha feito nada, o que só acontece se `watchMoves` estiver
+realmente funcionando ponta a ponta).
+
+**Três bugs reais encontrados e corrigidos**, nenhum detectável pelos testes unitários/
+integração existentes (todos passavam antes e depois, já que nenhum deles sobe um DOM real com
+roteamento real):
+
+1. **`GameStateService` era `providedIn: 'root'`.** Um serviço root-singleton resolve seus
+   próprios `inject()` contra o injector raiz, não importa qual rota disparou sua primeira
+   criação — então `inject(GameGateway)` dentro dele sempre pegava (ou, depois que o
+   `HttpGameGateway` global foi removido na etapa 4, *não* encontrava) o `GameGateway` do
+   injector raiz, nunca o vinculado por rota (`/offline` vs. `/online`, cada uma com o seu).
+   Resultado real no navegador: `NG0201: No provider found for GameGateway`, a página inteira
+   quebrando ao navegar pra `/offline`. Corrigido: `GameStateService` deixou de ser
+   `providedIn: 'root'`; cada rota que renderiza `GameShellComponent` agora provê
+   `GameStateService` ela mesma, junto do seu `GameGateway` — mesma injector, resolve certo, e
+   como bônus corrige uma sobra de estado que faria sentido de qualquer forma (trocar de modo
+   não devia carregar a partida antiga). Efeito colateral: todo spec de componente que fazia
+   `TestBed.inject(GameStateService)` contando com o registro implícito de root também parou de
+   funcionar — corrigido de uma vez só fazendo `fakeGameGatewayProvider()` (o helper
+   compartilhado que todos esses specs já usavam) devolver `[GameStateService, {provide:
+   GameGateway, ...}]` em vez de só o gateway; arrays de provider aninhados são achatados pelo
+   Angular, então nenhum call site precisou mudar.
+2. **Erro de sala inexistente sendo silenciado quando devia aparecer.** `RoomLobbyService`
+   tratava a mensagem `"sala não encontrada"` sempre do mesmo jeito — limpar o `localStorage` e
+   voltar pro formulário, em silêncio. Isso está certo quando é o `tryResume()` automático (ao
+   abrir `/online`) que falha — o usuário não pediu nada, não faz sentido mostrar erro. Mas a
+   *mesma* mensagem também é o que a API devolve quando alguém digita um código errado no
+   formulário de entrar — e nesse caso o usuário claramente precisa ver o erro, não ver o
+   formulário resetado em silêncio sem explicação nenhuma. As duas situações são
+   indistinguíveis pela mensagem (não há id de requisição no protocolo) — corrigido rastreando
+   *intenção*, não texto: uma flag interna (`resumingFromStorage`) marca se a chamada em voo é o
+   `tryResume()` silencioso ou uma ação explícita do usuário, e só o primeiro caso silencia o
+   erro.
+3. **Nada chamava `GameStateService.loadGame(gameId)` no fluxo online.** O modo offline dispara
+   `GameStateService` via o clique em "Novo jogo" (`HeaderComponent`); o modo online nunca tinha
+   equivalente — `OnlinePlayComponent` só renderizava `<brass-game-shell>` quando a sala
+   começava, assumindo (errado) que isso bastava. Sem nenhuma chamada a `loadGame`,
+   `GameStateService#view` continuava `null` pra sempre, e `GameShellComponent` nunca saía do
+   `<header>` vazio — o jogo "começava" (o servidor via a sala como `'started'`, a mensagem
+   `roomStarted` chegava de verdade pelo WebSocket) mas a tela nunca mostrava o tabuleiro.
+   Corrigido com um `effect()` no construtor de `OnlinePlayComponent` que chama `loadGame`
+   assim que `lobby.status()` vira `'started'`, guardado por um id de jogo já carregado pra não
+   disparar de novo em cada `roomState` subsequente.
+
+Todos os três só apareceram porque o teste efetivamente montava `<app-root>` num Chromium real,
+com roteamento real e injeção de dependência real — nenhuma combinação de teste unitário
+(TestBed isolado, sempre provendo `GameStateService`/`GameGateway` manualmente e corretamente
+por construção) exercitava o caminho real de "a rota ativa, o Angular resolve os providers
+daquela rota, o componente pede o serviço". Depois das três correções: suíte de e2e completa
+(7 specs, `home`/`offline`/`online`) verde, `npx nx run-many -t lint typecheck test build`
+limpo nos 9 projetos.

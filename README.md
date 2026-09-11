@@ -33,6 +33,13 @@ seção de Limitações. Todos os testes são determinísticos (nenhum depende d
 aleatoriedade não semeada); os poucos testes lentos usam orçamentos de simulação fixos, não
 relógio de parede, especificamente para evitar variar com a velocidade da máquina.
 
+`npx nx run-many` acima não inclui os testes end-to-end (`apps/web/e2e/`, Playwright) — eles
+sobem a aplicação de verdade (backend + frontend reais, nada mockado) e por isso rodam à parte:
+
+```sh
+npx nx e2e web --project=chromium
+```
+
 ## Como jogar
 
 ```sh
@@ -376,13 +383,16 @@ e `libs/presentation/src/lib/testing/fake-game-gateway.ts`).
   Hospedar o backend pra além de `localhost` (pra realmente jogar com alguém em outra rede) é
   responsabilidade de quem sobe o servidor — o projeto só garante que `apps/api` é deployável
   como está, não fornece hospedagem nem HTTPS/TLS.
-- **O fluxo online não foi testado numa combinação real de dois navegadores de verdade
-  (Playwright), só via testes automatizados (unitários + um cliente `ws` real contra o
-  servidor compilado, dois clientes simultâneos simulando dois jogadores) e via `nx build`
-  bem-sucedido do bundle do navegador.** A lógica de rede (protocolo de sala, redação de mão
-  por jogador, streaming de jogada em tempo real) está coberta ponta a ponta dessa forma; o que
-  não foi verificado é a experiência real na UI — duas abas de um browser de verdade jogando
-  uma partida completa uma contra a outra. O modo offline tem a mesma lacuna quanto ao Web
-  Worker especificamente (o `nx build` confirma que o worker é gerado como chunk separado e os
-  testes unitários cobrem sua lógica de roteamento de mensagem, mas nenhum teste realmente
-  instancia um `Worker` de browser de verdade).
+- **Só o Chromium tem cobertura de e2e (Playwright).** `apps/web/e2e/` roda três specos reais —
+  página inicial, modo offline (partida completa, incluindo checar que a UI não trava enquanto
+  o Worker do bot busca), modo online (dois `BrowserContext` isolados simulando dois jogadores
+  de verdade, confirmando que a jogada de um aparece ao vivo no outro) — contra a aplicação de
+  verdade (`nx serve web` + `nx serve api`, nada mockado): `npx nx e2e web --project=chromium`.
+  Firefox/WebKit não têm as dependências de sistema instaladas neste ambiente de
+  desenvolvimento (sem `apt-get`/root) e por isso ficam de fora do `projects` do
+  `playwright.config.mts` — não há razão pra não funcionarem em outro ambiente, só não foram
+  verificados aqui. Foi exatamente essa suíte que achou três bugs reais de fiação de DI/estado
+  que nenhum teste unitário pegava (`GameStateService` sendo `providedIn: 'root'` — incompatível
+  com `GameGateway` por rota —, um erro de sala inexistente sendo silenciado quando devia
+  aparecer, e nada chamando `GameStateService.loadGame` no fluxo online); ver `docs/PROGRESS.md`
+  pros detalhes de cada um.
