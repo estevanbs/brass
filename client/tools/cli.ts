@@ -11,16 +11,8 @@ import {
   type PlayerId,
 } from '../libs/backend-domain/src/index.js';
 import { evaluate, makeIsmctsBot, type Bot } from '../libs/backend-infrastructure/src/index.js';
-import {
-  describeAction,
-  loadFromFile,
-  renderBoard,
-  renderPlayer,
-  renderScoreboard,
-  replay,
-  saveToFile,
-  type SavedGame,
-} from '../libs/backend-application/src/index.js';
+import { describeAction, renderBoard, renderPlayer, renderScoreboard, replay, type SavedGame } from '../libs/backend-application/src/index.js';
+import { loadFromFile, saveToFile } from '../libs/backend-application/src/lib/save-file.js';
 
 const HUMAN_ID = 'você';
 

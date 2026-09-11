@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { Rng } from './rng.js';
 import { mulberry32 } from './rng.js';
 import type {
@@ -178,7 +177,20 @@ export function canonicalize(value: unknown): unknown {
   return value;
 }
 
+/** Only a determinism-check fingerprint for tests ("two independently-built states with the
+ * same content hash the same, regardless of key order"), never a security or save-integrity
+ * digest — so a small dependency-free string hash (no cryptographic import, works identically
+ * in Node and in a browser) is enough; no need for a real SHA-256. */
 export function hashState(state: GameState): string {
   const canonicalJson = JSON.stringify(canonicalize(state));
-  return createHash('sha256').update(canonicalJson).digest('hex');
+  let h1 = 0xdeadbeef ^ canonicalJson.length;
+  let h2 = 0x41c6ce57 ^ canonicalJson.length;
+  for (let i = 0; i < canonicalJson.length; i++) {
+    const ch = canonicalJson.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
 }

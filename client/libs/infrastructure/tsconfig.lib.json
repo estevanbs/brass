@@ -29,6 +29,12 @@
   ],
   "references": [
     {
+      "path": "../backend-application/tsconfig.lib.json"
+    },
+    {
+      "path": "../backend-domain/tsconfig.lib.json"
+    },
+    {
       "path": "../application/tsconfig.lib.json"
     },
     {

@@ -13,7 +13,8 @@ import {
   type Action,
 } from '@brass/backend-domain';
 import { randomBot } from '@brass/backend-infrastructure';
-import { loadFromFile, replay, saveToFile, type SavedGame } from '../../src/lib/game-log.js';
+import { replay, type SavedGame } from '../../src/lib/replay.js';
+import { loadFromFile, saveToFile } from '../../src/lib/save-file.js';
 import { describeAction, renderBoard, renderPlayer, renderScoreboard } from '../../src/lib/render.js';
 
 function playFullGameRecordingActions(playerIds: readonly string[], seed: number): SavedGame {

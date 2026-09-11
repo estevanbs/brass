@@ -23,7 +23,8 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": ["apps/web/src/styles.css"],
+        "serviceWorker": "apps/web/ngsw-config.json"
       },
       "configurations": {
         "production": {

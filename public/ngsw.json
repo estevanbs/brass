@@ -1,0 +1,65 @@
+{
+  "configVersion": 1,
+  "timestamp": 1789147702655,
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/favicon.ico",
+        "/index.html",
+        "/main-MRQOIZP3.js",
+        "/manifest.webmanifest",
+        "/styles-JAVREHHS.css",
+        "/worker-RIURJW4X.js"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/icons/icon.svg"
+      ],
+      "patterns": []
+    }
+  ],
+  "dataGroups": [],
+  "hashTable": {
+    "/favicon.ico": "4e23d0f9b6ddaf3c9ddef90dbaed2342941297b5",
+    "/icons/icon.svg": "f04863144c7dd7bfc6d9ddfad784d434f405620e",
+    "/index.html": "5094cbdcc4954c1906dc4a4266fe544b8981b5a1",
+    "/main-MRQOIZP3.js": "2c2918cddab6f1c69965fc08e67772cec7e895fc",
+    "/manifest.webmanifest": "dd1167f67d7ba96b29d50e8d81c53098cef4dce0",
+    "/styles-JAVREHHS.css": "ec3aa950fa2d42df27c4dfb11da903eb39d1455c",
+    "/worker-RIURJW4X.js": "8a2ecc03a80e16727c85cd0c4b25baf508374986"
+  },
+  "navigationUrls": [
+    {
+      "positive": true,
+      "regex": "^\\/.*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*\\.[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
+    }
+  ],
+  "navigationRequestStrategy": "performance"
+}

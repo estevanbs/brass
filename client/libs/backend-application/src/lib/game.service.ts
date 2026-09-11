@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   FARM_BREWERIES,
   INDUSTRIAL_LOCATIONS,
@@ -117,7 +116,10 @@ export class GameService {
       botRng: mulberry32(seed ^ 0x9e3779b9),
       log: [],
     };
-    const id = randomUUID();
+    // The global Web Crypto `crypto`, not `node:crypto`'s `randomUUID` — this file now runs in
+    // two runtimes (Node, for `apps/api`, and inside a browser Worker for offline play), and
+    // `crypto.randomUUID()` is the one API both actually implement.
+    const id = crypto.randomUUID();
     // A no-op unless the first seat happens to be a bot: nothing has a view of this game yet
     // to stream to, so any bot moves before the first human turn just accumulate in the log.
     this.advanceBotsUntilHumanOrOver(game);
