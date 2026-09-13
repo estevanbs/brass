@@ -79,8 +79,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Build web (production, base href /brass/)
-        run: npx nx build web --base-href=/brass/
+      - name: Build web (production)
+        # Served from the custom domain's root (brass.estevanbs.com), not a /brass/ subpath —
+        # see the repo's GitHub Pages custom-domain setting — so the default base href ("/") is
+        # correct here.
+        run: npx nx build web
 
       - name: Prepare Pages artifact
         working-directory: .
