@@ -31,21 +31,26 @@ describe('playGame (random bots)', () => {
 });
 
 describe('runBatch (random bots, small smoke sample)', () => {
-  it('runs a handful of games per player count without exceptions or invalid state', () => {
-    for (const playerCount of [2, 3, 4]) {
-      const playerIds = Array.from({ length: playerCount }, (_, i) => `p${i + 1}`);
-      const summary = runBatch(playerIds, 8, playerCount * 10_000, () => botsFor(playerIds));
-      expect(summary.count).toBe(8);
-      expect(summary.meanTurns).toBeGreaterThan(0);
-      for (const game of summary.games) {
-        expect(game.finalState.gameOver).toBe(true);
-        expect(game.finalState.market.coalCubes).toBeGreaterThanOrEqual(0);
-        expect(game.finalState.market.ironCubes).toBeGreaterThanOrEqual(0);
-        for (const player of Object.values(game.finalState.players)) {
-          expect(player.money).toBeGreaterThanOrEqual(0);
-          expect(player.victoryPoints).toBeGreaterThanOrEqual(0);
+  it(
+    'runs a handful of games per player count without exceptions or invalid state',
+    () => {
+      for (const playerCount of [2, 3, 4]) {
+        const playerIds = Array.from({ length: playerCount }, (_, i) => `p${i + 1}`);
+        const summary = runBatch(playerIds, 8, playerCount * 10_000, () => botsFor(playerIds));
+        expect(summary.count).toBe(8);
+        expect(summary.meanTurns).toBeGreaterThan(0);
+        for (const game of summary.games) {
+          expect(game.finalState.gameOver).toBe(true);
+          expect(game.finalState.market.coalCubes).toBeGreaterThanOrEqual(0);
+          expect(game.finalState.market.ironCubes).toBeGreaterThanOrEqual(0);
+          for (const player of Object.values(game.finalState.players)) {
+            expect(player.money).toBeGreaterThanOrEqual(0);
+            expect(player.victoryPoints).toBeGreaterThanOrEqual(0);
+          }
         }
       }
-    }
-  });
+    },
+    // Vitest's 5s default is too tight on a slower/shared CI runner — this ran in ~10s there.
+    30_000,
+  );
 });

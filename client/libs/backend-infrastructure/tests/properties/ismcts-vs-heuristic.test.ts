@@ -63,6 +63,8 @@ describe('ismctsBot vs heuristicBot (reduced, deterministic-budget regression gu
       console.log(`[ismcts vs heuristic, 120 sims/move] ${wins}/${GAMES} wins (${(winRate * 100).toFixed(1)}%)`);
       expect(winRate).toBeGreaterThanOrEqual(0.5);
     },
-    400_000,
+    // Generous safety net, never the limiting factor (see block comment above) — raised from
+    // 400_000 after this took ~420s on a slower/shared CI runner.
+    600_000,
   );
 });
