@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: client
+
+jobs:
+  test:
+    name: Lint, typecheck & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - run: npx nx run-many -t lint typecheck test --parallel=3
+
+  e2e:
+    name: Playwright e2e (web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - name: Install Playwright browsers (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - run: npx nx e2e web --project=chromium
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/dist/.playwright/apps/web/playwright-report
+          retention-days: 7
+
+  deploy:
+    name: Deploy web to GitHub Pages
+    needs: [test, e2e]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - name: Build web (production, base href /brass/)
+        run: npx nx build web --base-href=/brass/
+
+      - name: Prepare Pages artifact
+        working-directory: .
+        run: |
+          touch public/.nojekyll
+          cp public/index.html public/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

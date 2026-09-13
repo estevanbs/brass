@@ -3,3 +3,7 @@ dist/
 coverage/
 *.log
 .DS_Store
+
+# built by `nx build web` (client/apps/web/project.json) and deployed to GitHub
+# Pages by .github/workflows/ci.yml — not committed, CI builds it fresh
+/public/
