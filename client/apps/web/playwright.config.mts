@@ -45,7 +45,15 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /mobile\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Runs e2e/mobile.spec.ts (only) against a real touch-enabled mobile viewport — everything
+    // else stays on `chromium` above so desktop coverage doesn't pay the extra browser context.
+    {
+      name: 'mobile-chromium',
+      testMatch: /mobile\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
     },
   ],
 });

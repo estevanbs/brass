@@ -44,10 +44,16 @@ import { GameOverComponent } from '../game-over/game-over.component';
         <brass-board-map>
           <brass-action-popup />
           <brass-bot-move-toast />
+          <!-- Projected into .stage (not left as app-main's direct children) so .log-dock and
+               .mat-dock are absolutely positioned against .stage's own box — which the flex
+               layout already sizes to exclude the hand dock below it — instead of app-main's
+               full box, which includes the hand dock. Anchored to the latter, a .mat-panel
+               tall enough (its default-open state, see PlayerMatComponent) could overlap the
+               hand cards on a short screen: a real bug found via mobile e2e coverage, where
+               that overlap intercepted taps meant for the hand. -->
+          <brass-log-panel />
+          <brass-player-mat />
         </brass-board-map>
-
-        <brass-log-panel />
-        <brass-player-mat />
 
         <div class="hand-dock">
           <brass-other-actions />

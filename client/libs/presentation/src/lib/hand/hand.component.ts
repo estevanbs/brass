@@ -19,7 +19,14 @@ const FAN_DEGREES_PER_CARD = 4;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hand-cards">
-      @for (vm of cards(); track vm.key; let i = $index) {
+      <!-- Tracked by index, not vm.key — a hand very routinely holds two identical cards
+           (e.g. two "iron" industry cards, or two cards for the same location), and vm.key is
+           derived from the card's content, not its identity, so two such cards collide on the
+           same track key. That was a real, pre-existing bug (Angular logs NG0955 for it, and it
+           can leave stale/misattributed DOM nodes behind after a re-render) found while adding
+           mobile e2e coverage — hand order is otherwise stable within a render, so the index is
+           a safe substitute. -->
+      @for (vm of cards(); track i; let i = $index) {
         <brass-hand-card
           [card]="vm.card"
           [selected]="vm.selected"

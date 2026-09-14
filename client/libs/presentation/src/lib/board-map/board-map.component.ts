@@ -127,6 +127,24 @@ interface LocationNodeViewModel {
         <rect x="0" y="0" [attr.width]="mapLayout.width" [attr.height]="mapLayout.height" fill="#f1e6c8" />
 
         @for (line of links(); track line.key) {
+          @if (line.clickable) {
+            <!-- Invisible wide hit-path for touch: the drawn line is only 1.6-4px thick, far
+                 below a finger-sized target, so this transparent line underneath (26px, well
+                 past the ~44px minimum touch target once you count both sides of the stroke)
+                 is what actually catches a tap on mobile. -->
+            <line
+              class="link-hit-target"
+              [attr.x1]="line.x1"
+              [attr.y1]="line.y1"
+              [attr.x2]="line.x2"
+              [attr.y2]="line.y2"
+              stroke="transparent"
+              stroke-width="26"
+              stroke-linecap="round"
+              style="cursor: pointer"
+              (click)="onLinkClick(line)"
+            ></line>
+          }
           <line
             [attr.x1]="line.x1"
             [attr.y1]="line.y1"
@@ -160,20 +178,30 @@ interface LocationNodeViewModel {
         }
 
         @for (node of nodes(); track node.id) {
-          <g [attr.transform]="'translate(' + node.x + ',' + node.y + ')'" [class.map-target-node]="node.clickable">
+          <g
+            [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+            [class.map-target-node]="node.clickable"
+            (click)="node.clickable && onNodeClick(node)"
+          >
             @if (node.clickable) {
+              <!-- Invisible hit-target, larger than the drawn circle (r=11-15, 22-30px across)
+                   — a comfortable finger tap needs roughly 44px, so this extends the tappable
+                   radius well past what is actually drawn. The click handler lives on the
+                   enclosing g element above (bubbles from here, the visible circle, or a
+                   build-slot badge), so any of them registers the same tap. -->
+              <circle class="node-hit-target" [attr.r]="node.r + 14" fill="transparent" style="cursor: pointer" />
               <circle [attr.r]="node.r + 9" fill="none" stroke="#c98a2c" stroke-width="3" class="pulse-ring" />
             }
             @if (node.botHighlighted) {
               <circle [attr.r]="node.r + 6" class="bot-ping-ring" />
             }
             <circle
+              class="node-fill"
               [attr.r]="node.r"
               [attr.fill]="node.fill"
               [attr.stroke]="node.stroke"
               [attr.stroke-width]="node.strokeWidth"
               [style.cursor]="node.clickable ? 'pointer' : null"
-              (click)="node.clickable && onNodeClick(node)"
             />
             @if (node.isMarket) {
               <text text-anchor="middle" font-size="13" y="5">⚑</text>

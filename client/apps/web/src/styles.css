@@ -76,7 +76,10 @@ app-root {
 }
 
 header {
-  padding: 8px 20px;
+  /* `max()` against the safe-area inset so the title/setup row clears an iPhone's notch/
+   * dynamic-island cutout in landscape — the orientation this board (1080x640, a wide map)
+   * is actually meant to be played in on a phone. */
+  padding: 8px max(20px, env(safe-area-inset-right)) 8px max(20px, env(safe-area-inset-left));
   background: linear-gradient(180deg, #3a2a1a, #2b2013);
   border-bottom: 3px solid var(--accent);
   display: flex;
@@ -136,12 +139,50 @@ input[type='number'] {
   width: 90px;
 }
 
+/* iOS Safari zooms the whole page in when a focused input/select computes to under 16px —
+   `.setup label`'s 0.82rem would otherwise be inherited straight through (`font: inherit`
+   above only forwards the ancestor's size, it doesn't set one), a real bug: tapping "Jogadores"
+   on an iPhone yanked the viewport into a zoomed-in state. Buttons never trigger this, so only
+   the two actually-typeable controls need the floor. */
+input,
+select {
+  font-size: 16px;
+}
+
 button {
   cursor: pointer;
   background: var(--accent);
   color: white;
   border: none;
   font-weight: 600;
+}
+
+/* Removes the ~300ms tap-delay and double-tap-to-zoom on every interactive control — real
+   pinch-zoom and scrolling (this only disables the *double-tap* zoom gesture) still work fine
+   on `.log`/`.mat-panel`'s own scroll areas. */
+button,
+a,
+input,
+select,
+.hand-card,
+svg.map-svg {
+  touch-action: manipulation;
+}
+
+/* Every button/select in this UI was sized for a mouse pointer — `.other-action-btn`,
+ * `.log-toggle`, `.mat-toggle`, `.mat-tabs button` and the popup's own option buttons all
+ * render under 30px tall with their own compact padding/font-size. `pointer: coarse` (true on
+ * a touchscreen, false with a mouse, regardless of window width) is the correct signal for
+ * this — not a viewport-width breakpoint, since it should apply equally in landscape on a
+ * phone. `min-height` alone (not touching each button's own padding) is enough because of the
+ * global `box-sizing: border-box` at the top of this file. `.hand-card` and the home page's
+ * `.home-mode` links are already well past 44px and unaffected. */
+@media (pointer: coarse) {
+  button,
+  select,
+  input {
+    min-height: 44px;
+  }
 }
 
 button:hover {
@@ -207,7 +248,7 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
   overflow: hidden;
 }
 
@@ -437,11 +478,21 @@ button:hover {
   border-radius: 8px;
   padding: 8px;
   min-width: 200px;
-  max-width: 320px;
   /* A card can legally enable dozens of Develop/Sell combos at once — cap the popup's growth
    * and scroll internally instead of overflowing the viewport (found while testing: with 21
-   * options the popup grew straight off the top of the screen, unclickable). */
-  max-height: min(420px, 55vh);
+   * options the popup grew straight off the top of the screen, unclickable). The viewport-width
+   * term is what keeps it on-screen on a narrow phone: an `.anchored` popup can land near the
+   * right edge of the map, and a bare 320px max-width would then run off the side.
+   *
+   * The height cap is a *percentage* (of `.stage`, this element's actual positioned ancestor),
+   * not `vh` — `.stage` is only the leftover space below the header/top-strip and above the
+   * hand dock, which on a short landscape-phone screen is a lot less than 55% of the full
+   * viewport. A `vh`-based cap let the popup grow taller than `.stage` itself; `.stage`'s own
+   * `overflow: hidden` then clipped its top off instead of shrinking it, leaving those options
+   * invisible *and* unclickable — a real bug caught by mobile e2e coverage (a tap landing on
+   * that clipped-away area hit `.top-strip`, rendered behind it, instead). */
+  max-width: min(320px, calc(100vw - 32px));
+  max-height: min(420px, calc(100% - 32px));
   overflow-y: auto;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -523,7 +574,7 @@ button:hover {
 .log-dock {
   position: absolute;
   top: 20px;
-  right: 26px;
+  right: max(26px, calc(env(safe-area-inset-right) + 10px));
 }
 
 .log-toggle {
@@ -538,7 +589,15 @@ button:hover {
   top: 36px;
   right: 0;
   width: 320px;
-  max-height: 300px;
+  /* Without this, `.log` (fixed 320px wide, docked at the viewport's right edge) runs off the
+   * left edge of a narrow phone screen — the dock's own `right` offset plus 320px alone can
+   * exceed the viewport width. */
+  max-width: calc(100vw - 52px);
+  /* Percentage, not a bare 300px — `.log-dock` is now positioned against `.stage` (see the
+   * comment on the `<brass-log-panel />` projection in game-shell.component.ts), and a fixed
+   * 300px can still exceed *that* box's height on a short landscape phone; same reasoning as
+   * `.map-popup`'s own height cap below. */
+  max-height: min(300px, calc(100% - 56px));
   overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -562,7 +621,7 @@ button:hover {
 .mat-dock {
   position: absolute;
   bottom: 20px;
-  left: 26px;
+  left: max(26px, calc(env(safe-area-inset-left) + 10px));
 }
 
 .mat-toggle {
@@ -578,7 +637,13 @@ button:hover {
   left: 0;
   width: 560px;
   max-width: min(560px, calc(100vw - 60px));
-  max-height: min(480px, 65vh);
+  /* Percentage, not `vh` — `.mat-dock` is now positioned against `.stage` (see the comment on
+   * the `<brass-player-mat />` projection in game-shell.component.ts), which is the space left
+   * over after the header/top-strip/hand-dock, not the full viewport. This panel defaults to
+   * open (`PlayerMatComponent.open`); a `vh`-based cap let it grow taller than `.stage` and
+   * spill into (and intercept taps meant for) the hand dock below — a real bug found via mobile
+   * e2e coverage. */
+  max-height: min(480px, calc(100% - 56px));
   overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -704,7 +769,7 @@ button:hover {
      gap keeps that lift from reaching the action buttons above it (a real bug: the fanned hand
      was covering "Desenvolver"/"Vender"/etc. once a card was picked). */
   gap: 48px;
-  padding: 6px 10px 12px;
+  padding: 6px max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   background: linear-gradient(0deg, rgba(43, 32, 19, 0.55), transparent);
 }
 
@@ -842,10 +907,114 @@ button:hover {
   font-size: 0.9rem;
 }
 
+/* ---------- Small/phone-width layout ----------
+   The board (1080x640) reads best in landscape on a phone, same as it would on a physical
+   table — this doesn't force that orientation, it just makes sure nothing (the legend, the
+   docked panels, the header) eats space the map itself needs once the viewport gets tight. */
 @media (max-width: 700px) {
   .hand-card {
     width: 68px;
     height: 96px;
+  }
+
+  h1 {
+    font-size: 1rem;
+  }
+
+  header {
+    gap: 10px 14px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .setup {
+    gap: 6px 10px;
+  }
+
+  .top-strip {
+    /* Less room needs reserving for `.log-dock` once its own toggle button shrinks below. */
+    padding-right: 96px;
+    font-size: 0.7rem;
+  }
+
+  .log-toggle,
+  .mat-toggle {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+  }
+
+  /* The legend covers roughly a third of the map's own height at full size — on a short
+   * landscape-phone viewport that was found to hide most of the board underneath it. Shrinking
+   * it and letting it scroll internally keeps it available without doing that. */
+  .map-legend {
+    font-size: 0.6rem;
+    padding: 4px 7px;
+    gap: 1px;
+    max-width: 42vw;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .mat-stock {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* A landscape phone is *wide* (often 700-950px), so the `max-width` breakpoint above never
+ * applies to it — but it's also short, and every one of `header`/`.top-strip`/`.hand-dock` has
+ * a fixed, mouse-oriented height that doesn't shrink with the viewport. Measured on a real
+ * mobile viewport (a Pixel 7 turned sideways, 915x412): those three together came to 369px,
+ * leaving `.stage` — the board itself — 43px tall. That's not "cramped", it's unusable: the
+ * whole point of the game is barely a visible sliver. This is the actual core of "playable on a
+ * phone in landscape" and is caught directly by `mobile.spec.ts`, which asserts a minimum
+ * height for `.stage`. */
+@media (max-height: 480px) {
+  header {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* The " — 1770-1870" subtitle is decorative; dropping it doesn't cost any information a
+   * short landscape screen can't spare the row-height for. */
+  h1::after {
+    display: none;
+  }
+
+  .top-strip {
+    /* `flex-wrap: wrap` (its normal, wide-screen behavior) turned a fair number of player
+     * chips into a second line here, roughly doubling this row's height for no real benefit —
+     * scrolling a single line horizontally costs far less vertical space. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .hand-dock {
+    /* The 48px default gap exists so a lifted, selected card's translateY doesn't visually
+     * reach the action buttons above it — but `.other-actions` already has its own z-index
+     * stacking above `.hand-dock` as a second, independent safety net for that (see the
+     * comment on `.other-actions` above), so shrinking the gap here costs only a little visual
+     * breathing room, never a hidden or unclickable button. */
+    gap: 14px;
+    padding-top: 4px;
+  }
+
+  .hand-card {
+    width: 56px;
+    height: 76px;
+    /* The base -14px overlap (for fanning the hand, Hearthstone-style) is calibrated against
+     * the desktop/tablet card width (92px, or 68px at the 700px breakpoint) — at this card's
+     * much narrower 56px, that same -14px ate up to half of each card's width, leaving
+     * adjacent cards overlapping so much that a tap aimed at one card's own center could
+     * actually land on its neighbor instead. A real bug caught by mobile e2e coverage
+     * (Playwright's tap on the first hand card kept reporting a *different* .hand-card
+     * intercepting it). */
+    margin: 0 -8px;
+  }
+
+  .map-legend {
+    max-height: 40vh;
   }
 }
 

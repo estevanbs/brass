@@ -240,4 +240,153 @@ describe('BoardMapComponent', () => {
     const svgTexts = Array.from(fixture.nativeElement.querySelectorAll('svg.map-svg text')) as SVGTextElement[];
     expect(svgTexts.some((t) => t.textContent === '4')).toBe(true);
   });
+
+  // ---------- Mobile touch targets ----------
+  // The board is the one place a small/imprecise tap matters most: nodes are drawn as an
+  // r=11-15 circle (22-30px across) and links as a 1.6-4px line, both well under the ~44px
+  // touch target Apple/Google recommend. These specs pin the invisible, larger hit-areas added
+  // on top of those drawn shapes so a regression that shrinks or removes them is caught here
+  // instead of only by someone actually failing to tap the board on a phone.
+  describe('touch targets', () => {
+    it('gives a clickable node an invisible hit-circle comfortably larger than the drawn one', async () => {
+      const buildAtBirmingham = legalAction({
+        index: 2,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(
+          baseGameView({
+            legalActions: [buildAtBirmingham],
+            board: { locations: [{ id: 'birmingham', kind: 'industrial' }], links: [] },
+          }),
+        ),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const node = fixture.nativeElement.querySelector('g.map-target-node') as SVGGElement;
+      const circles = Array.from(node.querySelectorAll('circle')) as SVGCircleElement[];
+      const hitCircle = circles.find((c) => c.classList.contains('node-hit-target'));
+      const drawnCircle = circles.find((c) => c.classList.contains('node-fill'));
+
+      expect(hitCircle).toBeDefined();
+      expect(drawnCircle).toBeDefined();
+      const hitRadius = Number(hitCircle?.getAttribute('r'));
+      const drawnRadius = Number(drawnCircle?.getAttribute('r'));
+      // 2*hitRadius is the touch target's full width in SVG units — the map is rendered close
+      // to 1:1 with CSS px, so this stands in for the ~44px minimum recommended touch target.
+      expect(hitRadius).toBeGreaterThan(drawnRadius);
+      expect(hitRadius * 2).toBeGreaterThanOrEqual(44);
+    });
+
+    it('does not add an invisible hit-circle to a node with no legal action', async () => {
+      gateway.createGame.mockReturnValueOnce(
+        of(baseGameView({ board: { locations: [{ id: 'birmingham', kind: 'industrial' }], links: [] } })),
+      );
+      await gameState.newGame(2, undefined);
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const node = fixture.nativeElement.querySelector('g') as SVGGElement;
+      expect(node.querySelector('.node-hit-target')).toBeNull();
+    });
+
+    it('the click handler lives on the node group, so tapping the drawn (inner) circle directly also opens the popup', async () => {
+      const buildAtBirmingham = legalAction({
+        index: 2,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(
+          baseGameView({
+            legalActions: [buildAtBirmingham],
+            board: { locations: [{ id: 'birmingham', kind: 'industrial' }], links: [] },
+          }),
+        ),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const node = fixture.nativeElement.querySelector('g.map-target-node') as SVGGElement;
+      const drawnCircle = node.querySelector('.node-fill') as SVGCircleElement;
+
+      drawnCircle.dispatchEvent(new Event('click', { bubbles: true }));
+
+      expect(gameState.popup()?.actions).toEqual([buildAtBirmingham]);
+    });
+
+    it('gives a clickable (unbuilt) link an invisible wide hit-line on top of the thin drawn one', async () => {
+      const buildLink = legalAction({
+        index: 2,
+        type: 'network',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: [], linkSlotIds: ['birmingham__oxford'] },
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(
+          baseGameView({
+            legalActions: [buildLink],
+            board: {
+              locations: [
+                { id: 'birmingham', kind: 'industrial' },
+                { id: 'oxford', kind: 'industrial' },
+              ],
+              links: [{ id: 'birmingham__oxford', locations: ['birmingham', 'oxford'], bonusConnections: [], era: 'both' }],
+            },
+          }),
+        ),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const lines = Array.from(fixture.nativeElement.querySelectorAll('svg.map-svg line')) as SVGLineElement[];
+      const hitLine = lines.find((l) => l.classList.contains('link-hit-target'));
+      expect(hitLine).toBeDefined();
+      expect(Number(hitLine?.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(26);
+
+      hitLine?.dispatchEvent(new Event('click', { bubbles: true }));
+      expect(gameState.popup()?.actions).toEqual([buildLink]);
+    });
+
+    it('does not add an invisible hit-line for an already-built link', async () => {
+      gateway.createGame.mockReturnValueOnce(
+        of(
+          baseGameView({
+            board: {
+              locations: [
+                { id: 'birmingham', kind: 'industrial' },
+                { id: 'oxford', kind: 'industrial' },
+              ],
+              links: [{ id: 'birmingham__oxford', locations: ['birmingham', 'oxford'], bonusConnections: [], era: 'both' }],
+            },
+            state: {
+              ...baseGameView().state,
+              links: [{ slotId: 'birmingham__oxford', owner: 'p1', kind: 'canal' }],
+            },
+          }),
+        ),
+      );
+      await gameState.newGame(2, undefined);
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const lines = Array.from(fixture.nativeElement.querySelectorAll('svg.map-svg line')) as SVGLineElement[];
+      expect(lines.some((l) => l.classList.contains('link-hit-target'))).toBe(false);
+    });
+  });
 });
