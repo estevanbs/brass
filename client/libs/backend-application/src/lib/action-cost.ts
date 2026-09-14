@@ -7,6 +7,7 @@ import {
   type GameState,
   type IndustryType,
   type IronSource,
+  type PlayerId,
   type PlayerState,
 } from '@brass/backend-domain';
 import { INDUSTRY_LABEL } from './render.js';
@@ -16,19 +17,35 @@ export interface CostLine {
   readonly value: string;
 }
 
-function coalSourceLine(source: CoalSource | null): CostLine | null {
-  if (source === null) return null;
-  return { label: 'Carvão', value: source.kind === 'market' ? 'do mercado' : `de ${source.locationId} (própria mina)` };
+/** Whoever's tile actually sits at `locationId[slotIndex]` right now — coal/iron/beer sources
+ * can legally come from *any* player's tile (docs/RULES.md §6.1-§6.3), not just your own, so the
+ * label must say whose it really is instead of assuming it's the acting player's. */
+function tileOwnerLabel(state: GameState, actingPlayer: PlayerId, locationId: string, slotIndex: number): string {
+  const owner = state.locations[locationId]?.slots[slotIndex]?.tile?.owner;
+  if (owner === undefined) return '';
+  return owner === actingPlayer ? ' (própria)' : ` (de ${owner})`;
 }
 
-function ironSourceLine(source: IronSource | null): CostLine | null {
+function coalSourceLine(state: GameState, actingPlayer: PlayerId, source: CoalSource | null): CostLine | null {
   if (source === null) return null;
-  return { label: 'Ferro', value: source.kind === 'market' ? 'do mercado' : `de ${source.locationId} (própria siderúrgica)` };
+  if (source.kind === 'market') return { label: 'Carvão', value: 'do mercado' };
+  const owner = tileOwnerLabel(state, actingPlayer, source.locationId, source.slotIndex);
+  return { label: 'Carvão', value: `de ${source.locationId}${owner}` };
 }
 
-function beerSourceLine(source: BeerSource | null): CostLine | null {
+function ironSourceLine(state: GameState, actingPlayer: PlayerId, source: IronSource | null): CostLine | null {
   if (source === null) return null;
-  if (source.kind === 'brewery') return { label: 'Cerveja', value: `de ${source.locationId} (própria cervejaria)` };
+  if (source.kind === 'market') return { label: 'Ferro', value: 'do mercado' };
+  const owner = tileOwnerLabel(state, actingPlayer, source.locationId, source.slotIndex);
+  return { label: 'Ferro', value: `de ${source.locationId}${owner}` };
+}
+
+function beerSourceLine(state: GameState, actingPlayer: PlayerId, source: BeerSource | null): CostLine | null {
+  if (source === null) return null;
+  if (source.kind === 'brewery') {
+    const owner = tileOwnerLabel(state, actingPlayer, source.locationId, source.slotIndex);
+    return { label: 'Cerveja', value: `de ${source.locationId}${owner}` };
+  }
   return { label: 'Cerveja', value: `mercador em ${source.marketId}` };
 }
 
@@ -65,9 +82,9 @@ export function actionCostLines(before: GameState, action: Action): readonly Cos
       if (level !== undefined) {
         lines.push({ label: 'Peça', value: `${INDUSTRY_LABEL[action.industry]} nível ${level}` });
       }
-      const coal = coalSourceLine(action.coalSource);
+      const coal = coalSourceLine(before, action.player, action.coalSource);
       if (coal !== null) lines.push(coal);
-      const iron = ironSourceLine(action.ironSource);
+      const iron = ironSourceLine(before, action.player, action.ironSource);
       if (iron !== null) lines.push(iron);
       break;
     }
@@ -77,10 +94,10 @@ export function actionCostLines(before: GameState, action: Action): readonly Cos
         value: action.linkSlotIds.join(', '),
       });
       for (const coal of action.coalSources) {
-        const line = coalSourceLine(coal);
+        const line = coalSourceLine(before, action.player, coal);
         if (line !== null) lines.push(line);
       }
-      const beer = beerSourceLine(action.beerSource);
+      const beer = beerSourceLine(before, action.player, action.beerSource);
       if (beer !== null) lines.push(beer);
       break;
     }
@@ -95,7 +112,7 @@ export function actionCostLines(before: GameState, action: Action): readonly Cos
         if (level !== undefined) {
           lines.push({ label: 'Peça removida', value: `${INDUSTRY_LABEL[industry]} nível ${level}` });
         }
-        const iron = ironSourceLine(action.ironSources[i] ?? null);
+        const iron = ironSourceLine(before, action.player, action.ironSources[i] ?? null);
         if (iron !== null) lines.push(iron);
       }
       break;
@@ -107,7 +124,7 @@ export function actionCostLines(before: GameState, action: Action): readonly Cos
       });
       for (const sale of action.sales) {
         for (const beer of sale.beerSources) {
-          const line = beerSourceLine(beer);
+          const line = beerSourceLine(before, action.player, beer);
           if (line !== null) lines.push(line);
         }
       }

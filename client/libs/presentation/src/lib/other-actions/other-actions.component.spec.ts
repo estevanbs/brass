@@ -70,4 +70,53 @@ describe('OtherActionsComponent', () => {
     expect(gameState.popup()?.title).toBe('Desenvolver');
     expect(gameState.popup()?.actions.length).toBe(2);
   });
+
+  describe('resource-source picking', () => {
+    it('clicking Desenvolver enters resource-choice mode (instead of opening the popup) when the develop options differ only by which iron works to use', async () => {
+      const develop1 = legalAction({
+        index: 5,
+        type: 'develop',
+        cardKeys: ['industry:coal'],
+        ironSourceLocationIds: ['dudley'],
+      });
+      const develop2 = legalAction({
+        index: 6,
+        type: 'develop',
+        cardKeys: ['industry:coal'],
+        ironSourceLocationIds: ['coventry'],
+      });
+      gateway.createGame.mockReturnValueOnce(of(baseGameView({ legalActions: [develop1, develop2] })));
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+
+      const fixture = TestBed.createComponent(OtherActionsComponent);
+      fixture.detectChanges();
+      const buttons = Array.from(fixture.nativeElement.querySelectorAll('.other-action-btn')) as HTMLButtonElement[];
+      buttons.find((b) => b.textContent?.includes('Desenvolver'))!.click();
+
+      expect(gameState.popup()).toBeNull();
+      expect(gameState.resourceChoice()?.resourceKind).toBe('iron');
+    });
+
+    it('shows a hint and a cancel button while a resource choice is pending, and cancel clears it', async () => {
+      const develop1 = legalAction({ index: 5, type: 'develop', cardKeys: ['industry:coal'], ironSourceLocationIds: ['dudley'] });
+      const develop2 = legalAction({ index: 6, type: 'develop', cardKeys: ['industry:coal'], ironSourceLocationIds: ['coventry'] });
+      gateway.createGame.mockReturnValueOnce(of(baseGameView({ legalActions: [develop1, develop2] })));
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+      gameState.chooseAction('Desenvolver', [develop1, develop2], { mode: 'corner' });
+
+      const fixture = TestBed.createComponent(OtherActionsComponent);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.other-actions-hint').textContent).toContain('siderúrgica');
+
+      const cancelBtn = Array.from(fixture.nativeElement.querySelectorAll('.other-action-btn')).find((b) =>
+        (b as HTMLButtonElement).textContent?.includes('cancelar'),
+      ) as HTMLButtonElement;
+      cancelBtn.click();
+
+      expect(gameState.resourceChoice()).toBeNull();
+      expect(gameState.popup()).toBeNull();
+    });
+  });
 });

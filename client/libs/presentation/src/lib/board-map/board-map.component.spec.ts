@@ -247,6 +247,126 @@ describe('BoardMapComponent', () => {
   // touch target Apple/Google recommend. These specs pin the invisible, larger hit-areas added
   // on top of those drawn shapes so a regression that shrinks or removes them is caught here
   // instead of only by someone actually failing to tap the board on a phone.
+  // ---------- Resource-source picking (coal mine / iron works) ----------
+  describe('resource-source picking', () => {
+    function boardWithSources() {
+      return {
+        locations: [
+          { id: 'birmingham', kind: 'industrial' as const },
+          { id: 'dudley', kind: 'industrial' as const },
+          { id: 'walsall', kind: 'industrial' as const },
+        ],
+        links: [],
+      };
+    }
+
+    it('clicking a build target whose matches differ only by coal source enters resource-choice mode instead of opening the popup', async () => {
+      const buildViaDudley = legalAction({
+        index: 2,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['dudley'],
+      });
+      const buildViaWalsall = legalAction({
+        index: 3,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['walsall'],
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(baseGameView({ legalActions: [buildViaDudley, buildViaWalsall], board: boardWithSources() })),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const birminghamNode = Array.from(fixture.nativeElement.querySelectorAll('g')).find((g) =>
+        (g as Element).textContent?.includes('birmingham'),
+      ) as SVGGElement;
+      birminghamNode.dispatchEvent(new Event('click', { bubbles: true }));
+
+      expect(gameState.popup()).toBeNull();
+      expect(gameState.resourceChoice()?.resourceKind).toBe('coal');
+      expect(new Set(gameState.resourceChoice()?.options.keys())).toEqual(new Set(['dudley', 'walsall']));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.map-hint').textContent).toContain('mina');
+    });
+
+    it('marks the candidate mine/works tiles (not the original build target) as the clickable nodes once in resource-choice mode', async () => {
+      const buildViaDudley = legalAction({
+        index: 2,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['dudley'],
+      });
+      const buildViaWalsall = legalAction({
+        index: 3,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['walsall'],
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(baseGameView({ legalActions: [buildViaDudley, buildViaWalsall], board: boardWithSources() })),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+      gameState.chooseAction('birmingham', [buildViaDudley, buildViaWalsall], { mode: 'corner' });
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const clickableLabels = Array.from(fixture.nativeElement.querySelectorAll('g.map-target-node'))
+        .map((g) => (g as Element).querySelector('text')?.textContent?.trim())
+        .sort();
+      expect(clickableLabels).toEqual(['dudley', 'walsall']);
+      // Styled distinctly from a normal build target (green, not amber) — see RESOURCE_CHOICE_LINE.
+      const resourceNode = Array.from(fixture.nativeElement.querySelectorAll('g.map-target-node')).find((g) =>
+        (g as Element).textContent?.includes('dudley'),
+      ) as SVGGElement;
+      expect(resourceNode.classList.contains('map-resource-target')).toBe(true);
+    });
+
+    it('clicking the chosen mine tile narrows to the matching action and opens the confirm popup', async () => {
+      const buildViaDudley = legalAction({
+        index: 2,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['dudley'],
+      });
+      const buildViaWalsall = legalAction({
+        index: 3,
+        type: 'build',
+        cardKeys: ['industry:coal'],
+        targets: { locationIds: ['birmingham'], linkSlotIds: [] },
+        coalSourceLocationIds: ['walsall'],
+      });
+      gateway.createGame.mockReturnValueOnce(
+        of(baseGameView({ legalActions: [buildViaDudley, buildViaWalsall], board: boardWithSources() })),
+      );
+      await gameState.newGame(2, undefined);
+      gameState.selectCard('industry:coal');
+      gameState.chooseAction('birmingham', [buildViaDudley, buildViaWalsall], { mode: 'corner' });
+
+      const fixture = TestBed.createComponent(BoardMapComponent);
+      fixture.detectChanges();
+
+      const dudleyNode = Array.from(fixture.nativeElement.querySelectorAll('g.map-target-node')).find((g) =>
+        (g as Element).textContent?.includes('dudley'),
+      ) as SVGGElement;
+      dudleyNode.dispatchEvent(new Event('click', { bubbles: true }));
+
+      expect(gameState.resourceChoice()).toBeNull();
+      expect(gameState.popup()?.actions).toEqual([buildViaDudley]);
+    });
+  });
+
   describe('touch targets', () => {
     it('gives a clickable node an invisible hit-circle comfortably larger than the drawn one', async () => {
       const buildAtBirmingham = legalAction({

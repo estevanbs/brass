@@ -13,6 +13,8 @@ function legalAction(overrides: Partial<LegalActionView> = {}): LegalActionView 
     cardKeys: ['industry:coal'],
     targets: { locationIds: [], linkSlotIds: [] },
     costLines: [],
+    coalSourceLocationIds: [],
+    ironSourceLocationIds: [],
     ...overrides,
   };
 }
@@ -279,6 +281,114 @@ describe('GameStateService', () => {
       service.openPopup('Desenvolver', [legalAction()], { mode: 'corner' });
       service.selectCard('industry:coal');
       expect(service.popup()).toBeNull();
+    });
+  });
+
+  describe('chooseAction / resource-source picking', () => {
+    it('opens the popup directly when matches do not differ by resource source', () => {
+      const a = legalAction({ index: 0 });
+      service.chooseAction('Construir', [a], { mode: 'corner' });
+      expect(service.popup()).toEqual({ title: 'Construir', actions: [a], position: { mode: 'corner' } });
+      expect(service.resourceChoice()).toBeNull();
+    });
+
+    it('is a no-op given zero matches', () => {
+      service.chooseAction('Construir', [], { mode: 'corner' });
+      expect(service.popup()).toBeNull();
+      expect(service.resourceChoice()).toBeNull();
+    });
+
+    it('enters resource-choice mode instead of opening the popup when matches differ only by coal source', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'anchored', left: 10, top: 20 });
+
+      expect(service.popup()).toBeNull();
+      const pending = service.resourceChoice();
+      expect(pending?.resourceKind).toBe('coal');
+      expect(pending?.title).toBe('Construir');
+      expect(pending?.position).toEqual({ mode: 'anchored', left: 10, top: 20 });
+      expect(new Set(pending?.options.keys())).toEqual(new Set(['dudley', 'walsall']));
+    });
+
+    it('chooseResourceSource narrows to the matching candidate and opens the confirm popup once no choice remains', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'anchored', left: 10, top: 20 });
+
+      service.chooseResourceSource('dudley');
+
+      expect(service.resourceChoice()).toBeNull();
+      expect(service.popup()).toEqual({ title: 'Construir', actions: [a], position: { mode: 'anchored', left: 10, top: 20 } });
+    });
+
+    it('chooseResourceSource advances to a second resource-choice step when one remains (e.g. a double network link)', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley', 'walsall'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['dudley', 'coventry'] });
+      service.chooseAction('Rede', [a, b], { mode: 'corner' });
+
+      service.chooseResourceSource('dudley'); // first slot: identical on both, so this alone shouldn't have been the pending step
+      // Both a and b matched 'dudley' at index 0 — the pending step must have been about index 1 instead.
+
+      const pending = service.resourceChoice();
+      expect(pending?.resourceKind).toBe('coal');
+      expect(new Set(pending?.options.keys())).toEqual(new Set(['walsall', 'coventry']));
+
+      service.chooseResourceSource('walsall');
+      expect(service.resourceChoice()).toBeNull();
+      expect(service.popup()?.actions).toEqual([a]);
+    });
+
+    it('chooseResourceSource is a no-op for a location that is not one of the pending options', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'corner' });
+
+      service.chooseResourceSource('coventry');
+
+      expect(service.resourceChoice()).not.toBeNull();
+      expect(service.popup()).toBeNull();
+    });
+
+    it('chooseResourceSource is a no-op when there is no pending choice', () => {
+      service.chooseResourceSource('dudley');
+      expect(service.resourceChoice()).toBeNull();
+      expect(service.popup()).toBeNull();
+    });
+
+    it('cancelResourceChoice clears the pending choice without opening the popup', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'corner' });
+
+      service.cancelResourceChoice();
+
+      expect(service.resourceChoice()).toBeNull();
+      expect(service.popup()).toBeNull();
+    });
+
+    it('selectCard cancels any pending resource choice', () => {
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'corner' });
+
+      service.selectCard('industry:coal');
+
+      expect(service.resourceChoice()).toBeNull();
+    });
+
+    it('submitAction cancels any pending resource choice', async () => {
+      const loan = legalAction({ index: 0, cardKeys: ['industry:coal'] });
+      gateway.createGame.mockReturnValueOnce(of(gameView({ legalActions: [loan] })));
+      await service.newGame(2, undefined);
+
+      const a = legalAction({ index: 0, coalSourceLocationIds: ['dudley'] });
+      const b = legalAction({ index: 1, coalSourceLocationIds: ['walsall'] });
+      service.chooseAction('Construir', [a, b], { mode: 'corner' });
+
+      service.submitAction(0);
+
+      expect(service.resourceChoice()).toBeNull();
     });
   });
 

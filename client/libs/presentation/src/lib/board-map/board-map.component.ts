@@ -13,6 +13,12 @@ const ERA_COLOR: Readonly<Record<'canal' | 'rail', string>> = { canal: '#2f6ba8'
 // `#f1e6c8` map background to read clearly once several unbuilt links cross near each other.
 const INACTIVE_LINE = '#8a7550';
 const ACTIVE_LINE = '#c98a2c';
+// Deliberately distinct from ACTIVE_LINE (amber = "build/link here") — while picking which
+// coal/iron tile to draw from, only the eligible mine/works nodes are clickable, and coloring
+// them the same amber as a normal build target read as "you can build here too", which isn't
+// true mid-pick. Reuses `--accent-2`, already the app's other-than-amber accent color.
+const RESOURCE_CHOICE_LINE = '#2f6b47';
+const RESOURCE_CHOICE_LABEL_FILL = '#1f4a30';
 
 type LinkEra = 'canal' | 'rail' | 'both';
 
@@ -91,9 +97,14 @@ interface LocationNodeViewModel {
   readonly r: number;
   readonly isMarket: boolean;
   readonly clickable: boolean;
+  /** True while this node is specifically a "pick this coal mine / iron works" target — a
+   * different mode than the usual "build/link here" highlight, styled distinctly (green, not
+   * amber) so the two never read as the same kind of click. */
+  readonly resourceChoice: boolean;
   readonly fill: string;
   readonly stroke: string;
   readonly strokeWidth: number;
+  readonly pulseColor: string;
   readonly label: string;
   readonly labelBold: boolean;
   readonly labelFill: string;
@@ -181,6 +192,7 @@ interface LocationNodeViewModel {
           <g
             [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
             [class.map-target-node]="node.clickable"
+            [class.map-resource-target]="node.resourceChoice"
             (click)="node.clickable && onNodeClick(node)"
           >
             @if (node.clickable) {
@@ -190,7 +202,7 @@ interface LocationNodeViewModel {
                    enclosing g element above (bubbles from here, the visible circle, or a
                    build-slot badge), so any of them registers the same tap. -->
               <circle class="node-hit-target" [attr.r]="node.r + 14" fill="transparent" style="cursor: pointer" />
-              <circle [attr.r]="node.r + 9" fill="none" stroke="#c98a2c" stroke-width="3" class="pulse-ring" />
+              <circle [attr.r]="node.r + 9" fill="none" [attr.stroke]="node.pulseColor" stroke-width="3" class="pulse-ring" />
             }
             @if (node.botHighlighted) {
               <circle [attr.r]="node.r + 6" class="bot-ping-ring" />
@@ -265,6 +277,7 @@ interface LocationNodeViewModel {
         <span><i class="dot" [style.background]="kindColor.farm_brewery"></i> fazenda</span>
         <span><i class="dot" [style.background]="kindColor.market"></i> ⚑ mercador</span>
         <span><i class="dot" style="background:#c98a2c"></i> jogável agora</span>
+        <span><i class="dot" [style.background]="resourceChoiceColor"></i> escolha de qual mina/siderúrgica usar</span>
         <span><i class="line built" [style.background]="eraColor.canal"></i> canal construído</span>
         <span><i class="line built" [style.background]="eraColor.rail"></i> ferrovia construída</span>
         <span><i class="line dashed" [style.border-top-color]="unbuiltEraColor.canal"></i> só constrói no Canal</span>
@@ -293,6 +306,7 @@ export class BoardMapComponent {
   protected readonly kindColor = KIND_COLOR;
   protected readonly eraColor = ERA_COLOR;
   protected readonly unbuiltEraColor = UNBUILT_ERA_COLOR;
+  protected readonly resourceChoiceColor = RESOURCE_CHOICE_LINE;
 
   private readonly svgRoot = viewChild.required<ElementRef<SVGSVGElement>>('svgRoot');
 
@@ -304,11 +318,24 @@ export class BoardMapComponent {
   private readonly activeLocationIds = computed(() => new Set(this.gameState.filteredActions().flatMap((a) => a.targets.locationIds)));
   private readonly activeLinkIds = computed(() => new Set(this.gameState.filteredActions().flatMap((a) => a.targets.linkSlotIds)));
 
+  /** The mine/works tiles currently offered as a coal/iron source pick — see
+   * `GameStateService.resourceChoice`. Non-empty exactly while that mode is active, in which
+   * case it *replaces* the normal build/link targets below rather than adding to them: the
+   * player already committed to which build/network/develop action shape they're doing, and is
+   * now only choosing a resource tile for it. */
+  private readonly resourceChoiceLocationIds = computed(() => new Set(this.gameState.resourceChoice()?.options.keys() ?? []));
+
   private readonly botHighlightedLocationIds = computed(() => new Set(this.gameState.botHighlight()?.locationIds ?? []));
   private readonly botHighlightedLinkIds = computed(() => new Set(this.gameState.botHighlight()?.linkSlotIds ?? []));
 
   protected readonly hintText = computed<string | null>(() => {
     if (this.gameState.popup() !== null) return null;
+    const pendingResource = this.gameState.resourceChoice();
+    if (pendingResource !== null) {
+      return pendingResource.resourceKind === 'coal'
+        ? 'Clique na mina destacada para escolher de onde vem o carvão'
+        : 'Clique na siderúrgica destacada para escolher de onde vem o ferro';
+    }
     const haveSelection = this.gameState.selectedCard() !== null || this.gameState.scoutMode();
     if (!haveSelection) return 'Selecione uma carta na mão para ver as jogadas possíveis';
     if (this.gameState.filteredActions().length === 0) return 'Essa carta não tem jogadas legais agora';
@@ -320,7 +347,8 @@ export class BoardMapComponent {
     if (view === null) return [];
     const layout = this.layout();
     const builtByLinkId = new Map(view.state.links.map((l) => [l.slotId, l] as const));
-    const activeIds = this.activeLinkIds();
+    // Links are never a coal/iron source — while picking one, no link should read as clickable.
+    const activeIds = this.resourceChoiceLocationIds().size > 0 ? new Set<string>() : this.activeLinkIds();
     const botHighlighted = this.botHighlightedLinkIds();
 
     return view.board.links.flatMap((link) => {
@@ -484,13 +512,16 @@ export class BoardMapComponent {
     const view = this.gameState.view();
     if (view === null) return [];
     const layout = this.layout();
-    const activeIds = this.activeLocationIds();
+    const resourceChoiceIds = this.resourceChoiceLocationIds();
+    const inResourceChoiceMode = resourceChoiceIds.size > 0;
+    const activeIds = inResourceChoiceMode ? resourceChoiceIds : this.activeLocationIds();
     const botHighlighted = this.botHighlightedLocationIds();
 
     return view.board.locations.flatMap((location): LocationNodeViewModel[] => {
       const pos = layout.get(location.id);
       if (pos === undefined) return [];
       const isActive = activeIds.has(location.id);
+      const isResourceChoice = inResourceChoiceMode && isActive;
       const locState = view.state.locations[location.id];
       const slots = locState?.slots ?? [];
       const hasHumanTile = slots.some((s) => s.tile?.owner === view.humanId);
@@ -512,12 +543,14 @@ export class BoardMapComponent {
           r,
           isMarket,
           clickable: isActive,
+          resourceChoice: isResourceChoice,
           fill: marketInPlay ? KIND_COLOR[location.kind] : '#c9bfa0',
-          stroke: hasHumanTile ? '#a8432f' : isActive ? '#c98a2c' : '#5a4d38',
+          stroke: hasHumanTile ? '#a8432f' : isResourceChoice ? RESOURCE_CHOICE_LINE : isActive ? ACTIVE_LINE : '#5a4d38',
           strokeWidth: hasHumanTile || isActive ? 3 : 1.4,
+          pulseColor: isResourceChoice ? RESOURCE_CHOICE_LINE : ACTIVE_LINE,
           label: location.id.replace(/_/g, ' '),
           labelBold: isMarket || isActive,
-          labelFill: isActive ? '#8a4e0f' : '#2b2620',
+          labelFill: isResourceChoice ? RESOURCE_CHOICE_LABEL_FILL : isActive ? '#8a4e0f' : '#2b2620',
           badges,
           subLabel,
           botHighlighted: botHighlighted.has(location.id),
@@ -527,6 +560,10 @@ export class BoardMapComponent {
   });
 
   onNodeClick(node: LocationNodeViewModel): void {
+    if (node.resourceChoice) {
+      this.gameState.chooseResourceSource(node.id);
+      return;
+    }
     const matches = this.gameState.filteredActions().filter((a) => a.targets.locationIds.includes(node.id));
     this.resolveClick(node.label, matches, { x: node.x, y: node.y });
   }
@@ -538,10 +575,12 @@ export class BoardMapComponent {
 
   /** Always opens the confirmation popup, even for a single match — it shows the exact cost
    * (money, resources, items) before anything is actually submitted, per the user's request
-   * for a confirm step on every action, not just when there are several to choose between. */
+   * for a confirm step on every action, not just when there are several to choose between.
+   * `GameStateService.chooseAction` may instead enter resource-choice mode first, if `matches`
+   * still differ only by which coal/iron tile to draw from. */
   private resolveClick(title: string, matches: readonly LegalActionView[], svgPoint: Point): void {
     if (matches.length === 0) return;
-    this.gameState.openPopup(title, matches, { mode: 'anchored', ...this.toPixel(svgPoint) });
+    this.gameState.chooseAction(title, matches, { mode: 'anchored', ...this.toPixel(svgPoint) });
   }
 
   /** Converts an SVG-viewport point into a pixel offset from `.stage` — the popup's actual CSS

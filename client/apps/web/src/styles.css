@@ -403,6 +403,15 @@ button:hover {
   filter: drop-shadow(0 0 4px var(--highlight));
 }
 
+/* Picking which coal mine / iron works to draw from (GameStateService.resourceChoice) — a
+ * distinct green glow, not the normal amber "build/link here" one, so it never reads as "you
+ * can build here too" while the player is only choosing a resource tile for an action they
+ * already committed to. Same specificity as the amber rule above, so this must stay declared
+ * after it: a node carrying both classes needs this one to win the cascade. */
+.map-resource-target circle:not(.pulse-ring) {
+  filter: drop-shadow(0 0 4px var(--accent-2));
+}
+
 /* Always-visible counter on a coal/iron tile badge — "quanto falta para virar" (resource
    cubes left before it flips on its own), so this reads off the map without hovering. */
 .tile-counter-badge {

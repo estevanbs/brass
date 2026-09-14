@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom, type Subscription } from 'rxjs';
 import type { ActionTargets, GameMoveEvent, GameView, LegalActionView, PopupPosition } from '@brass/domain';
 import { GameGateway } from '../ports/game-gateway';
+import { nextResourceChoice, type ResourceChoiceStep } from './resource-choice';
 
 /** How long a bot-move ping stays on the map before auto-clearing — long enough to notice,
  * short enough not to still be running when the next move streams in in a fast game. */
@@ -14,6 +15,15 @@ const BOT_MOVE_TOAST_DURATION_MS = 2400;
 export interface PopupState {
   readonly title: string;
   readonly actions: readonly LegalActionView[];
+  readonly position: PopupPosition;
+}
+
+/** Mid-flow state for "which mine/works does this draw from" — `step` is whichever resource
+ * slot is currently being asked about; `title`/`position` are carried through unchanged from
+ * whatever triggered this (a map click or an "other actions" button) so the eventual confirm
+ * popup opens exactly where the original one would have. */
+export interface ResourceChoiceState extends ResourceChoiceStep {
+  readonly title: string;
   readonly position: PopupPosition;
 }
 
@@ -54,6 +64,7 @@ export class GameStateService {
   private readonly _selectedMatPlayer = signal<string | null>(null);
   private readonly _statusMessage = signal('');
   private readonly _popup = signal<PopupState | null>(null);
+  private readonly _resourceChoice = signal<ResourceChoiceState | null>(null);
   private readonly _botHighlight = signal<ActionTargets | null>(null);
   private botHighlightTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly _botMoveToast = signal<BotMoveToast | null>(null);
@@ -67,6 +78,10 @@ export class GameStateService {
   readonly scoutPicks = this._scoutPicks.asReadonly();
   readonly statusMessage = this._statusMessage.asReadonly();
   readonly popup = this._popup.asReadonly();
+  /** Non-null while the player is mid-way through picking which mine/works a coal/iron slot
+   * draws from — set by `chooseAction` instead of opening the popup outright whenever the
+   * matches it was given still differ only by resource source (see `nextResourceChoice`). */
+  readonly resourceChoice = this._resourceChoice.asReadonly();
   /** Board locations/links a bot's move just touched, straight from that move's own
    * `GameMoveEvent.targets` (`GameGateway#submitAction` streams one such event per move) —
    * drives a one-shot "ping" animation on the map; auto-clears after
@@ -151,6 +166,7 @@ export class GameStateService {
     const humanId = view.humanId;
     this._statusMessage.set('Aguardando bots...');
     this.closePopup();
+    this.cancelResourceChoice();
     this.gateway.submitAction(view.gameId, index).subscribe({
       next: (event) => {
         this.applyView(event.view);
@@ -187,6 +203,7 @@ export class GameStateService {
    * one; otherwise leaves the caller to open a popup with the alternatives. */
   selectCard(key: string): void {
     this.closePopup();
+    this.cancelResourceChoice();
     if (this._scoutMode()) {
       this.toggleScoutPick(key);
       return;
@@ -198,6 +215,7 @@ export class GameStateService {
     this._scoutMode.set(true);
     this._scoutPicks.set([]);
     this.closePopup();
+    this.cancelResourceChoice();
   }
 
   cancelScout(): void {
@@ -238,11 +256,48 @@ export class GameStateService {
     this._popup.set(null);
   }
 
+  /** The entry point every map click and "other actions" button should use instead of
+   * `openPopup` directly: if `matches` still differ only by which coal/iron tile to draw from
+   * (`nextResourceChoice`), this asks the player to click that tile on the map instead of
+   * opening the confirm popup outright — re-narrowing (via `chooseResourceSource`) until either
+   * a further resource slot needs picking too, or none do, at which point the popup opens
+   * exactly as it always has. A no-op if `matches` is empty. */
+  chooseAction(title: string, matches: readonly LegalActionView[], position: PopupPosition): void {
+    if (matches.length === 0) return;
+    const step = nextResourceChoice(matches);
+    if (step === null) {
+      this.openPopup(title, matches, position);
+      return;
+    }
+    this._resourceChoice.set({ title, position, ...step });
+  }
+
+  /** Narrows the pending resource choice by the tile the player just clicked — either advances
+   * to the next resource slot still needing a pick, or (once none do) opens the confirm popup.
+   * A no-op if there is no pending choice, or `locationId` isn't one of its options (the map
+   * only ever offers `chooseResourceSource` a location it already knows is valid, but a stray
+   * call — e.g. a stale click racing a state update — should do nothing, not throw). */
+  chooseResourceSource(locationId: string): void {
+    const pending = this._resourceChoice();
+    if (pending === null) return;
+    const narrowed = pending.options.get(locationId);
+    if (narrowed === undefined) return;
+    this._resourceChoice.set(null);
+    this.chooseAction(pending.title, narrowed, pending.position);
+  }
+
+  /** Backs out of a pending resource choice without submitting anything — returns to the plain
+   * "here's everywhere this card can act" view, same as before the triggering click/button. */
+  cancelResourceChoice(): void {
+    this._resourceChoice.set(null);
+  }
+
   private applyView(view: GameView): void {
     this._view.set(view);
     this._selectedCard.set(null);
     this._scoutMode.set(false);
     this._scoutPicks.set([]);
+    this._resourceChoice.set(null);
     clearTimeout(this.botHighlightTimer);
     this._botHighlight.set(null);
     clearTimeout(this.botMoveToastTimer);

@@ -73,8 +73,22 @@ describe('actionCostLines', () => {
     state = { ...state, locations: withTile(state.locations, 'dudley', 1, tile('p1', 'iron', 1, 2)) };
     const lines = actionCostLines(state, action);
     expect(findValue(lines, 'Peça removida')).toBe('mina de carvão nível 1');
-    expect(findValue(lines, 'Ferro')).toBe('de dudley (própria siderúrgica)');
+    expect(findValue(lines, 'Ferro')).toBe('de dudley (própria)');
     expect(lines.find((l) => l.label === 'Dinheiro')).toBeUndefined();
+  });
+
+  it('develop: names an opponent-owned works by whose it actually is, not "própria" — coal/iron/beer sources are never necessarily the acting player\'s own', () => {
+    const action: Action = {
+      type: 'develop',
+      player: 'p1',
+      card: anyCard(),
+      industries: ['coal'],
+      ironSources: [{ kind: 'works', locationId: 'dudley', slotIndex: 1 }],
+    };
+    let state = makeState({ players: { p1: makePlayer('p1', { hand: [action.card] }), p2: makePlayer('p2') } });
+    state = { ...state, locations: withTile(state.locations, 'dudley', 1, tile('p2', 'iron', 1, 2)) };
+    const lines = actionCostLines(state, action);
+    expect(findValue(lines, 'Ferro')).toBe('de dudley (de p2)');
   });
 
   it('sell: reports the location(s) sold and the beer source, with no money line (money comes as a merchant bonus, not tracked here)', () => {
@@ -104,7 +118,7 @@ describe('actionCostLines', () => {
     };
     const lines = actionCostLines(state, action);
     expect(findValue(lines, 'Local')).toBe('worcester[0]');
-    expect(findValue(lines, 'Cerveja')).toBe('de nuneaton (própria cervejaria)');
+    expect(findValue(lines, 'Cerveja')).toBe('de nuneaton (própria)');
   });
 
   it('loan: reports the money gained and the income track drop', () => {

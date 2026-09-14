@@ -182,12 +182,18 @@ leitura visual de baixa confiança, agora vem direto de `docs/BUILDINGS.md`.
     ação" versus escolhas genuinamente distintas, ao gerar `legalActions`.
     **Decisão**: colapso apenas quando as opções são estritamente intercambiáveis:
     - Cartas duplicadas (2+ cópias idênticas na mão) colapsam em 1 (`engine/cards.ts`).
-    - Empates de distância na mina de carvão mais próxima colapsam em 1 representante
-      canônico (menor `locationId`/`slotIndex`) — a regra já exige "a mais próxima", então
-      empates são simetria pura, não uma decisão estratégica real.
     Mantive como escolhas **distintas** (não colapsadas), mesmo custando mais ramificações:
     qual siderúrgica usar (afeta a renda de quem quer que a possua), qual cervejaria usar,
     e qual combinação de cartas descartar no Scout (afeta o descarte público visível).
+    **Revisão** (client/, pedido do usuário para escolher a fonte de carvão/ferro no mapa):
+    empates de distância na mina de carvão mais próxima **deixaram de colapsar** em
+    `legal/build.ts` — cada mina empatada na menor distância agora vira sua própria ação
+    candidata (igual ao ferro, que nunca colapsou; `legal/network.ts` já gerava assim desde
+    sempre, então essa mudança só alinhou `build.ts` ao padrão que o resto do motor já
+    seguia). RULES.md §6.1 já documentava "em empate, escolha livre" — o colapso empurrava
+    essa escolha para dentro do motor; a decisão original (acima) tratava isso como simetria
+    pura sem valor estratégico, mas o pedido do usuário foi por exatamente essa escolha,
+    então ela deixou de ser colapsada.
     Para o caso combinatoriamente mais perigoso — a ação de Rede dupla (2 trilhos + cerveja +
     2 carvões) — restrinjo os pares candidatos a links alcançáveis a partir da rede atual do
     jogador (em vez de todos os pares entre as ~43 linhas do tabuleiro), o que sub-representa

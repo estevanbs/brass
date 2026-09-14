@@ -57,21 +57,19 @@ function candidateSlots(
   return [...emptyCandidates, ...overbuildCandidates];
 }
 
-/** Canonicalized per docs/ASSUMPTIONS.md #8/#11: ties among equally-close coal mines collapse
- * to one representative (a real free choice with no strategic difference); iron works do not
- * (each is a meaningfully different choice of whose tile advances). */
+/** Per docs/RULES.md §6.1: coal must come from the nearest connected unflipped mine, but a tie
+ * among several equally-near mines is the player's own free choice (docs/ASSUMPTIONS.md #8/#11)
+ * — so every tied mine is offered as its own candidate, the same way iron works already are
+ * below, rather than collapsed to one canonical pick. The UI surfaces this as a click on the
+ * mine tile itself, not just a differently-worded popup button. */
 function coalSourceOptions(state: GameState, locationId: string, coalCost: number): (CoalSource | null)[] {
   if (coalCost === 0) return [null];
   const mines = findConnectedCoalMines(state, locationId);
   if (mines.length > 0) {
     const nearest = mines[0];
     if (nearest === undefined) return [];
-    const tied = mines
-      .filter((m) => m.distance === nearest.distance)
-      .sort((a, b) => a.locationId.localeCompare(b.locationId) || a.slotIndex - b.slotIndex);
-    const chosen = tied[0];
-    if (chosen === undefined) return [];
-    return [{ kind: 'mine', locationId: chosen.locationId, slotIndex: chosen.slotIndex }];
+    const tied = mines.filter((m) => m.distance === nearest.distance);
+    return tied.map((m) => ({ kind: 'mine', locationId: m.locationId, slotIndex: m.slotIndex }) as const);
   }
   return isConnectedToCoalMerchant(state, locationId) ? [{ kind: 'market' }] : [];
 }

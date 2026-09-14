@@ -9,7 +9,7 @@ import { applyLoan } from '../../src/lib/engine/actions/loan.js';
 import { applyScout } from '../../src/lib/engine/actions/scout.js';
 import type { Action } from '../../src/lib/engine/action-types.js';
 import type { GameState } from '../../src/lib/core/types.js';
-import { makePlayer, makeState, tile, withMerchant, withTile } from '../helpers/fixtures.js';
+import { emptyLocations, makePlayer, makeState, tile, withMerchant, withTile } from '../helpers/fixtures.js';
 
 function applyDirectly(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -172,5 +172,54 @@ describe('legalActions', () => {
   it('returns an empty list for an unknown player', () => {
     const state = makeState();
     expect(legalActions(state, 'nobody')).toEqual([]);
+  });
+
+  it('offers every mine tied for nearest as a separate Build candidate, not one collapsed to a canonical pick', () => {
+    // birmingham is directly linked to both walsall and dudley (distance 1 each) — a real tie,
+    // per docs/RULES.md §6.1 rule 1 ("em empate, escolha livre"). docs/ASSUMPTIONS.md #11 used
+    // to collapse this to one canonical mine; the player should see both as choices instead.
+    const locations = withTile(withTile(emptyLocations(), 'walsall', 0, tile('p2', 'coal', 1, 2)), 'dudley', 0, tile('p2', 'coal', 1, 2));
+    const state = makeState({
+      links: [
+        { slotId: 'walsall__birmingham', owner: 'p1', kind: 'canal' },
+        { slotId: 'dudley__birmingham', owner: 'p1', kind: 'canal' },
+      ],
+      locations,
+      players: {
+        p1: makePlayer('p1', { hand: [{ kind: 'industry', industry: 'cotton' }] }),
+        p2: makePlayer('p2'),
+      },
+    });
+
+    const cottonBuilds = legalActions(state, 'p1').filter(
+      (a): a is Extract<Action, { type: 'build' }> => a.type === 'build' && a.industry === 'cotton',
+    );
+    const coalSources = new Set(cottonBuilds.map((a) => (a.coalSource?.kind === 'mine' ? a.coalSource.locationId : a.coalSource?.kind)));
+    expect(coalSources).toEqual(new Set(['walsall', 'dudley']));
+  });
+
+  it('offers only the actual nearest mine when distances are not tied', () => {
+    // dudley is directly linked to birmingham (distance 1); walsall is only reachable the long
+    // way, via dudley and wolverhampton (distance 3) — no tie, so only dudley's mine (the
+    // genuinely nearest one) should be offered.
+    const locations = withTile(withTile(emptyLocations(), 'walsall', 0, tile('p2', 'coal', 1, 2)), 'dudley', 0, tile('p2', 'coal', 1, 2));
+    const state = makeState({
+      links: [
+        { slotId: 'dudley__birmingham', owner: 'p1', kind: 'canal' },
+        { slotId: 'wolverhampton__dudley', owner: 'p1', kind: 'canal' },
+        { slotId: 'wolverhampton__walsall', owner: 'p1', kind: 'canal' },
+      ],
+      locations,
+      players: {
+        p1: makePlayer('p1', { hand: [{ kind: 'industry', industry: 'cotton' }] }),
+        p2: makePlayer('p2'),
+      },
+    });
+
+    const cottonBuilds = legalActions(state, 'p1').filter(
+      (a): a is Extract<Action, { type: 'build' }> => a.type === 'build' && a.industry === 'cotton',
+    );
+    const coalSources = new Set(cottonBuilds.map((a) => (a.coalSource?.kind === 'mine' ? a.coalSource.locationId : a.coalSource?.kind)));
+    expect(coalSources).toEqual(new Set(['dudley']));
   });
 });

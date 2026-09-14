@@ -55,6 +55,8 @@ export function legalAction(overrides: Partial<LegalActionView> = {}): LegalActi
     cardKeys: [],
     targets: { locationIds: [], linkSlotIds: [] },
     costLines: [],
+    coalSourceLocationIds: [],
+    ironSourceLocationIds: [],
     ...overrides,
   };
 }

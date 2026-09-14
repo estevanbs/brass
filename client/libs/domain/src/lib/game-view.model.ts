@@ -23,6 +23,18 @@ export interface LegalActionView {
   readonly cardKeys: readonly string[];
   readonly targets: ActionTargets;
   readonly costLines: readonly CostLine[];
+  /** Board location of each coal cube this action would consume, in the action's own source
+   * order (index-aligned across every `LegalActionView` that otherwise shares the same
+   * `targets`/`cardKeys` — e.g. a double-rail Network action's two links each have their own
+   * slot here). `null` at a given index means that slot resolves to the market, not a specific
+   * mine — nothing on the map to click for it. Empty when the action needs no coal at all. Lets
+   * the UI offer "click the mine you want to draw from" instead of only a text-differentiated
+   * popup button, for the free choice docs/RULES.md §6.1 grants among tied-nearest mines. */
+  readonly coalSourceLocationIds: readonly (string | null)[];
+  /** Same as `coalSourceLocationIds`, for iron works — docs/RULES.md §6.2 grants a free choice
+   * of *any* unflipped works on the board, not just ties, so this is the common case where a
+   * Build/Develop needing iron has more than one entry. */
+  readonly ironSourceLocationIds: readonly (string | null)[];
 }
 
 export interface BoardLocationSummary {

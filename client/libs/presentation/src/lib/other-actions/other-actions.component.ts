@@ -11,7 +11,10 @@ import type { ActionType, LegalActionView } from '@brass/domain';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="other-actions">
-      @if (gameState.scoutMode()) {
+      @if (gameState.resourceChoice(); as pending) {
+        <div class="other-actions-hint">{{ pending.resourceKind === 'coal' ? 'Clique no mapa em qual mina vem o carvão' : 'Clique no mapa em qual siderúrgica vem o ferro' }}</div>
+        <button type="button" class="other-action-btn" (click)="gameState.cancelResourceChoice()">cancelar</button>
+      } @else if (gameState.scoutMode()) {
         <div class="other-actions-hint">Explorar: escolha mais {{ 2 - gameState.scoutPicks().length }} carta(s) na mão</div>
         <button type="button" class="other-action-btn" (click)="gameState.cancelScout()">cancelar</button>
       } @else if (gameState.selectedCard() === null) {
@@ -62,6 +65,6 @@ export class OtherActionsComponent {
   }
 
   openInline(title: string, actions: readonly LegalActionView[]): void {
-    this.gameState.openPopup(title, actions, { mode: 'corner' });
+    this.gameState.chooseAction(title, actions, { mode: 'corner' });
   }
 }

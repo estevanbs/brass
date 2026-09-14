@@ -65,6 +65,33 @@ function actionTargets(action: Action): ActionTargets {
   }
 }
 
+/** Board location of each coal cube `action` would consume, index-aligned with the action's own
+ * source order (a double-rail Network action has up to 2) — `null` where that slot resolves to
+ * the market rather than a specific mine. Lets the frontend offer "click the mine" for the free
+ * choice docs/RULES.md §6.1 grants among tied-nearest mines (see `LegalActionView`). */
+export function coalSourceLocationIds(action: Action): readonly (string | null)[] {
+  switch (action.type) {
+    case 'build':
+      return action.coalSource === null ? [] : [action.coalSource.kind === 'mine' ? action.coalSource.locationId : null];
+    case 'network':
+      return action.coalSources.map((s) => (s.kind === 'mine' ? s.locationId : null));
+    default:
+      return [];
+  }
+}
+
+/** Same as `coalSourceLocationIds`, for iron works — docs/RULES.md §6.2. */
+export function ironSourceLocationIds(action: Action): readonly (string | null)[] {
+  switch (action.type) {
+    case 'build':
+      return action.ironSource === null ? [] : [action.ironSource.kind === 'works' ? action.ironSource.locationId : null];
+    case 'develop':
+      return action.ironSources.map((s) => (s.kind === 'works' ? s.locationId : null));
+    default:
+      return [];
+  }
+}
+
 /** Static board topology (never changes across games) — sent once per view so the frontend
  * can draw a map without duplicating rules data. */
 const BOARD_SUMMARY = {
@@ -200,6 +227,8 @@ export class GameService {
         cardKeys: actionCardKeys(action),
         targets: actionTargets(action),
         costLines: actionCostLines(game.state, action),
+        coalSourceLocationIds: coalSourceLocationIds(action),
+        ironSourceLocationIds: ironSourceLocationIds(action),
       })),
       log: game.log,
     };
