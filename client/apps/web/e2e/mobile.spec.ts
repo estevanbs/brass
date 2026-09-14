@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  * the whole emulation, not just a resized desktop window).
  *
  * The board (1080x640, a wide map) reads best in landscape on a phone — the same orientation
- * you'd turn a physical box to play it on a table — so the actual-gameplay tests below use a
+ * you'd turn a physical box to play it on a table — so most actual-gameplay tests below use a
  * landscape viewport. The layout/overflow checks run in the device's default portrait
  * orientation too, since arriving at "/" and the pre-game screens should never be broken there
  * even before anyone rotates their phone.
@@ -15,9 +15,12 @@ import { expect, test, type Page } from '@playwright/test';
 const MIN_TOUCH_TARGET_PX = 44;
 // Found by measuring a real landscape phone viewport (Pixel 7 sideways, 915x412): before the
 // height-based layout fixes, the header/top-strip/hand-dock alone ate 369 of those 412px,
-// leaving the board a 43px sliver. 120px is comfortably above that broken state and still well
-// under what any of the tested viewports actually provide once the fix is in place.
-const MIN_STAGE_HEIGHT_PX = 120;
+// leaving the board a 43px sliver. Then, with the action buttons still stacked above the hand,
+// it was 190px. Placing them beside the hand gives it ~250px; 220 pins that improvement.
+const MIN_LANDSCAPE_STAGE_HEIGHT_PX = 220;
+// An opened panel collapsed to an 18-22px sliver (its max-height resolved against its tiny
+// dock instead of the board area) — anything past ~100px is actually readable.
+const MIN_OPEN_PANEL_HEIGHT_PX = 100;
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -37,6 +40,34 @@ async function useLandscape(page: Page): Promise<void> {
  * be re-rendered mid-interaction). Waiting for the human's own turn first removes that race. */
 async function waitForHumanTurn(page: Page): Promise<void> {
   await expect(page.locator('.strip-player.human.active')).toBeVisible({ timeout: 20_000 });
+}
+
+async function startGame(page: Page): Promise<void> {
+  await page.goto('/offline');
+  await page.getByRole('button', { name: 'Novo jogo' }).tap();
+  await expect(page.locator('main.app-main')).toBeVisible({ timeout: 15_000 });
+  await waitForHumanTurn(page);
+}
+
+/** Selects whichever hand card first unlocks at least one clickable map node (a location card
+ * guarantees this; an industry card might not, depending on the deal). */
+async function selectCardWithMapTargets(page: Page): Promise<void> {
+  const cards = page.locator('.hand-card');
+  const count = await cards.count();
+  for (let i = 0; i < count; i++) {
+    await cards.nth(i).tap();
+    if ((await page.locator('.node-hit-target').count()) > 0) return;
+  }
+  throw new Error('no hand card unlocked any clickable map node — nothing to tap');
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+
+function expectInside(inner: Box, outer: Box, what: string): void {
+  expect(inner.x, `${what}: left edge`).toBeGreaterThanOrEqual(outer.x - 1);
+  expect(inner.y, `${what}: top edge`).toBeGreaterThanOrEqual(outer.y - 1);
+  expect(inner.x + inner.width, `${what}: right edge`).toBeLessThanOrEqual(outer.x + outer.width + 1);
+  expect(inner.y + inner.height, `${what}: bottom edge`).toBeLessThanOrEqual(outer.y + outer.height + 1);
 }
 
 test.describe('mobile layout', () => {
@@ -69,11 +100,7 @@ test.describe('mobile layout', () => {
     page,
   }) => {
     await useLandscape(page);
-
-    await page.goto('/offline');
-    await page.getByRole('button', { name: 'Novo jogo' }).tap();
-    await expect(page.locator('main.app-main')).toBeVisible({ timeout: 15_000 });
-    await waitForHumanTurn(page);
+    await startGame(page);
     await expectNoHorizontalOverflow(page);
 
     // `.stage` (the board's own container) used to be squeezed down to a ~43px sliver on a
@@ -82,7 +109,7 @@ test.describe('mobile layout', () => {
     // overflow, which a tiny map would also satisfy).
     const stageBox = await page.locator('.stage').boundingBox();
     expect(stageBox).not.toBeNull();
-    expect(stageBox!.height).toBeGreaterThanOrEqual(MIN_STAGE_HEIGHT_PX);
+    expect(stageBox!.height).toBeGreaterThanOrEqual(MIN_LANDSCAPE_STAGE_HEIGHT_PX);
 
     // The board itself must actually fit — not just avoid triggering page scroll — since a map
     // wider than its container would just render clipped/unusable instead of scrollable.
@@ -101,11 +128,7 @@ test.describe('mobile layout', () => {
 
   test('a full move (select card, choose an action, confirm) works end-to-end using real touch taps, in landscape', async ({ page }) => {
     await useLandscape(page);
-
-    await page.goto('/offline');
-    await page.getByRole('button', { name: 'Novo jogo' }).tap();
-    await expect(page.locator('main.app-main')).toBeVisible({ timeout: 15_000 });
-    await waitForHumanTurn(page);
+    await startGame(page);
 
     await page.locator('.hand-card').first().tap();
     await page.getByRole('button', { name: 'Passar' }).tap();
@@ -119,37 +142,101 @@ test.describe('mobile layout', () => {
     expect(popupBox!.x + popupBox!.width).toBeLessThanOrEqual(viewport!.width + 1);
 
     await popupOption.tap();
+    // The log starts collapsed on a phone (see the panels test below) — open it to read it.
+    await page.getByRole('button', { name: /registro/ }).tap();
     await expect(page.locator('.log')).toContainText('Passar', { timeout: 15_000 });
+  });
+
+  test('the legend, log and player-boards panels start collapsed on a phone, and each opens to a readable size inside the board area', async ({
+    page,
+  }) => {
+    await useLandscape(page);
+    await startGame(page);
+
+    // Open by default, these three buried most of a phone-sized board before the player
+    // touched anything.
+    await expect(page.locator('.map-legend')).toBeHidden();
+    await expect(page.locator('.log')).toBeHidden();
+    await expect(page.locator('.mat-panel')).toBeHidden();
+
+    const stageBox = (await page.locator('.stage').boundingBox())!;
+    for (const [toggle, panel, minHeight] of [
+      [/legenda/, '.map-legend', MIN_OPEN_PANEL_HEIGHT_PX],
+      [/tabuleiros/, '.mat-panel', MIN_OPEN_PANEL_HEIGHT_PX],
+      // The log only grows as tall as its entries — early in a game there may be none, so this
+      // only checks it doesn't collapse below its own padding plus a line.
+      [/registro/, '.log', 0],
+    ] as const) {
+      await page.getByRole('button', { name: toggle }).tap();
+      const box = await page.locator(panel).boundingBox();
+      expect(box, `${panel} did not open`).not.toBeNull();
+      expect(box!.height, `${panel} opened too small to read`).toBeGreaterThanOrEqual(minHeight);
+      expectInside(box!, stageBox, panel);
+      await page.getByRole('button', { name: toggle }).tap();
+      await expect(page.locator(panel)).toBeHidden();
+    }
+  });
+
+  for (const orientation of ['portrait', 'landscape'] as const) {
+    test(`every map-anchored confirm popup stays fully inside the board area, in ${orientation}`, async ({ page }) => {
+      if (orientation === 'landscape') await useLandscape(page);
+      await startGame(page);
+      await selectCardWithMapTargets(page);
+
+      // An anchored popup opens at the tapped node's own position; unclamped, one near the
+      // right/bottom edge ran up to 238px outside `.stage`, which clips it — options invisible
+      // and untappable. Every clickable node is checked, since the edge ones are the point.
+      // Dispatched in-page (not a positional tap) so a node that happens to sit under a docked
+      // toggle is still exercised — the popup's position is what's under test, not the tap.
+      const nodeCount = await page.locator('.node-hit-target').count();
+      const stageBox = (await page.locator('.stage').boundingBox())!;
+      for (let i = 0; i < nodeCount; i++) {
+        await page.evaluate((index) => {
+          document.querySelectorAll('.node-hit-target')[index]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }, i);
+        const popup = page.locator('.map-popup');
+        if (!(await popup.isVisible())) continue; // resource-choice mode instead of a popup
+        const popupBox = (await popup.boundingBox())!;
+        expectInside(popupBox, stageBox, `popup for clickable node #${i}`);
+        await page.locator('.popup-close').tap();
+        await expect(popup).toBeHidden();
+      }
+    });
+  }
+
+  test('portrait: every hand card can be tapped at its own center, and the action buttons never push the page sideways', async ({ page }) => {
+    await startGame(page);
+
+    // Long single-word location names used to spill past a phone-sized card and cover the
+    // neighboring card's center, stealing taps aimed at it.
+    const cards = page.locator('.hand-card');
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const box = (await cards.nth(i).boundingBox())!;
+      const hitIndex = await page.evaluate(
+        ([x, y]) => {
+          const hit = document.elementFromPoint(x, y)?.closest('.hand-card');
+          return hit ? Array.from(document.querySelectorAll('.hand-card')).indexOf(hit) : -1;
+        },
+        [box.x + box.width / 2, box.y + box.height / 2] as const,
+      );
+      expect(hitIndex, `a tap at card #${i}'s center lands on a different element`).toBe(i);
+
+      // Up to five action buttons at touch size don't fit one portrait line.
+      await cards.nth(i).tap();
+      await expectNoHorizontalOverflow(page);
+    }
   });
 
   test('tapping just outside the drawn node circle — but inside the enlarged invisible hit-area around it — still opens the confirm popup', async ({
     page,
   }) => {
     await useLandscape(page);
+    await startGame(page);
 
-    await page.goto('/offline');
-    await page.getByRole('button', { name: 'Novo jogo' }).tap();
-    await expect(page.locator('main.app-main')).toBeVisible({ timeout: 15_000 });
-    await waitForHumanTurn(page);
-
-    // The player-boards panel is open by default and, like on desktop, deliberately overlays
-    // the map — a real player would close it to see an obstructed node, same as here.
-    await page.getByRole('button', { name: /tabuleiros/ }).tap();
+    // Starts collapsed on a phone, so it can't obstruct the node under test.
     await expect(page.locator('.mat-panel')).toBeHidden();
-
-    // Select whichever hand card first unlocks at least one clickable map node (a location card
-    // guarantees this; an industry card might not, depending on the deal).
-    const cards = page.locator('.hand-card');
-    const count = await cards.count();
-    let found = false;
-    for (let i = 0; i < count; i++) {
-      await cards.nth(i).tap();
-      if ((await page.locator('.node-hit-target').count()) > 0) {
-        found = true;
-        break;
-      }
-    }
-    expect(found, 'no hand card unlocked any clickable map node — nothing to tap').toBe(true);
+    await selectCardWithMapTargets(page);
 
     // Radii of both circles, read in one atomic in-page call (avoids a re-render landing
     // between two separate `boundingBox()` round-trips), scoped to the same node group.
@@ -178,20 +265,16 @@ test.describe('mobile layout', () => {
     await expect(page.locator('.map-popup')).toBeVisible({ timeout: 5_000 });
   });
 
-  test('the default-open player-boards panel does not cover the hand cards, in landscape', async ({ page }) => {
+  test('the player-boards panel, once opened, does not cover the hand cards, in landscape', async ({ page }) => {
     await useLandscape(page);
-    await page.goto('/offline');
-    await page.getByRole('button', { name: 'Novo jogo' }).tap();
-    await expect(page.locator('main.app-main')).toBeVisible({ timeout: 15_000 });
-    await waitForHumanTurn(page);
+    await startGame(page);
 
-    // `.mat-panel` (the "tabuleiros" player-boards panel) is open by default — see
-    // `PlayerMatComponent`'s own spec for that — so this checks it against a real hand card
-    // rather than assuming any particular layout math. It checks *which* card index is on top
-    // at card 0's own center, not just that some `.hand-card` is there — the fanned hand
-    // deliberately overlaps neighboring cards, so a weaker check could pass even with a
-    // different card sitting on top of the one under test.
+    await page.getByRole('button', { name: /tabuleiros/ }).tap();
     await expect(page.locator('.mat-panel')).toBeVisible();
+
+    // Checks *which* card index is on top at card 0's own center, not just that some
+    // `.hand-card` is there — the fanned hand deliberately overlaps neighboring cards, so a
+    // weaker check could pass even with a different card sitting on top of the one under test.
     const cardBox = await page.locator('.hand-card').first().boundingBox();
     const point: [number, number] = [cardBox!.x + cardBox!.width / 2, cardBox!.y + cardBox!.height / 2];
     const topCardIndex = await page.evaluate(([x, y]) => {

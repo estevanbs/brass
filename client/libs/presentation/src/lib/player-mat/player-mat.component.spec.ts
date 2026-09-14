@@ -45,6 +45,25 @@ describe('PlayerMatComponent', () => {
     expect(fixture.nativeElement.querySelector('.mat-panel')).toBeNull();
   });
 
+  it('starts collapsed on a compact (phone) viewport, where an open panel buried most of the board', async () => {
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: () => ({ matches: true }) });
+    try {
+      gateway.createGame.mockReturnValueOnce(of(baseGameView()));
+      await gameState.newGame(2, undefined);
+
+      const fixture = TestBed.createComponent(PlayerMatComponent);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.mat-panel')).toBeNull();
+
+      (fixture.nativeElement.querySelector('.mat-toggle') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.mat-panel')).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: original });
+    }
+  });
+
   it('defaults to the human player and shows a tab per player', async () => {
     gateway.createGame.mockReturnValueOnce(
       of(

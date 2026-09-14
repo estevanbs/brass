@@ -26,6 +26,29 @@ describe('BoardMapComponent', () => {
     expect(fixture.nativeElement.querySelector('.map-hint').textContent).toContain('Selecione uma carta');
   });
 
+  it('keeps the legend open on a large screen, but collapsed behind its toggle on a compact (phone) viewport', async () => {
+    gateway.createGame.mockReturnValue(of(baseGameView({ board: { locations: [{ id: 'birmingham', kind: 'industrial' }], links: [] } })));
+    await gameState.newGame(2, undefined);
+
+    const large = TestBed.createComponent(BoardMapComponent);
+    large.detectChanges();
+    expect(large.nativeElement.querySelector('.map-legend')).not.toBeNull();
+
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: () => ({ matches: true }) });
+    try {
+      const compact = TestBed.createComponent(BoardMapComponent);
+      compact.detectChanges();
+      expect(compact.nativeElement.querySelector('.map-legend')).toBeNull();
+
+      (compact.nativeElement.querySelector('.legend-toggle') as HTMLButtonElement).click();
+      compact.detectChanges();
+      expect(compact.nativeElement.querySelector('.map-legend')).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: original });
+    }
+  });
+
   it('marks a location as a clickable target only when a legal action points at it', async () => {
     const buildAtBirmingham = legalAction({
       index: 2,

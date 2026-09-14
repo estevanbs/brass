@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CardFormatService, GameStateService, IndustryTileService } from '@brass/application';
 import { INDUSTRY_TYPES, type IndustryTileDef, type IndustryType } from '@brass/domain';
+import { isCompactViewport } from '../compact-viewport';
 
 interface TileChipViewModel {
   readonly level: 1 | 2 | 3 | 4;
@@ -119,7 +120,7 @@ export class PlayerMatComponent {
   protected readonly gameState = inject(GameStateService);
   private readonly cardFormat = inject(CardFormatService);
   private readonly industryTile = inject(IndustryTileService);
-  protected readonly open = signal(true);
+  protected readonly open = signal(!isCompactViewport());
 
   protected readonly humanId = computed(() => this.gameState.view()?.humanId ?? null);
 

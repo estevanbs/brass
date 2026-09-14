@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { CardFormatService, GameStateService, IndustryTileService, MapLayoutService, PlayerColorService } from '@brass/application';
 import type { BuildSlotState, IndustryTileDef, LegalActionView, LocationState, Point } from '@brass/domain';
+import { isCompactViewport } from '../compact-viewport';
 
 const KIND_COLOR: Readonly<Record<'industrial' | 'farm_brewery' | 'market', string>> = {
   industrial: '#d8c9a3',
@@ -272,6 +273,11 @@ interface LocationNodeViewModel {
         }
       </svg>
 
+      <div class="legend-dock">
+        <!-- The toggle is only displayed on compact viewports (see styles.css); a large screen
+             keeps the legend permanently open, as legendOpen starts true there. -->
+        <button type="button" class="legend-toggle" (click)="legendOpen.set(!legendOpen())">🗺 legenda {{ legendOpen() ? '▾' : '▸' }}</button>
+        @if (legendOpen()) {
       <div class="map-legend">
         <span><i class="dot" [style.background]="kindColor.industrial"></i> vila</span>
         <span><i class="dot" [style.background]="kindColor.farm_brewery"></i> fazenda</span>
@@ -286,6 +292,8 @@ interface LocationNodeViewModel {
         <span><i class="dot outline"></i> pode construir (indústria aceita)</span>
         <span><i class="dot" style="background:#d4a537"></i> mercador compra este bem</span>
         <span><i class="dot" style="background:#5a4d38"></i> número = pontos que o link daria agora</span>
+      </div>
+        }
       </div>
 
       @if (hintText(); as hint) {
@@ -307,6 +315,7 @@ export class BoardMapComponent {
   protected readonly eraColor = ERA_COLOR;
   protected readonly unbuiltEraColor = UNBUILT_ERA_COLOR;
   protected readonly resourceChoiceColor = RESOURCE_CHOICE_LINE;
+  protected readonly legendOpen = signal(!isCompactViewport());
 
   private readonly svgRoot = viewChild.required<ElementRef<SVGSVGElement>>('svgRoot');
 

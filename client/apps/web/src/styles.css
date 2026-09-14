@@ -167,6 +167,9 @@ select,
 .hand-card,
 svg.map-svg {
   touch-action: manipulation;
+  /* Chromium on Android flashes a translucent blue box over whatever was tapped — on a hand card
+     it read as a different (blue) selection state. Selection already has its own styling. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Every button/select in this UI was sized for a mouse pointer — `.other-action-btn`,
@@ -185,8 +188,13 @@ svg.map-svg {
   }
 }
 
-button:hover {
-  filter: brightness(1.1);
+/* Every `:hover` rule in this file sits behind `(hover: hover)` — on a touchscreen, `:hover` sticks
+   to whatever was last tapped until the next tap elsewhere, leaving a button brightened or a hand
+   card lifted after the finger is long gone. */
+@media (hover: hover) {
+  button:hover {
+    filter: brightness(1.1);
+  }
 }
 
 .status {
@@ -209,10 +217,10 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* Right padding reserves room for `.log-dock`, which floats on top of `.app-main` (not part
-     of this flex row) at the same top-right corner — without it, player chips flow underneath
-     and the "registro" button covers whichever chip ends up last (a real bug found in review). */
-  padding: 6px 130px 6px 16px;
+  /* No right-side reservation for `.log-dock` anymore — it lives inside `.stage` now (see
+     game-shell.component.ts), below this row, so the old 130px gap only wasted width and made
+     the chips wrap onto extra lines on a phone. */
+  padding: 6px max(16px, env(safe-area-inset-right)) 6px max(16px, env(safe-area-inset-left));
   background: rgba(43, 32, 19, 0.92);
   color: #f1e6c8;
   font-size: 0.78rem;
@@ -250,6 +258,10 @@ button:hover {
   justify-content: center;
   padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
   overflow: hidden;
+  /* A size container, so the panels docked inside it (legend, log, player boards) can cap their
+     height with `cqh` against the board area itself — see `.log` for why a plain percentage
+     can't do that. Its size comes from the flex layout, never its content, so this is safe. */
+  container-type: size;
 }
 
 .map-svg {
@@ -265,10 +277,27 @@ button:hover {
     0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-.map-legend {
+.legend-dock {
   position: absolute;
   top: 20px;
-  left: 26px;
+  left: max(26px, calc(env(safe-area-inset-left) + 10px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Only displayed on a compact viewport (see the block at the end of this section) — a large
+   screen has room for the legend beside the map, so it stays permanently open there. */
+.legend-toggle {
+  display: none;
+  background: rgba(43, 32, 19, 0.85);
+  color: #f1e6c8;
+  font-size: 0.78rem;
+  border-radius: 20px;
+}
+
+.map-legend {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -536,8 +565,10 @@ button:hover {
   white-space: normal;
 }
 
-.map-popup button:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .map-popup button:hover {
+    border-color: var(--accent);
+  }
 }
 
 .popup-option {
@@ -595,18 +626,21 @@ button:hover {
 
 .log {
   position: absolute;
-  top: 36px;
+  /* Right under the toggle, whatever its height — a fixed 36px sat *under* the 44px touch-sized
+   * toggle, overlapping it. */
+  top: calc(100% + 6px);
   right: 0;
   width: 320px;
   /* Without this, `.log` (fixed 320px wide, docked at the viewport's right edge) runs off the
    * left edge of a narrow phone screen — the dock's own `right` offset plus 320px alone can
    * exceed the viewport width. */
   max-width: calc(100vw - 52px);
-  /* Percentage, not a bare 300px — `.log-dock` is now positioned against `.stage` (see the
-   * comment on the `<brass-log-panel />` projection in game-shell.component.ts), and a fixed
-   * 300px can still exceed *that* box's height on a short landscape phone; same reasoning as
-   * `.map-popup`'s own height cap below. */
-  max-height: min(300px, calc(100% - 56px));
+  /* `cqh` (of `.stage`, the nearest size container), not a percentage: this element's containing
+   * block is `.log-dock` — itself absolutely positioned, only as tall as its toggle button — so
+   * `calc(100% - 56px)` came out negative and the open log collapsed to an 18px sliver showing
+   * nothing, on every screen size (a real bug caught by measuring it in a browser). 90px leaves
+   * room for the dock's top offset, the toggle, and a bottom margin. */
+  max-height: min(300px, calc(100cqh - 90px));
   overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -642,17 +676,15 @@ button:hover {
 
 .mat-panel {
   position: absolute;
-  bottom: 36px;
+  bottom: calc(100% + 6px);
   left: 0;
   width: 560px;
   max-width: min(560px, calc(100vw - 60px));
-  /* Percentage, not `vh` — `.mat-dock` is now positioned against `.stage` (see the comment on
-   * the `<brass-player-mat />` projection in game-shell.component.ts), which is the space left
-   * over after the header/top-strip/hand-dock, not the full viewport. This panel defaults to
-   * open (`PlayerMatComponent.open`); a `vh`-based cap let it grow taller than `.stage` and
-   * spill into (and intercept taps meant for) the hand dock below — a real bug found via mobile
-   * e2e coverage. */
-  max-height: min(480px, calc(100% - 56px));
+  /* Capped against `.stage` (via `cqh`), not the viewport: a `vh`-based cap let it grow taller
+   * than `.stage` and spill into (and intercept taps meant for) the hand dock below. And not a
+   * percentage either — see `.log`: that resolved against `.mat-dock`, only as tall as its
+   * toggle, collapsing the open panel to a 22px sliver. */
+  max-height: min(480px, calc(100cqh - 90px));
   overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -786,6 +818,10 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Up to five buttons (Empréstimo/Passar/Desenvolver/Vender/Explorar) at touch size don't fit
+     a portrait phone's width on one line — wrap instead of scrolling the whole page sideways. */
+  flex-wrap: wrap;
+  justify-content: center;
   min-height: 30px;
   /* Safety net on top of the `.hand-dock` gap above: even if a lifted card's box still reaches
      this far up, the buttons stay on top of it (own stacking context) instead of being covered. */
@@ -840,10 +876,12 @@ button:hover {
   font-weight: 400;
 }
 
-.hand-card:hover {
-  transform: rotate(var(--rotate)) translateY(calc(var(--lift) - 14px));
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
-  z-index: 200 !important;
+@media (hover: hover) {
+  .hand-card:hover {
+    transform: rotate(var(--rotate)) translateY(calc(var(--lift) - 14px));
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+    z-index: 200 !important;
+  }
 }
 
 .hand-card.selected {
@@ -875,6 +913,16 @@ button:hover {
   font-weight: 700;
   text-transform: capitalize;
   line-height: 1.1;
+  /* Long single-word location names ("coalbrookdale", "kidderminster") are wider than a phone-
+     sized card and don't wrap on their own — they spilled over the neighboring card and, being
+     part of this card's hit area, stole taps aimed at that neighbor's center (a real bug found
+     hit-testing every card on a portrait phone). Break anywhere, and clip at the card edge. */
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.hand-card {
+  overflow: hidden;
 }
 
 .hand-card-type {
@@ -941,27 +989,7 @@ button:hover {
   }
 
   .top-strip {
-    /* Less room needs reserving for `.log-dock` once its own toggle button shrinks below. */
-    padding-right: 96px;
     font-size: 0.7rem;
-  }
-
-  .log-toggle,
-  .mat-toggle {
-    font-size: 0.7rem;
-    padding: 4px 8px;
-  }
-
-  /* The legend covers roughly a third of the map's own height at full size — on a short
-   * landscape-phone viewport that was found to hide most of the board underneath it. Shrinking
-   * it and letting it scroll internally keeps it available without doing that. */
-  .map-legend {
-    font-size: 0.6rem;
-    padding: 4px 7px;
-    gap: 1px;
-    max-width: 42vw;
-    max-height: 50vh;
-    overflow-y: auto;
   }
 
   .mat-stock {
@@ -999,14 +1027,22 @@ button:hover {
     padding-bottom: 4px;
   }
 
+  /* Action buttons *beside* the hand instead of stacked above it. Stacked, that row alone cost
+   * the board ~58px of an already-short screen — measured: the map rendered at just 283x170 on
+   * a Pixel 7 sideways, 198x120 on an iPhone SE. Side by side it costs no height at all, since
+   * the cards are the taller of the two. (This also makes the 48px default gap, which kept a
+   * lifted card off the buttons *above* it, unnecessary.) */
   .hand-dock {
-    /* The 48px default gap exists so a lifted, selected card's translateY doesn't visually
-     * reach the action buttons above it — but `.other-actions` already has its own z-index
-     * stacking above `.hand-dock` as a second, independent safety net for that (see the
-     * comment on `.other-actions` above), so shrinking the gap here costs only a little visual
-     * breathing room, never a hidden or unclickable button. */
-    gap: 14px;
-    padding-top: 4px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 16px;
+    padding-top: 10px;
+  }
+
+  .other-actions {
+    max-width: 50%;
   }
 
   .hand-card {
@@ -1022,8 +1058,39 @@ button:hover {
     margin: 0 -8px;
   }
 
+}
+
+/* ---------- Compact viewport: any phone, either orientation ----------
+   Must match `COMPACT_VIEWPORT_QUERY` (libs/presentation/src/lib/compact-viewport.ts), which is
+   also what makes the legend, log and player-boards panels start collapsed here. */
+@media (max-width: 700px), (max-height: 480px) {
+  .legend-toggle,
+  .log-toggle,
+  .mat-toggle {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+  }
+
+  .legend-toggle {
+    display: inline-block;
+  }
+
+  /* At full size the legend covered roughly a third of the board. Here it's behind its own
+   * toggle, smaller, and scrolls internally — which needs pointer events, unlike on desktop. */
   .map-legend {
-    max-height: 40vh;
+    font-size: 0.6rem;
+    padding: 4px 7px;
+    gap: 1px;
+    max-width: min(260px, calc(100cqw - 52px));
+    max-height: calc(100cqh - 90px);
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+
+  /* Says the same thing as `.other-actions-hint` right below the board — and on a phone this
+   * pill wrapped to two lines across the middle of the map, or sat on the "tabuleiros" toggle. */
+  .map-hint {
+    display: none;
   }
 }
 
@@ -1066,8 +1133,10 @@ button:hover {
   transition: border-color 0.15s ease;
 }
 
-.home-mode:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .home-mode:hover {
+    border-color: var(--accent);
+  }
 }
 
 .home-mode h2 {

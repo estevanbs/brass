@@ -37,4 +37,23 @@ describe('LogPanelComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.log')).toBeNull();
   });
+
+  it('starts collapsed on a compact (phone) viewport, and opens via the toggle button', async () => {
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: () => ({ matches: true }) });
+    try {
+      gateway.createGame.mockReturnValueOnce(of(baseGameView({ log: ['primeiro'] })));
+      await gameState.newGame(2, undefined);
+
+      const fixture = TestBed.createComponent(LogPanelComponent);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.log')).toBeNull();
+
+      (fixture.nativeElement.querySelector('.log-toggle') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.log')).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: original });
+    }
+  });
 });

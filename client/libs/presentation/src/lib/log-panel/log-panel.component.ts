@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { GameStateService } from '@brass/application';
+import { isCompactViewport } from '../compact-viewport';
 
 @Component({
   selector: 'brass-log-panel',
@@ -20,7 +21,7 @@ import { GameStateService } from '@brass/application';
 })
 export class LogPanelComponent {
   private readonly gameState = inject(GameStateService);
-  protected readonly open = signal(true);
+  protected readonly open = signal(!isCompactViewport());
 
   reversedLog(): readonly string[] {
     return [...(this.gameState.view()?.log ?? [])].reverse();
