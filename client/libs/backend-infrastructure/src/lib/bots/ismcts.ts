@@ -213,6 +213,9 @@ export function makeIsmctsBot(config: IsmctsConfig = {}): Bot {
       }
     }
     const chosen = bestKey === null ? undefined : keyToAction.get(bestKey);
-    return chosen ?? rootActions[0]!;
+    if (chosen !== undefined) return chosen;
+    const fallback = rootActions[0];
+    if (fallback === undefined) throw new Error('unreachable');
+    return fallback;
   };
 }

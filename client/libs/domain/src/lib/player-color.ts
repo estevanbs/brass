@@ -7,5 +7,7 @@ const HUMAN_COLOR = '#a8432f';
 export function playerColorFor(playerId: string, humanId: string): string {
   if (playerId === humanId) return HUMAN_COLOR;
   const idx = Number(playerId.replace(/\D/g, '')) || 1;
-  return PLAYER_COLORS[idx % PLAYER_COLORS.length] ?? PLAYER_COLORS[0]!;
+  // The fallback is unreachable (the modulo always lands in range) — it's the palette's own
+  // first color, same as the human's.
+  return PLAYER_COLORS[idx % PLAYER_COLORS.length] ?? HUMAN_COLOR;
 }

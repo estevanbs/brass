@@ -111,12 +111,13 @@ export function computeMapLayout(board: BoardSummary): Map<string, Point> {
 function declutter(nodes: Map<string, Point>, anchors: ReadonlyMap<string, Point>): void {
   const ids = [...nodes.keys()];
   for (let iteration = 0; iteration < DECLUTTER_ITERATIONS; iteration++) {
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        const idA = ids[i]!;
-        const idB = ids[j]!;
-        const a = nodes.get(idA)!;
-        const b = nodes.get(idB)!;
+    for (const [i, idA] of ids.entries()) {
+      for (const idB of ids.slice(i + 1)) {
+        // Always present — `ids` is `nodes`' own key set and nothing is ever deleted from it;
+        // re-read every pass since the previous pair may have just moved either node.
+        const a = nodes.get(idA);
+        const b = nodes.get(idB);
+        if (a === undefined || b === undefined) continue;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         // Scale into "ellipse space" where the required clearance is a unit circle — a pair
@@ -137,8 +138,9 @@ function declutter(nodes: Map<string, Point>, anchors: ReadonlyMap<string, Point
       }
     }
     for (const id of ids) {
-      const p = nodes.get(id)!;
-      const anchor = anchors.get(id)!;
+      const p = nodes.get(id);
+      const anchor = anchors.get(id);
+      if (p === undefined || anchor === undefined) continue;
       nodes.set(id, {
         x: p.x + (anchor.x - p.x) * ANCHOR_SPRING,
         y: p.y + (anchor.y - p.y) * ANCHOR_SPRING,

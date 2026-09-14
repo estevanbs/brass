@@ -34,6 +34,10 @@ async function useLandscape(page: Page): Promise<void> {
   if (portrait !== null) await page.setViewportSize({ width: portrait.height, height: portrait.width });
 }
 
+async function useOrientation(page: Page, orientation: 'portrait' | 'landscape'): Promise<void> {
+  if (orientation === 'landscape') await useLandscape(page);
+}
+
 /** "Novo jogo" doesn't pin a seed, so turn order is random each run — when a bot goes first,
  * the board keeps changing underneath a test as the bot's move(s) resolve, which is exactly
  * the kind of thing that makes a hand-card/map interaction flaky (an element it depends on can
@@ -68,6 +72,18 @@ function expectInside(inner: Box, outer: Box, what: string): void {
   expect(inner.y, `${what}: top edge`).toBeGreaterThanOrEqual(outer.y - 1);
   expect(inner.x + inner.width, `${what}: right edge`).toBeLessThanOrEqual(outer.x + outer.width + 1);
   expect(inner.y + inner.height, `${what}: bottom edge`).toBeLessThanOrEqual(outer.y + outer.height + 1);
+}
+
+/** Checks the confirm popup a map tap just opened is fully inside `stageBox`, then closes it. A
+ * tap can instead enter resource-choice mode (no popup at all), which leaves nothing to check. */
+async function expectOpenPopupInside(page: Page, stageBox: Box, what: string): Promise<void> {
+  const popup = page.locator('.map-popup');
+  if (!(await popup.isVisible())) return;
+  const popupBox = await popup.boundingBox();
+  expect(popupBox, what).not.toBeNull();
+  expectInside(popupBox!, stageBox, what);
+  await page.locator('.popup-close').tap();
+  await expect(popup).toBeHidden();
 }
 
 test.describe('mobile layout', () => {
@@ -179,7 +195,7 @@ test.describe('mobile layout', () => {
 
   for (const orientation of ['portrait', 'landscape'] as const) {
     test(`every map-anchored confirm popup stays fully inside the board area, in ${orientation}`, async ({ page }) => {
-      if (orientation === 'landscape') await useLandscape(page);
+      await useOrientation(page, orientation);
       await startGame(page);
       await selectCardWithMapTargets(page);
 
@@ -189,17 +205,13 @@ test.describe('mobile layout', () => {
       // Dispatched in-page (not a positional tap) so a node that happens to sit under a docked
       // toggle is still exercised — the popup's position is what's under test, not the tap.
       const nodeCount = await page.locator('.node-hit-target').count();
+      expect(nodeCount, 'no clickable map node to check a popup for').toBeGreaterThan(0);
       const stageBox = (await page.locator('.stage').boundingBox())!;
       for (let i = 0; i < nodeCount; i++) {
         await page.evaluate((index) => {
           document.querySelectorAll('.node-hit-target')[index]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         }, i);
-        const popup = page.locator('.map-popup');
-        if (!(await popup.isVisible())) continue; // resource-choice mode instead of a popup
-        const popupBox = (await popup.boundingBox())!;
-        expectInside(popupBox, stageBox, `popup for clickable node #${i}`);
-        await page.locator('.popup-close').tap();
-        await expect(popup).toBeHidden();
+        await expectOpenPopupInside(page, stageBox, `popup for clickable node #${i}`);
       }
     });
   }

@@ -74,6 +74,8 @@
     },
     "typecheck": {
       "executor": "nx:run-commands",
+      "dependsOn": ["^typecheck"],
+      "cache": true,
       "options": {
         "command": "tsc -p apps/web/tsconfig.app.json --noEmit",
         "cwd": "."
